@@ -1,16 +1,52 @@
+// Element References
+const modalOverlay = document.getElementById('name-modal');
+const modalNameInput = document.getElementById('modal-name-input');
+const modalSaveBtn = document.getElementById('modal-save-btn');
+const userDisplay = document.getElementById('user-display');
 const navItems = document.querySelectorAll('.nav-item');
 const pages = document.querySelectorAll('.page');
+
 let isAdminUnlocked = false;
 
+// Check Saved Name on Load
+function checkUserSession() {
+  const savedName = localStorage.getItem('visitorName');
+  if (savedName) {
+    modalOverlay.classList.add('hidden');
+    userDisplay.textContent = `👤 ${savedName}`;
+  } else {
+    modalOverlay.classList.remove('hidden');
+    userDisplay.textContent = 'Guest';
+  }
+}
+
+// Modal Save Event
+modalSaveBtn.addEventListener('click', () => {
+  const name = modalNameInput.value.trim();
+  if (!name) return alert('Please enter your name to proceed.');
+
+  localStorage.setItem('visitorName', name);
+  userDisplay.textContent = `👤 ${name}`;
+  modalOverlay.classList.add('hidden');
+});
+
+// Navigation Handling
 navItems.forEach(item => {
   item.addEventListener('click', () => {
     const targetPage = item.getAttribute('data-page');
+    const savedName = localStorage.getItem('visitorName');
 
+    // Restrict Upload and Request pages if name is missing
+    if ((targetPage === 'upload' || targetPage === 'request') && !savedName) {
+      modalOverlay.classList.remove('hidden');
+      return;
+    }
+
+    // Password Gate for Admin Page
     if (targetPage === 'admin' && !isAdminUnlocked) {
       const password = prompt('Enter Admin Password:');
       if (password === 'azim-website') {
         isAdminUnlocked = true;
-        alert('Access Granted! Welcome Azim.');
       } else {
         alert('Incorrect Password!');
         return;
@@ -28,30 +64,7 @@ navItems.forEach(item => {
   });
 });
 
-// User Profile
-const usernameInput = document.getElementById('username-input');
-const saveNameBtn = document.getElementById('save-name-btn');
-const welcomeHeading = document.getElementById('welcome-heading');
-const userDisplay = document.getElementById('user-display');
-
-const savedUser = localStorage.getItem('visitorName');
-if (savedUser) {
-  welcomeHeading.textContent = `Welcome back, ${savedUser}!`;
-  userDisplay.textContent = `👤 ${savedUser}`;
-}
-
-saveNameBtn.addEventListener('click', () => {
-  const name = usernameInput.value.trim();
-  if (name) {
-    localStorage.setItem('visitorName', name);
-    welcomeHeading.textContent = `Welcome, ${name}!`;
-    userDisplay.textContent = `👤 ${name}`;
-    usernameInput.value = '';
-    alert('Name saved successfully!');
-  }
-});
-
-// Upload Track to Global Server
+// Upload Track Logic
 const uploadForm = document.getElementById('upload-form');
 const songTitleInput = document.getElementById('song-title-input');
 const audioFileInput = document.getElementById('audio-file');
@@ -59,11 +72,14 @@ const uploadStatus = document.getElementById('upload-status');
 
 uploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  const uploaderName = localStorage.getItem('visitorName');
+  if (!uploaderName) {
+    modalOverlay.classList.remove('hidden');
+    return;
+  }
+
   const file = audioFileInput.files[0];
   const songTitle = songTitleInput.value.trim();
-  const uploaderName = localStorage.getItem('visitorName') || 'Anonymous';
-
-  if (!file || !songTitle) return alert('Please enter a song name and select a file.');
 
   uploadStatus.textContent = 'Uploading track to server...';
 
@@ -73,10 +89,7 @@ uploadForm.addEventListener('submit', async (e) => {
   formData.append('uploadedBy', uploaderName);
 
   try {
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    });
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
     const data = await res.json();
 
     if (data.success) {
@@ -92,7 +105,7 @@ uploadForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Fetch Global Tracks
+// Fetch Global Songs
 async function fetchGlobalTracks() {
   const trackList = document.getElementById('track-list');
   try {
@@ -100,12 +113,12 @@ async function fetchGlobalTracks() {
     const tracks = await res.json();
 
     if (tracks.length === 0) {
-      trackList.innerHTML = '<li style="color:#94a3b8;">No tracks uploaded yet.</li>';
+      trackList.innerHTML = '<li style="color:#94a3b8;">No songs uploaded yet.</li>';
       return;
     }
 
     trackList.innerHTML = tracks.map(track => `
-      <li style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
+      <li style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <strong style="font-size: 1.1rem; color: #fff;">${track.title}</strong>
           <span style="font-size: 0.8rem; color: #818cf8;">Uploaded by ${track.uploadedBy}</span>
@@ -114,18 +127,22 @@ async function fetchGlobalTracks() {
       </li>
     `).join('');
   } catch (err) {
-    trackList.innerHTML = '<li style="color:#ef4444;">Failed to load tracks.</li>';
+    trackList.innerHTML = '<li style="color:#ef4444;">Failed to load songs.</li>';
   }
 }
 
-// Admin Request System
+// Request System Logic
 const sendRequestBtn = document.getElementById('send-request-btn');
 const requestText = document.getElementById('request-text');
 
 sendRequestBtn.addEventListener('click', () => {
-  const message = requestText.value.trim();
-  const currentUser = localStorage.getItem('visitorName') || 'Anonymous Visitor';
+  const currentUser = localStorage.getItem('visitorName');
+  if (!currentUser) {
+    modalOverlay.classList.remove('hidden');
+    return;
+  }
 
+  const message = requestText.value.trim();
   if (!message) return alert('Please write a request first!');
 
   const requests = JSON.parse(localStorage.getItem('azim_user_requests') || '[]');
@@ -160,5 +177,6 @@ document.getElementById('clear-requests-btn').addEventListener('click', () => {
   }
 });
 
-// Load tracks on initial visit
+// Initialize Setup
+checkUserSession();
 fetchGlobalTracks();

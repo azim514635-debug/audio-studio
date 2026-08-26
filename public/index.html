@@ -7,6 +7,16 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- NAME POPUP MODAL -->
+  <div id="name-modal" class="modal-overlay">
+    <div class="modal-card">
+      <h2>Welcome to Audio Studio</h2>
+      <p>Please enter your name to unlock uploading and sending requests.</p>
+      <input type="text" id="modal-name-input" placeholder="Your name...">
+      <button id="modal-save-btn" class="btn-primary">Continue</button>
+    </div>
+  </div>
+
   <div class="app-container">
     <nav class="sidebar">
       <div class="brand">
@@ -14,8 +24,8 @@
         <span class="badge">PRO</span>
       </div>
       <ul class="nav-links">
-        <li class="nav-item active" data-page="home">🏠 Home</li>
-        <li class="nav-item" data-page="library">🎵 Library</li>
+        <li class="nav-item active" data-page="library">🎵 Songs</li>
+        <li class="nav-item" data-page="upload">⬆️ Upload Music</li>
         <li class="nav-item" data-page="request">📩 Contact Azim</li>
         <li class="nav-item" data-page="admin">🔒 Admin Panel</li>
       </ul>
@@ -23,22 +33,21 @@
     </nav>
 
     <main class="main-content">
-      <section id="page-home" class="page active">
+      <!-- PAGE 1: SONGS LIBRARY (DEFAULT) -->
+      <section id="page-library" class="page active">
         <div class="header-card">
-          <h1 id="welcome-heading">Welcome to Audio Studio</h1>
-          <p>Manage, upload, and stream your audio files effortlessly.</p>
+          <h1>Music Library</h1>
+          <p>Listen to songs uploaded by the community.</p>
         </div>
-        
         <div class="card">
-          <h3>Set Your Profile</h3>
-          <div class="input-group">
-            <input type="text" id="username-input" placeholder="Enter your name">
-            <button id="save-name-btn">Save Name</button>
-          </div>
+          <ul id="track-list" class="track-list"></ul>
         </div>
+      </section>
 
+      <!-- PAGE 2: UPLOAD MUSIC -->
+      <section id="page-upload" class="page">
+        <h2>Upload Your Music</h2>
         <div class="card">
-          <h3>Upload Track</h3>
           <form id="upload-form">
             <input type="text" id="song-title-input" placeholder="Enter song name..." required>
             <input type="file" id="audio-file" accept="audio/*" required>
@@ -48,13 +57,7 @@
         </div>
       </section>
 
-      <section id="page-library" class="page">
-        <h2>Audio Library</h2>
-        <div class="card">
-          <ul id="track-list" class="track-list"></ul>
-        </div>
-      </section>
-
+      <!-- PAGE 3: REQUEST -->
       <section id="page-request" class="page">
         <h2>Send a Request to Azim</h2>
         <div class="card">
@@ -63,6 +66,7 @@
         </div>
       </section>
 
+      <!-- PAGE 4: ADMIN -->
       <section id="page-admin" class="page">
         <h2>Admin Dashboard</h2>
         <div class="card">
