@@ -8,7 +8,6 @@
 </head>
 <body>
   <div class="app-container">
-    <!-- Sidebar Navigation -->
     <nav class="sidebar">
       <div class="brand">
         <h2>Audio Studio</h2>
@@ -23,10 +22,7 @@
       <div class="user-badge" id="user-display">Guest</div>
     </nav>
 
-    <!-- Main Content Area -->
     <main class="main-content">
-      
-      <!-- PAGE 1: HOME -->
       <section id="page-home" class="page active">
         <div class="header-card">
           <h1 id="welcome-heading">Welcome to Audio Studio</h1>
@@ -44,23 +40,21 @@
         <div class="card">
           <h3>Upload Track</h3>
           <form id="upload-form">
+            <input type="text" id="song-title-input" placeholder="Enter song name..." required>
             <input type="file" id="audio-file" accept="audio/*" required>
-            <button type="submit" class="btn-primary">Upload Audio</button>
+            <button type="submit" class="btn-primary" id="upload-btn">Upload Audio</button>
           </form>
+          <p id="upload-status" style="margin-top: 10px; font-size: 0.9rem; color: #38bdf8;"></p>
         </div>
       </section>
 
-      <!-- PAGE 2: LIBRARY -->
       <section id="page-library" class="page">
         <h2>Audio Library</h2>
         <div class="card">
-          <ul id="track-list" class="track-list">
-            <li class="empty-msg">No tracks uploaded yet.</li>
-          </ul>
+          <ul id="track-list" class="track-list"></ul>
         </div>
       </section>
 
-      <!-- PAGE 3: REQUEST -->
       <section id="page-request" class="page">
         <h2>Send a Request to Azim</h2>
         <div class="card">
@@ -69,7 +63,6 @@
         </div>
       </section>
 
-      <!-- PAGE 4: ADMIN (PROTECTED) -->
       <section id="page-admin" class="page">
         <h2>Admin Dashboard</h2>
         <div class="card">
@@ -81,7 +74,6 @@
         </div>
       </section>
 
-      <!-- Footer -->
       <footer>
         <p>Created & Maintained with ❤️ by <strong>Azim</strong></p>
       </footer>
