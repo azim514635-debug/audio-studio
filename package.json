@@ -7,6 +7,9 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "cloudinary": "^1.41.3",
+    "express": "^4.19.2",
+    "multer": "^2.2.0",
+    "streamifier": "^0.1.1"
   }
 }
