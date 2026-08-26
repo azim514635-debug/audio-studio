@@ -21,7 +21,6 @@ function checkUserSession() {
 modalSaveBtn.addEventListener('click', () => {
   const name = modalNameInput.value.trim();
   if (!name) return alert('Please enter your name to proceed.');
-
   localStorage.setItem('visitorName', name);
   userDisplay.textContent = `👤 ${name}`;
   modalOverlay.classList.add('hidden');
@@ -53,181 +52,163 @@ navItems.forEach(item => {
     item.classList.add('active');
     document.getElementById(`page-${targetPage}`).classList.add('active');
 
-    if (targetPage === 'admin') loadRequests();
+    if (targetPage === 'admin') loadAdminDashboard();
     if (targetPage === 'library') fetchGlobalTracks();
     if (targetPage === 'movies') fetchGlobalMovies();
   });
 });
 
-// Audio Upload Logic
+// Upload Handlers
 const uploadForm = document.getElementById('upload-form');
-const songTitleInput = document.getElementById('song-title-input');
-const audioFileInput = document.getElementById('audio-file');
-const uploadStatus = document.getElementById('upload-status');
-
 uploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const uploaderName = localStorage.getItem('visitorName');
-  if (!uploaderName) {
-    modalOverlay.classList.remove('hidden');
-    return;
-  }
+  if (!uploaderName) return modalOverlay.classList.remove('hidden');
 
-  const file = audioFileInput.files[0];
-  const songTitle = songTitleInput.value.trim();
+  const file = document.getElementById('audio-file').files[0];
+  const title = document.getElementById('song-title-input').value.trim();
+  const status = document.getElementById('upload-status');
 
-  if (!file) return alert('Please select an audio file.');
-
-  uploadStatus.textContent = 'Uploading track to server...';
-
+  status.textContent = 'Uploading track...';
   const formData = new FormData();
   formData.append('audio', file);
-  formData.append('title', songTitle);
+  formData.append('title', title);
   formData.append('uploadedBy', uploaderName);
 
-  try {
-    const res = await fetch('/api/upload', { method: 'POST', body: formData });
-    const data = await res.json();
-
-    if (data.success) {
-      uploadStatus.textContent = 'Upload successful!';
-      songTitleInput.value = '';
-      audioFileInput.value = '';
-      fetchGlobalTracks();
-    } else {
-      uploadStatus.textContent = `Upload failed: ${data.error}`;
-    }
-  } catch (err) {
-    uploadStatus.textContent = `Network error: ${err.message}`;
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.success) {
+    status.textContent = 'Upload successful!';
+    uploadForm.reset();
+    fetchGlobalTracks();
+  } else {
+    status.textContent = 'Upload failed.';
   }
 });
 
-// Movie Upload Logic
 const movieUploadForm = document.getElementById('movie-upload-form');
-const movieTitleInput = document.getElementById('movie-title-input');
-const movieFileInput = document.getElementById('movie-file');
-const movieUploadStatus = document.getElementById('movie-upload-status');
-
 movieUploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const uploaderName = localStorage.getItem('visitorName');
-  if (!uploaderName) {
-    modalOverlay.classList.remove('hidden');
-    return;
-  }
+  if (!uploaderName) return modalOverlay.classList.remove('hidden');
 
-  const file = movieFileInput.files[0];
-  const movieTitle = movieTitleInput.value.trim();
+  const file = document.getElementById('movie-file').files[0];
+  const title = document.getElementById('movie-title-input').value.trim();
+  const status = document.getElementById('movie-upload-status');
 
-  if (!file) return alert('Please select a movie file.');
-
-  movieUploadStatus.textContent = 'Uploading movie (larger files take time)...';
-
+  status.textContent = 'Uploading movie...';
   const formData = new FormData();
   formData.append('movie', file);
-  formData.append('title', movieTitle);
+  formData.append('title', title);
   formData.append('uploadedBy', uploaderName);
 
-  try {
-    const res = await fetch('/api/upload-movie', { method: 'POST', body: formData });
-    const data = await res.json();
-
-    if (data.success) {
-      movieUploadStatus.textContent = 'Movie upload successful!';
-      movieTitleInput.value = '';
-      movieFileInput.value = '';
-      fetchGlobalMovies();
-    } else {
-      movieUploadStatus.textContent = `Upload failed: ${data.error}`;
-    }
-  } catch (err) {
-    movieUploadStatus.textContent = `Network error: ${err.message}`;
+  const res = await fetch('/api/upload-movie', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.success) {
+    status.textContent = 'Movie upload successful!';
+    movieUploadForm.reset();
+    fetchGlobalMovies();
+  } else {
+    status.textContent = 'Upload failed.';
   }
 });
 
-// Fetch Tracks
 async function fetchGlobalTracks() {
   const trackList = document.getElementById('track-list');
-  try {
-    const res = await fetch('/api/tracks');
-    const tracks = await res.json();
-
-    if (tracks.length === 0) {
-      trackList.innerHTML = '<li style="color:#94a3b8;">No songs uploaded yet.</li>';
-      return;
-    }
-
-    trackList.innerHTML = tracks.map(track => `
-      <li style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <strong style="font-size: 1.1rem; color: #fff;">${track.title}</strong>
-          <span style="font-size: 0.8rem; color: #818cf8;">Uploaded by ${track.uploadedBy}</span>
-        </div>
-        <audio controls src="${track.audioUrl}" style="width: 100%; margin-top: 6px;"></audio>
-      </li>
-    `).join('');
-  } catch (err) {
-    trackList.innerHTML = '<li style="color:#ef4444;">Failed to load songs.</li>';
-  }
-}
-
-// Fetch Movies
-async function fetchGlobalMovies() {
-  const movieList = document.getElementById('movie-list');
-  try {
-    const res = await fetch('/api/movies');
-    const movies = await res.json();
-
-    if (movies.length === 0) {
-      movieList.innerHTML = '<li style="color:#94a3b8;">No movies uploaded yet.</li>';
-      return;
-    }
-
-    movieList.innerHTML = movies.map(movie => `
-      <li style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <strong style="font-size: 1.1rem; color: #fff;">${movie.title}</strong>
-          <span style="font-size: 0.8rem; color: #38bdf8;">Uploaded by ${movie.uploadedBy}</span>
-        </div>
-        <video controls src="${movie.movieUrl}" style="width: 100%; max-height: 300px; border-radius: 6px; margin-top: 6px;"></video>
-      </li>
-    `).join('');
-  } catch (err) {
-    movieList.innerHTML = '<li style="color:#ef4444;">Failed to load movies.</li>';
-  }
-}
-
-// Requests Logic
-const sendRequestBtn = document.getElementById('send-request-btn');
-const requestText = document.getElementById('request-text');
-
-sendRequestBtn.addEventListener('click', () => {
-  const currentUser = localStorage.getItem('visitorName');
-  if (!currentUser) {
-    modalOverlay.classList.remove('hidden');
+  const res = await fetch('/api/tracks');
+  const tracks = await res.json();
+  if (tracks.length === 0) {
+    trackList.innerHTML = '<li style="color:#94a3b8;">No songs uploaded yet.</li>';
     return;
   }
+  trackList.innerHTML = tracks.map(t => `
+    <li style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
+      <strong style="color: #fff;">${t.title}</strong>
+      <audio controls src="${t.audioUrl}" style="width: 100%;"></audio>
+    </li>`).join('');
+}
 
-  const message = requestText.value.trim();
-  if (!message) return alert('Please write a request first!');
+async function fetchGlobalMovies() {
+  const movieList = document.getElementById('movie-list');
+  const res = await fetch('/api/movies');
+  const movies = await res.json();
+  if (movies.length === 0) {
+    movieList.innerHTML = '<li style="color:#94a3b8;">No movies uploaded yet.</li>';
+    return;
+  }
+  movieList.innerHTML = movies.map(m => `
+    <li style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
+      <strong style="color: #fff;">${m.title}</strong>
+      <video controls src="${m.movieUrl}" style="width: 100%; max-height: 250px; border-radius: 6px;"></video>
+    </li>`).join('');
+}
 
-  const requests = JSON.parse(localStorage.getItem('azim_user_requests') || '[]');
-  requests.push({ user: currentUser, text: message, date: new Date().toLocaleString() });
+// Admin Management Functions
+async function loadAdminDashboard() {
+  loadRequests();
+  const box = document.getElementById('admin-media-box');
+  
+  const [tracksRes, moviesRes] = await Promise.all([fetch('/api/tracks'), fetch('/api/movies')]);
+  const tracks = await tracksRes.json();
+  const movies = await moviesRes.json();
 
-  localStorage.setItem('azim_user_requests', JSON.stringify(requests));
-  alert('Your request has been sent to Azim!');
-  requestText.value = '';
-});
+  let html = '<h4>Songs</h4>';
+  if (tracks.length === 0) html += '<p style="color:#94a3b8; font-size:0.9rem;">No songs.</p>';
+  tracks.forEach(t => {
+    html += `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
+        <span style="color:#fff;">🎵 ${t.title}</span>
+        <div>
+          <button onclick="renameItem('track', '${t.id}', '${t.title}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
+          <button onclick="deleteItem('track', '${t.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem; margin-left:6px;">Delete</button>
+        </div>
+      </div>`;
+  });
+
+  html += '<h4 style="margin-top:15px;">Movies</h4>';
+  if (movies.length === 0) html += '<p style="color:#94a3b8; font-size:0.9rem;">No movies.</p>';
+  movies.forEach(m => {
+    html += `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
+        <span style="color:#fff;">🎬 ${m.title}</span>
+        <div>
+          <button onclick="renameItem('movie', '${m.id}', '${m.title}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
+          <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem; margin-left:6px;">Delete</button>
+        </div>
+      </div>`;
+  });
+
+  box.innerHTML = html;
+}
+
+window.deleteItem = async function(type, id) {
+  if (!confirm('Are you sure you want to delete this file?')) return;
+  await fetch(`/api/media/${type}/${id}`, { method: 'DELETE' });
+  loadAdminDashboard();
+  fetchGlobalTracks();
+  fetchGlobalMovies();
+};
+
+window.renameItem = async function(type, id, oldTitle) {
+  const newTitle = prompt('Enter new title:', oldTitle);
+  if (!newTitle || newTitle.trim() === '') return;
+  await fetch(`/api/media/${type}/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newTitle: newTitle.trim() })
+  });
+  loadAdminDashboard();
+  fetchGlobalTracks();
+  fetchGlobalMovies();
+};
 
 function loadRequests() {
   const requestsBox = document.getElementById('requests-box');
   const requests = JSON.parse(localStorage.getItem('azim_user_requests') || '[]');
-
   if (requests.length === 0) {
     requestsBox.innerHTML = '<p style="color:#94a3b8;">No pending requests found.</p>';
     return;
   }
-
   requestsBox.innerHTML = requests.map(req => `
     <div class="request-item">
       <strong>${req.user}:</strong> ${req.text}

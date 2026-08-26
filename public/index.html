@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- NAME POPUP MODAL -->
   <div id="name-modal" class="modal-overlay">
     <div class="modal-card">
       <h2>Welcome to Studio Pro</h2>
@@ -35,7 +34,6 @@
     </nav>
 
     <main class="main-content">
-      <!-- PAGE 1: SONGS LIBRARY -->
       <section id="page-library" class="page active">
         <div class="header-card">
           <h1>Music Library</h1>
@@ -46,7 +44,6 @@
         </div>
       </section>
 
-      <!-- PAGE 2: MOVIES LIBRARY -->
       <section id="page-movies" class="page">
         <div class="header-card">
           <h1>Movie Library</h1>
@@ -57,7 +54,6 @@
         </div>
       </section>
 
-      <!-- PAGE 3: UPLOAD MUSIC -->
       <section id="page-upload" class="page">
         <h2>Upload Your Music</h2>
         <div class="card">
@@ -70,7 +66,6 @@
         </div>
       </section>
 
-      <!-- PAGE 4: UPLOAD MOVIE -->
       <section id="page-movie-upload" class="page">
         <h2>Upload a Movie</h2>
         <div class="card">
@@ -83,7 +78,6 @@
         </div>
       </section>
 
-      <!-- PAGE 5: REQUEST -->
       <section id="page-request" class="page">
         <h2>Send a Request to Azim</h2>
         <div class="card">
@@ -92,9 +86,14 @@
         </div>
       </section>
 
-      <!-- PAGE 6: ADMIN -->
       <section id="page-admin" class="page">
         <h2>Admin Dashboard</h2>
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card-header">
+            <h3>Manage Uploaded Media (Rename / Delete)</h3>
+          </div>
+          <div id="admin-media-box"></div>
+        </div>
         <div class="card">
           <div class="card-header">
             <h3>Stored User Requests</h3>
