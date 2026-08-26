@@ -1,7 +1,7 @@
 {
   "name": "audio-studio",
   "version": "1.0.0",
-  "description": "Azim Studio Pro",
+  "description": "Song and Movie Store Pro",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -9,7 +9,7 @@
   "dependencies": {
     "cloudinary": "^1.41.3",
     "express": "^4.19.2",
-    "multer": "^2.2.0",
+    "multer": "^1.4.5-lts.1",
     "streamifier": "^0.1.1"
   }
 }
