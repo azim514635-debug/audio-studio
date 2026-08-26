@@ -1,4 +1,3 @@
-// Element References
 const modalOverlay = document.getElementById('name-modal');
 const modalNameInput = document.getElementById('modal-name-input');
 const modalSaveBtn = document.getElementById('modal-save-btn');
@@ -8,7 +7,6 @@ const pages = document.querySelectorAll('.page');
 
 let isAdminUnlocked = false;
 
-// Check Saved Name on Load
 function checkUserSession() {
   const savedName = localStorage.getItem('visitorName');
   if (savedName) {
@@ -20,7 +18,6 @@ function checkUserSession() {
   }
 }
 
-// Modal Save Event
 modalSaveBtn.addEventListener('click', () => {
   const name = modalNameInput.value.trim();
   if (!name) return alert('Please enter your name to proceed.');
@@ -30,19 +27,16 @@ modalSaveBtn.addEventListener('click', () => {
   modalOverlay.classList.add('hidden');
 });
 
-// Navigation Handling
 navItems.forEach(item => {
   item.addEventListener('click', () => {
     const targetPage = item.getAttribute('data-page');
     const savedName = localStorage.getItem('visitorName');
 
-    // Restrict Upload and Request pages if name is missing
     if ((targetPage === 'upload' || targetPage === 'request') && !savedName) {
       modalOverlay.classList.remove('hidden');
       return;
     }
 
-    // Password Gate for Admin Page
     if (targetPage === 'admin' && !isAdminUnlocked) {
       const password = prompt('Enter Admin Password:');
       if (password === 'azim-website') {
@@ -64,7 +58,6 @@ navItems.forEach(item => {
   });
 });
 
-// Upload Track Logic
 const uploadForm = document.getElementById('upload-form');
 const songTitleInput = document.getElementById('song-title-input');
 const audioFileInput = document.getElementById('audio-file');
@@ -81,6 +74,11 @@ uploadForm.addEventListener('submit', async (e) => {
   const file = audioFileInput.files[0];
   const songTitle = songTitleInput.value.trim();
 
+  if (!file) {
+    alert('Please select an audio file.');
+    return;
+  }
+
   uploadStatus.textContent = 'Uploading track to server...';
 
   const formData = new FormData();
@@ -89,7 +87,11 @@ uploadForm.addEventListener('submit', async (e) => {
   formData.append('uploadedBy', uploaderName);
 
   try {
-    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const res = await fetch('/api/upload', { 
+      method: 'POST', 
+      body: formData 
+    });
+    
     const data = await res.json();
 
     if (data.success) {
@@ -98,14 +100,14 @@ uploadForm.addEventListener('submit', async (e) => {
       audioFileInput.value = '';
       fetchGlobalTracks();
     } else {
-      uploadStatus.textContent = 'Upload failed.';
+      uploadStatus.textContent = `Upload failed: ${data.error || 'Unknown error'}`;
     }
   } catch (err) {
-    uploadStatus.textContent = 'Error uploading track.';
+    console.error('Fetch error:', err);
+    uploadStatus.textContent = `Network error: ${err.message}`;
   }
 });
 
-// Fetch Global Songs
 async function fetchGlobalTracks() {
   const trackList = document.getElementById('track-list');
   try {
@@ -131,7 +133,6 @@ async function fetchGlobalTracks() {
   }
 }
 
-// Request System Logic
 const sendRequestBtn = document.getElementById('send-request-btn');
 const requestText = document.getElementById('request-text');
 
@@ -177,6 +178,5 @@ document.getElementById('clear-requests-btn').addEventListener('click', () => {
   }
 });
 
-// Initialize Setup
 checkUserSession();
 fetchGlobalTracks();
