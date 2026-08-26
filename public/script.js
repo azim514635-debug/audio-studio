@@ -58,27 +58,31 @@ navItems.forEach(item => {
   });
 });
 
-// Upload Handlers
+// Multiple Audio Upload Handler
 const uploadForm = document.getElementById('upload-form');
 uploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const uploaderName = localStorage.getItem('visitorName');
   if (!uploaderName) return modalOverlay.classList.remove('hidden');
 
-  const file = document.getElementById('audio-file').files[0];
+  const files = document.getElementById('audio-file').files;
   const title = document.getElementById('song-title-input').value.trim();
   const status = document.getElementById('upload-status');
 
-  status.textContent = 'Uploading track...';
+  if (files.length === 0) return alert('Please select audio files.');
+
+  status.textContent = `Uploading ${files.length} track(s)... Please wait.`;
   const formData = new FormData();
-  formData.append('audio', file);
+  for (let i = 0; i < files.length; i++) {
+    formData.append('audio', files[i]);
+  }
   formData.append('title', title);
   formData.append('uploadedBy', uploaderName);
 
   const res = await fetch('/api/upload', { method: 'POST', body: formData });
   const data = await res.json();
   if (data.success) {
-    status.textContent = 'Upload successful!';
+    status.textContent = `Successfully uploaded ${data.tracks.length} track(s)!`;
     uploadForm.reset();
     fetchGlobalTracks();
   } else {
@@ -86,26 +90,31 @@ uploadForm.addEventListener('submit', async (e) => {
   }
 });
 
+// Multiple Movie Upload Handler
 const movieUploadForm = document.getElementById('movie-upload-form');
 movieUploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const uploaderName = localStorage.getItem('visitorName');
   if (!uploaderName) return modalOverlay.classList.remove('hidden');
 
-  const file = document.getElementById('movie-file').files[0];
+  const files = document.getElementById('movie-file').files;
   const title = document.getElementById('movie-title-input').value.trim();
   const status = document.getElementById('movie-upload-status');
 
-  status.textContent = 'Uploading movie...';
+  if (files.length === 0) return alert('Please select movie files.');
+
+  status.textContent = `Uploading ${files.length} movie(s)... Large files take time.`;
   const formData = new FormData();
-  formData.append('movie', file);
+  for (let i = 0; i < files.length; i++) {
+    formData.append('movie', files[i]);
+  }
   formData.append('title', title);
   formData.append('uploadedBy', uploaderName);
 
   const res = await fetch('/api/upload-movie', { method: 'POST', body: formData });
   const data = await res.json();
   if (data.success) {
-    status.textContent = 'Movie upload successful!';
+    status.textContent = `Successfully uploaded ${data.movies.length} movie(s)!`;
     movieUploadForm.reset();
     fetchGlobalMovies();
   } else {
@@ -143,7 +152,6 @@ async function fetchGlobalMovies() {
     </li>`).join('');
 }
 
-// Admin Management Functions
 async function loadAdminDashboard() {
   loadRequests();
   const box = document.getElementById('admin-media-box');

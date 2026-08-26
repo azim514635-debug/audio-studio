@@ -55,24 +55,24 @@
       </section>
 
       <section id="page-upload" class="page">
-        <h2>Upload Your Music</h2>
+        <h2>Upload Multiple Songs</h2>
         <div class="card">
           <form id="upload-form">
-            <input type="text" id="song-title-input" placeholder="Enter song name..." required>
-            <input type="file" id="audio-file" accept="audio/*" required>
-            <button type="submit" class="btn-primary" id="upload-btn">Upload Audio</button>
+            <input type="text" id="song-title-input" placeholder="Base song title prefix..." required>
+            <input type="file" id="audio-file" accept="audio/*" multiple required>
+            <button type="submit" class="btn-primary" id="upload-btn">Upload All Audio</button>
           </form>
           <p id="upload-status" style="margin-top: 10px; font-size: 0.9rem; color: #38bdf8;"></p>
         </div>
       </section>
 
       <section id="page-movie-upload" class="page">
-        <h2>Upload a Movie</h2>
+        <h2>Upload Multiple Movies</h2>
         <div class="card">
           <form id="movie-upload-form">
-            <input type="text" id="movie-title-input" placeholder="Enter movie title..." required>
-            <input type="file" id="movie-file" accept="video/*" required>
-            <button type="submit" class="btn-primary" id="movie-upload-btn">Upload Movie</button>
+            <input type="text" id="movie-title-input" placeholder="Base movie title prefix..." required>
+            <input type="file" id="movie-file" accept="video/*" multiple required>
+            <button type="submit" class="btn-primary" id="movie-upload-btn">Upload All Movies</button>
           </form>
           <p id="movie-upload-status" style="margin-top: 10px; font-size: 0.9rem; color: #38bdf8;"></p>
         </div>
