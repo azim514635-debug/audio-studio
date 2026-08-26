@@ -3,50 +3,91 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audio Studio</title>
+  <title>Audio Studio Pro</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Audio Studio</h1>
-    <p class="subtitle">Upload and manage sound tracks</p>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+      <div class="brand">
+        <h2>Audio Studio</h2>
+        <span class="badge">PRO</span>
+      </div>
+      <ul class="nav-links">
+        <li class="nav-item active" data-page="home">🏠 Home</li>
+        <li class="nav-item" data-page="library">🎵 Library</li>
+        <li class="nav-item" data-page="request">📩 Contact Azim</li>
+        <li class="nav-item" data-page="admin">🔒 Admin Panel</li>
+      </ul>
+      <div class="user-badge" id="user-display">Guest</div>
+    </nav>
 
-    <!-- User Name Section -->
-    <div class="card" id="user-section">
-      <h3>Welcome</h3>
-      <input type="text" id="username-input" placeholder="Enter your name">
-      <button id="save-name-btn">Set Name</button>
-      <p id="greeting-text"></p>
-    </div>
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- PAGE 1: HOME -->
+      <section id="page-home" class="page active">
+        <div class="header-card">
+          <h1 id="welcome-heading">Welcome to Audio Studio</h1>
+          <p>Manage, upload, and stream your audio files effortlessly.</p>
+        </div>
+        
+        <div class="card">
+          <h3>Set Your Profile</h3>
+          <div class="input-group">
+            <input type="text" id="username-input" placeholder="Enter your name">
+            <button id="save-name-btn">Save Name</button>
+          </div>
+        </div>
 
-    <!-- Track Upload Section -->
-    <div class="card">
-      <h3>Upload Track</h3>
-      <form id="upload-form">
-        <input type="file" id="audio-file" accept="audio/*" required>
-        <button type="submit" id="upload-btn">Upload Audio</button>
-      </form>
-      <p id="upload-status"></p>
-    </div>
+        <div class="card">
+          <h3>Upload Track</h3>
+          <form id="upload-form">
+            <input type="file" id="audio-file" accept="audio/*" required>
+            <button type="submit" class="btn-primary">Upload Audio</button>
+          </form>
+        </div>
+      </section>
 
-    <!-- Track Library -->
-    <div class="card">
-      <h3>Library</h3>
-      <ul id="track-list"></ul>
-    </div>
+      <!-- PAGE 2: LIBRARY -->
+      <section id="page-library" class="page">
+        <h2>Audio Library</h2>
+        <div class="card">
+          <ul id="track-list" class="track-list">
+            <li class="empty-msg">No tracks uploaded yet.</li>
+          </ul>
+        </div>
+      </section>
 
-    <!-- Request Form -->
-    <div class="card">
-      <h3>Request to Azim</h3>
-      <textarea id="request-text" placeholder="Type your request here..."></textarea>
-      <button id="send-request-btn">Send Request</button>
-    </div>
+      <!-- PAGE 3: REQUEST -->
+      <section id="page-request" class="page">
+        <h2>Send a Request to Azim</h2>
+        <div class="card">
+          <textarea id="request-text" placeholder="Type your message or feature request here..."></textarea>
+          <button id="send-request-btn" class="btn-primary">Submit Request</button>
+        </div>
+      </section>
 
-    <!-- Footer -->
-    <footer>
-      <p>Website Created & Maintained by <strong>Azim</strong></p>
-    </footer>
+      <!-- PAGE 4: ADMIN (PROTECTED) -->
+      <section id="page-admin" class="page">
+        <h2>Admin Dashboard</h2>
+        <div class="card">
+          <div class="card-header">
+            <h3>Stored User Requests</h3>
+            <button id="clear-requests-btn" class="btn-danger">Clear All</button>
+          </div>
+          <div id="requests-box" class="requests-box"></div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer>
+        <p>Created & Maintained with ❤️ by <strong>Azim</strong></p>
+      </footer>
+    </main>
   </div>
+
   <script src="script.js"></script>
 </body>
 </html>
