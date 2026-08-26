@@ -1,4 +1,3 @@
-// Navigation & Admin Unlock
 const navItems = document.querySelectorAll('.nav-item');
 const pages = document.querySelectorAll('.page');
 let isAdminUnlocked = false;
@@ -25,11 +24,11 @@ navItems.forEach(item => {
     document.getElementById(`page-${targetPage}`).classList.add('active');
 
     if (targetPage === 'admin') loadRequests();
-    if (targetPage === 'library') renderLibrary();
+    if (targetPage === 'library') fetchGlobalTracks();
   });
 });
 
-// Profile Logic
+// User Profile
 const usernameInput = document.getElementById('username-input');
 const saveNameBtn = document.getElementById('save-name-btn');
 const welcomeHeading = document.getElementById('welcome-heading');
@@ -52,66 +51,74 @@ saveNameBtn.addEventListener('click', () => {
   }
 });
 
-// Audio Storage & Upload
+// Upload Track to Global Server
 const uploadForm = document.getElementById('upload-form');
 const songTitleInput = document.getElementById('song-title-input');
 const audioFileInput = document.getElementById('audio-file');
 const uploadStatus = document.getElementById('upload-status');
 
-uploadForm.addEventListener('submit', (e) => {
+uploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const file = audioFileInput.files[0];
   const songTitle = songTitleInput.value.trim();
   const uploaderName = localStorage.getItem('visitorName') || 'Anonymous';
 
-  if (!file || !songTitle) return alert('Please provide a song name and select an audio file.');
+  if (!file || !songTitle) return alert('Please enter a song name and select a file.');
 
-  uploadStatus.textContent = 'Uploading track...';
+  uploadStatus.textContent = 'Uploading track to server...';
 
-  const reader = new FileReader();
-  reader.onload = function(event) {
-    const audioDataUrl = event.target.result;
+  const formData = new FormData();
+  formData.append('audio', file);
+  formData.append('title', songTitle);
+  formData.append('uploadedBy', uploaderName);
 
-    const tracks = JSON.parse(localStorage.getItem('uploaded_tracks') || '[]');
-    tracks.push({
-      title: songTitle,
-      uploadedBy: uploaderName,
-      audioUrl: audioDataUrl
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
     });
+    const data = await res.json();
 
-    localStorage.setItem('uploaded_tracks', JSON.stringify(tracks));
-    uploadStatus.textContent = 'Upload successful!';
-    songTitleInput.value = '';
-    audioFileInput.value = '';
-
-    renderLibrary();
-  };
-
-  reader.readAsDataURL(file);
+    if (data.success) {
+      uploadStatus.textContent = 'Upload successful!';
+      songTitleInput.value = '';
+      audioFileInput.value = '';
+      fetchGlobalTracks();
+    } else {
+      uploadStatus.textContent = 'Upload failed.';
+    }
+  } catch (err) {
+    uploadStatus.textContent = 'Error uploading track.';
+  }
 });
 
-// Render Tracks in Library
-function renderLibrary() {
+// Fetch Global Tracks
+async function fetchGlobalTracks() {
   const trackList = document.getElementById('track-list');
-  const tracks = JSON.parse(localStorage.getItem('uploaded_tracks') || '[]');
+  try {
+    const res = await fetch('/api/tracks');
+    const tracks = await res.json();
 
-  if (tracks.length === 0) {
-    trackList.innerHTML = '<li style="color:#94a3b8;">No tracks uploaded yet.</li>';
-    return;
+    if (tracks.length === 0) {
+      trackList.innerHTML = '<li style="color:#94a3b8;">No tracks uploaded yet.</li>';
+      return;
+    }
+
+    trackList.innerHTML = tracks.map(track => `
+      <li style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong style="font-size: 1.1rem; color: #fff;">${track.title}</strong>
+          <span style="font-size: 0.8rem; color: #818cf8;">Uploaded by ${track.uploadedBy}</span>
+        </div>
+        <audio controls src="${track.audioUrl}" style="width: 100%; margin-top: 6px;"></audio>
+      </li>
+    `).join('');
+  } catch (err) {
+    trackList.innerHTML = '<li style="color:#ef4444;">Failed to load tracks.</li>';
   }
-
-  trackList.innerHTML = tracks.map(track => `
-    <li style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <strong style="font-size: 1.1rem; color: #fff;">${track.title}</strong>
-        <span style="font-size: 0.8rem; color: #818cf8;">Uploaded by ${track.uploadedBy}</span>
-      </div>
-      <audio controls src="${track.audioUrl}" style="width: 100%; margin-top: 6px;"></audio>
-    </li>
-  `).join('');
 }
 
-// Admin Requests Logic
+// Admin Request System
 const sendRequestBtn = document.getElementById('send-request-btn');
 const requestText = document.getElementById('request-text');
 
@@ -153,5 +160,5 @@ document.getElementById('clear-requests-btn').addEventListener('click', () => {
   }
 });
 
-// Initial Render
-renderLibrary();
+// Load tracks on initial visit
+fetchGlobalTracks();

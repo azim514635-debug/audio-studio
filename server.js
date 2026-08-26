@@ -1,58 +1,57 @@
 const express = require('express');
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
+const upload = multer({ dest: 'uploads/' });
 
-const uploadsDir = path.join(__dirname, 'public/uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Global tracks memory array
+let globalTracks = [];
 
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json({ limit: '100mb' }));
-// Support raw binary streams
-app.use(express.raw({ type: '*/*', limit: '100mb' }));
+// Cloudinary Configuration
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
-const songsDatabase = [];
+app.use(express.json());
+app.use(express.static('public'));
 
-app.post('/api/upload', (req, res) => {
+// Fetch all tracks globally
+app.get('/api/tracks', (req, res) => {
+  res.json(globalTracks);
+});
+
+// Upload endpoint
+app.post('/api/upload', upload.single('audio'), async (req, res) => {
   try {
-    const rawFilename = req.headers['x-file-name'] || `track_${Date.now()}.mp3`;
-    let filename = decodeURIComponent(rawFilename);
-
-    // Auto append .mp3 if no recognized audio format exists
-    const audioExts = ['.mp3', '.m4a', '.wav', '.aac', '.ogg', '.flac', '.opus'];
-    const hasExt = audioExts.some(ext => filename.toLowerCase().endsWith(ext));
-    if (!hasExt) {
-      filename += '.mp3';
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided' });
     }
 
-    const savedName = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const filePath = path.join(uploadsDir, savedName);
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      resource_type: 'video' // Audio files use video resource type in Cloudinary
+    });
 
-    fs.writeFileSync(filePath, req.body);
+    // Delete local temporary file
+    fs.unlinkSync(req.file.path);
 
-    const newSong = {
-      id: Date.now(),
-      title: filename,
-      url: `/uploads/${savedName}`
+    const newTrack = {
+      title: req.body.title || 'Untitled Track',
+      uploadedBy: req.body.uploadedBy || 'Anonymous',
+      audioUrl: result.secure_url
     };
 
-    songsDatabase.push(newSong);
-    console.log('Successfully saved file:', filename);
-    res.json({ success: true, song: newSong });
+    globalTracks.push(newTrack);
+    res.json({ success: true, track: newTrack });
   } catch (err) {
-    console.error('Server Upload Error:', err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Upload Error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/songs', (req, res) => {
-  res.json(songsDatabase);
-});
-
-const PORT = 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server live at http://127.0.0.1:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
