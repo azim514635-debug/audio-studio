@@ -7,36 +7,61 @@
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0f19; color: #f8fafc; padding: 20px; margin: 0; }
     .container { max-width: 500px; margin: 0 auto; }
+    
+    /* Welcome Popup Overlay */
+    #welcome-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 15, 25, 0.95); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+    .modal-box { background: #131b2e; padding: 30px; border-radius: 16px; width: 85%; max-width: 350px; text-align: center; border: 1px solid #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .modal-box h2 { color: #38bdf8; margin-top: 0; font-size: 22px; }
+    .modal-box p { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+
+    .main-title { text-align: center; color: #38bdf8; font-size: 24px; font-weight: bold; margin-bottom: 20px; letter-spacing: 0.5px; }
+
     .menu-list { background: #131b2e; border-radius: 12px; padding: 10px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
     .menu-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: #cbd5e1; text-decoration: none; font-size: 16px; font-weight: 500; border-radius: 8px; cursor: pointer; }
     .menu-item:hover, .menu-item.active { background: #1e293b; color: #38bdf8; }
     .menu-item.active { background: #1e1b4b; color: #818cf8; }
+    
     .content-section { display: none; }
     .content-section.active { display: block; }
+    
     .hero-card { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 24px; border-radius: 16px; margin-bottom: 25px; }
-    .hero-card h1 { font-size: 26px; margin: 0 0 8px 0; color: #ffffff; }
+    .hero-card h1 { font-size: 24px; margin: 0 0 8px 0; color: #ffffff; }
     .hero-card p { margin: 0; color: #e0e7ff; font-size: 14px; }
+    
     .section-title { color: #38bdf8; font-size: 18px; margin: 15px 0; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 25px; }
-    .card { background: #1e293b; padding: 10px; border-radius: 10px; text-align: center; position: relative; }
-    .card img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; }
-    .card h3 { font-size: 13px; margin: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .card p { font-size: 11px; color: #94a3b8; margin: 0 0 6px 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 25px; }
+    .card { background: #1e293b; padding: 12px; border-radius: 10px; text-align: center; position: relative; }
+    .card h3 { font-size: 14px; margin: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+    .card p { font-size: 11px; color: #94a3b8; margin: 0 0 8px 0; }
     .card-actions button { background: #334155; color: #fff; border: none; padding: 4px 8px; font-size: 10px; border-radius: 4px; cursor: pointer; margin: 2px; width: auto; }
     .card-actions button.del { background: #ef4444; }
+    
     .admin-section { background: #131b2e; padding: 20px; border-radius: 12px; border: 1px solid #1e293b; }
     .admin-section h3 { color: #fbbf24; margin-top: 0; margin-bottom: 15px; }
     label { font-size: 12px; color: #94a3b8; display: block; margin-top: 8px; }
-    input { display: block; width: 100%; box-sizing: border-box; margin: 4px 0 10px; padding: 10px; background: #0b0f19; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
+    input, select { display: block; width: 100%; box-sizing: border-box; margin: 4px 0 10px; padding: 10px; background: #0b0f19; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
     button { background: #6366f1; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 8px; font-weight: bold; width: 100%; font-size: 14px; margin-top: 10px;}
-    hr { border: 0; border-top: 1px solid #1e293b; margin: 20px 0; }
+    
     .footer { text-align: center; color: #64748b; font-size: 13px; margin: 40px 0 20px 0; }
     .footer span { color: #ef4444; }
     .footer strong { color: #a855f7; }
   </style>
 </head>
 <body>
+
+  <!-- Welcome Popup Modal -->
+  <div id="welcome-modal">
+    <div class="modal-box">
+      <h2>Azim's Studio Pro</h2>
+      <p>Welcome! Please enter your name to continue:</p>
+      <input type="text" id="popupNameInput" placeholder="Your Name...">
+      <button onclick="saveWelcomeName()">Get Started</button>
+    </div>
+  </div>
+
   <div class="container">
+    <div class="main-title">Azim's Studio Pro</div>
+
     <div class="menu-list">
       <div class="menu-item active" onclick="switchTab('songs-tab', this)">🎵 Songs</div>
       <div class="menu-item" onclick="switchTab('movies-tab', this)">🎬 Movies</div>
@@ -64,35 +89,25 @@
       <div id="movies-container" class="grid"><p style="color: #64748b; font-size: 13px;">No movies available.</p></div>
     </div>
 
-    <!-- Upload Tab -->
+    <!-- Upload Tab with Selector Menu -->
     <div id="upload-tab" class="content-section">
       <div class="admin-section">
-        <h3>Upload Content</h3>
-        <label>Your Name / Uploader ID:</label>
-        <input type="text" id="uploaderName" placeholder="Enter your name" oninput="saveUploader(this.value)">
+        <h3>Upload Media</h3>
+        <p style="font-size:12px; color:#94a3b8; margin-top:0;">Uploading as: <strong id="displayUploader" style="color:#38bdf8;"></strong></p>
 
-        <form action="/api/upload/song" method="POST" enctype="multipart/form-data" onsubmit="attachUploader(this)">
-          <input type="hidden" name="uploader" class="hidden-uploader">
-          <h4 style="color:#fff; font-size:14px; margin-top:10px;">Upload Song</h4>
-          <input type="text" name="title" placeholder="Song Name" required>
-          <label>Thumbnail:</label>
-          <input type="file" name="thumbnail" accept="image/*" required>
-          <label>Audio File (.mp3):</label>
-          <input type="file" name="audioFile" accept="audio/*" required>
-          <button type="submit">Upload Song</button>
-        </form>
+        <label>Select Media Type:</label>
+        <select id="mediaTypeSelector" onchange="toggleUploadForm()">
+          <option value="song">🎵 Song (.mp3)</option>
+          <option value="movie">🎬 Movie (.mp4)</option>
+        </select>
 
-        <hr>
-
-        <form action="/api/upload/movie" method="POST" enctype="multipart/form-data" onsubmit="attachUploader(this)">
-          <input type="hidden" name="uploader" class="hidden-uploader">
-          <h4 style="color:#fff; font-size:14px; margin-top:10px;">Upload Movie</h4>
-          <input type="text" name="title" placeholder="Movie Title" required>
-          <label>Thumbnail:</label>
-          <input type="file" name="thumbnail" accept="image/*" required>
-          <label>Video File (.mp4):</label>
-          <input type="file" name="movieFile" accept="video/*" required>
-          <button type="submit">Upload Movie</button>
+        <form id="dynamicUploadForm" action="/api/upload/song" method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="uploader" id="hiddenUploaderField">
+          <label id="titleLabel">Song Title:</label>
+          <input type="text" name="title" id="formTitleInput" placeholder="Enter title" required>
+          <label id="fileLabel">Audio File (.mp3):</label>
+          <input type="file" name="mediaFile" id="formFileInput" accept="audio/*" required>
+          <button type="submit" id="submitBtnText">Upload Song</button>
         </form>
       </div>
     </div>
@@ -103,7 +118,7 @@
         <h3>🔒 Admin Control</h3>
         <label>Admin Password:</label>
         <input type="password" id="adminPassInput" placeholder="Enter Admin Password">
-        <p style="font-size:11px; color:#94a3b8;">Entering the correct password gives you power to edit/delete any file on the site.</p>
+        <p style="font-size:11px; color:#94a3b8;">Entering the correct password grants absolute power to edit or delete any file on the site.</p>
       </div>
     </div>
 
@@ -113,32 +128,73 @@
   </div>
 
   <script>
-    let currentUser = localStorage.getItem('uploaderName') || 'Anonymous';
-    document.getElementById('uploaderName').value = currentUser;
+    let currentUser = localStorage.getItem('azimStudioUser') || '';
 
-    function saveUploader(val) {
-      currentUser = val.trim() || 'Anonymous';
-      localStorage.setItem('uploaderName', currentUser);
+    if(currentUser) {
+      document.getElementById('welcome-modal').style.display = 'none';
+      document.getElementById('displayUploader').innerText = currentUser;
     }
 
-    function attachUploader(form) {
-      form.querySelector('.hidden-uploader').value = currentUser;
+    function saveWelcomeName() {
+      const val = document.getElementById('popupNameInput').value.trim();
+      if(!val) {
+        alert("Please enter your name!");
+        return;
+      }
+      currentUser = val;
+      localStorage.setItem('azimStudioUser', currentUser);
+      document.getElementById('displayUploader').innerText = currentUser;
+      document.getElementById('welcome-modal').style.display = 'none';
     }
+
+    function toggleUploadForm() {
+      const type = document.getElementById('mediaTypeSelector').value;
+      const form = document.getElementById('dynamicUploadForm');
+      const titleLabel = document.getElementById('titleLabel');
+      const fileLabel = document.getElementById('fileLabel');
+      const fileInput = document.getElementById('formFileInput');
+      const submitBtn = document.getElementById('submitBtnText');
+
+      form.querySelector('#hiddenUploaderField').value = currentUser;
+
+      if(type === 'song') {
+        form.action = '/api/upload/song';
+        titleLabel.innerText = 'Song Title:';
+        fileLabel.innerText = 'Audio File (.mp3):';
+        fileInput.accept = 'audio/*';
+        submitBtn.innerText = 'Upload Song';
+      } else {
+        form.action = '/api/upload/movie';
+        titleLabel.innerText = 'Movie Title:';
+        fileLabel.innerText = 'Video File (.mp4):';
+        fileInput.accept = 'video/*';
+        submitBtn.innerText = 'Upload Movie';
+      }
+    }
+
+    // Initialize form setting on load
+    document.addEventListener("DOMContentLoaded", () => {
+      const hiddenField = document.getElementById('hiddenUploaderField');
+      if(hiddenField) hiddenField.value = currentUser;
+    });
 
     function switchTab(tabId, element) {
       document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
       document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
       document.getElementById(tabId).classList.add('active');
       element.classList.add('active');
+      if(tabId === 'upload-tab') {
+        document.getElementById('hiddenUploaderField').value = currentUser;
+      }
     }
 
     function getAdminSecret() {
       return document.getElementById('adminPassInput').value;
     }
 
-    async function deleteFile(type, id, owner) {
+    async function deleteFile(type, id) {
       const adminSecret = getAdminSecret();
-      if(!confirm("Are you sure you want to delete this?")) return;
+      if(!confirm("Are you sure you want to delete this file?")) return;
 
       const res = await fetch('/api/delete', {
         method: 'POST',
@@ -147,10 +203,10 @@
       });
 
       if(res.ok) location.reload();
-      else alert("Unauthorized or failed to delete!");
+      else alert("Unauthorized! Only the uploader or admin can delete this file.");
     }
 
-    async function renameFile(type, id, owner) {
+    async function renameFile(type, id) {
       const adminSecret = getAdminSecret();
       const newTitle = prompt("Enter new title:");
       if(!newTitle) return;
@@ -162,7 +218,7 @@
       });
 
       if(res.ok) location.reload();
-      else alert("Unauthorized or failed to rename!");
+      else alert("Unauthorized! Only the uploader or admin can rename this file.");
     }
 
     fetch('/api/data')
@@ -172,13 +228,12 @@
         if(data.songs.length > 0) {
           sContainer.innerHTML = data.songs.map(s => `
             <div class="card">
-              <img src="${s.thumbnailUrl}" alt="${s.title}">
               <h3>${s.title}</h3>
               <p>By: ${s.uploader}</p>
-              <audio controls style="width:100%; margin-top:4px; height:26px;"><source src="${s.songUrl}" type="audio/mpeg"></audio>
-              <div class="card-actions">
-                <button onclick="renameFile('song', '${s.id}', '${s.uploader}')">Rename</button>
-                <button class="del" onclick="deleteFile('song', '${s.id}', '${s.uploader}')">Delete</button>
+              <audio controls style="width:100%; margin-top:4px; height:28px;"><source src="${s.songUrl}" type="audio/mpeg"></audio>
+              <div class="card-actions" style="margin-top:8px;">
+                <button onclick="renameFile('song', '${s.id}')">Rename</button>
+                <button class="del" onclick="deleteFile('song', '${s.id}')">Delete</button>
               </div>
             </div>
           `).join('');
@@ -188,13 +243,12 @@
         if(data.movies.length > 0) {
           mContainer.innerHTML = data.movies.map(m => `
             <div class="card">
-              <img src="${m.thumbnailUrl}" alt="${m.title}">
               <h3>${m.title}</h3>
               <p>By: ${m.uploader}</p>
-              <a href="${m.movieUrl}" target="_blank" style="display:block; margin-top:4px; background:#38bdf8; color:#0b0f19; padding:4px; text-decoration:none; border-radius:4px; font-weight:bold; font-size:11px;">Watch</a>
-              <div class="card-actions" style="margin-top:6px;">
-                <button onclick="renameFile('movie', '${m.id}', '${m.uploader}')">Rename</button>
-                <button class="del" onclick="deleteFile('movie', '${m.id}', '${m.uploader}')">Delete</button>
+              <a href="${m.movieUrl}" target="_blank" style="display:block; margin-top:4px; background:#38bdf8; color:#0b0f19; padding:6px; text-decoration:none; border-radius:4px; font-weight:bold; font-size:12px;">Watch Movie</a>
+              <div class="card-actions" style="margin-top:8px;">
+                <button onclick="renameFile('movie', '${m.id}')">Rename</button>
+                <button class="del" onclick="deleteFile('movie', '${m.id}')">Delete</button>
               </div>
             </div>
           `).join('');

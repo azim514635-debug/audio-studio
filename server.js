@@ -43,19 +43,14 @@ app.get('/api/data', (req, res) => {
   res.json({ songs, movies });
 });
 
-// Upload Song
-app.post('/api/upload/song', upload.fields([{ name: 'thumbnail' }, { name: 'audioFile' }]), async (req, res) => {
+// Upload Song (No thumbnail needed)
+app.post('/api/upload/song', upload.single('mediaFile'), async (req, res) => {
   try {
     const { title, uploader } = req.body;
-    let thumbnailUrl = '';
     let songUrl = '';
 
-    if (req.files['thumbnail']) {
-      const resImg = await uploadToCloudinary(req.files['thumbnail'][0].buffer);
-      thumbnailUrl = resImg.secure_url;
-    }
-    if (req.files['audioFile']) {
-      const resAudio = await uploadToCloudinary(req.files['audioFile'][0].buffer);
+    if (req.file) {
+      const resAudio = await uploadToCloudinary(req.file.buffer);
       songUrl = resAudio.secure_url;
     }
 
@@ -63,7 +58,6 @@ app.post('/api/upload/song', upload.fields([{ name: 'thumbnail' }, { name: 'audi
       id: Date.now().toString(),
       title,
       uploader: uploader || 'Anonymous',
-      thumbnailUrl,
       songUrl
     });
     res.redirect('/');
@@ -72,19 +66,14 @@ app.post('/api/upload/song', upload.fields([{ name: 'thumbnail' }, { name: 'audi
   }
 });
 
-// Upload Movie
-app.post('/api/upload/movie', upload.fields([{ name: 'thumbnail' }, { name: 'movieFile' }]), async (req, res) => {
+// Upload Movie (No thumbnail needed)
+app.post('/api/upload/movie', upload.single('mediaFile'), async (req, res) => {
   try {
     const { title, uploader } = req.body;
-    let thumbnailUrl = '';
     let movieUrl = '';
 
-    if (req.files['thumbnail']) {
-      const resImg = await uploadToCloudinary(req.files['thumbnail'][0].buffer);
-      thumbnailUrl = resImg.secure_url;
-    }
-    if (req.files['movieFile']) {
-      const resVideo = await uploadToCloudinary(req.files['movieFile'][0].buffer);
+    if (req.file) {
+      const resVideo = await uploadToCloudinary(req.file.buffer);
       movieUrl = resVideo.secure_url;
     }
 
@@ -92,7 +81,6 @@ app.post('/api/upload/movie', upload.fields([{ name: 'thumbnail' }, { name: 'mov
       id: Date.now().toString(),
       title,
       uploader: uploader || 'Anonymous',
-      thumbnailUrl,
       movieUrl
     });
     res.redirect('/');
@@ -101,7 +89,7 @@ app.post('/api/upload/movie', upload.fields([{ name: 'thumbnail' }, { name: 'mov
   }
 });
 
-// Delete file (Admin or Owner)
+// Delete file
 app.post('/api/delete', (req, res) => {
   const { type, id, uploader, adminSecret } = req.body;
   const isAdmin = adminSecret === ADMIN_SECRET;
@@ -118,7 +106,7 @@ app.post('/api/delete', (req, res) => {
   res.status(403).send("Unauthorized");
 });
 
-// Rename file (Admin or Owner)
+// Rename file
 app.post('/api/rename', (req, res) => {
   const { type, id, newTitle, uploader, adminSecret } = req.body;
   const isAdmin = adminSecret === ADMIN_SECRET;
