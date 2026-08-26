@@ -32,7 +32,7 @@ navItems.forEach(item => {
     const targetPage = item.getAttribute('data-page');
     const savedName = localStorage.getItem('visitorName');
 
-    if ((targetPage === 'upload' || targetPage === 'request') && !savedName) {
+    if ((targetPage === 'upload' || targetPage === 'movie-upload' || targetPage === 'request') && !savedName) {
       modalOverlay.classList.remove('hidden');
       return;
     }
@@ -55,9 +55,11 @@ navItems.forEach(item => {
 
     if (targetPage === 'admin') loadRequests();
     if (targetPage === 'library') fetchGlobalTracks();
+    if (targetPage === 'movies') fetchGlobalMovies();
   });
 });
 
+// Audio Upload Logic
 const uploadForm = document.getElementById('upload-form');
 const songTitleInput = document.getElementById('song-title-input');
 const audioFileInput = document.getElementById('audio-file');
@@ -74,10 +76,7 @@ uploadForm.addEventListener('submit', async (e) => {
   const file = audioFileInput.files[0];
   const songTitle = songTitleInput.value.trim();
 
-  if (!file) {
-    alert('Please select an audio file.');
-    return;
-  }
+  if (!file) return alert('Please select an audio file.');
 
   uploadStatus.textContent = 'Uploading track to server...';
 
@@ -87,11 +86,7 @@ uploadForm.addEventListener('submit', async (e) => {
   formData.append('uploadedBy', uploaderName);
 
   try {
-    const res = await fetch('/api/upload', { 
-      method: 'POST', 
-      body: formData 
-    });
-    
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
     const data = await res.json();
 
     if (data.success) {
@@ -100,14 +95,57 @@ uploadForm.addEventListener('submit', async (e) => {
       audioFileInput.value = '';
       fetchGlobalTracks();
     } else {
-      uploadStatus.textContent = `Upload failed: ${data.error || 'Unknown error'}`;
+      uploadStatus.textContent = `Upload failed: ${data.error}`;
     }
   } catch (err) {
-    console.error('Fetch error:', err);
     uploadStatus.textContent = `Network error: ${err.message}`;
   }
 });
 
+// Movie Upload Logic
+const movieUploadForm = document.getElementById('movie-upload-form');
+const movieTitleInput = document.getElementById('movie-title-input');
+const movieFileInput = document.getElementById('movie-file');
+const movieUploadStatus = document.getElementById('movie-upload-status');
+
+movieUploadForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const uploaderName = localStorage.getItem('visitorName');
+  if (!uploaderName) {
+    modalOverlay.classList.remove('hidden');
+    return;
+  }
+
+  const file = movieFileInput.files[0];
+  const movieTitle = movieTitleInput.value.trim();
+
+  if (!file) return alert('Please select a movie file.');
+
+  movieUploadStatus.textContent = 'Uploading movie (larger files take time)...';
+
+  const formData = new FormData();
+  formData.append('movie', file);
+  formData.append('title', movieTitle);
+  formData.append('uploadedBy', uploaderName);
+
+  try {
+    const res = await fetch('/api/upload-movie', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.success) {
+      movieUploadStatus.textContent = 'Movie upload successful!';
+      movieTitleInput.value = '';
+      movieFileInput.value = '';
+      fetchGlobalMovies();
+    } else {
+      movieUploadStatus.textContent = `Upload failed: ${data.error}`;
+    }
+  } catch (err) {
+    movieUploadStatus.textContent = `Network error: ${err.message}`;
+  }
+});
+
+// Fetch Tracks
 async function fetchGlobalTracks() {
   const trackList = document.getElementById('track-list');
   try {
@@ -133,6 +171,33 @@ async function fetchGlobalTracks() {
   }
 }
 
+// Fetch Movies
+async function fetchGlobalMovies() {
+  const movieList = document.getElementById('movie-list');
+  try {
+    const res = await fetch('/api/movies');
+    const movies = await res.json();
+
+    if (movies.length === 0) {
+      movieList.innerHTML = '<li style="color:#94a3b8;">No movies uploaded yet.</li>';
+      return;
+    }
+
+    movieList.innerHTML = movies.map(movie => `
+      <li style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong style="font-size: 1.1rem; color: #fff;">${movie.title}</strong>
+          <span style="font-size: 0.8rem; color: #38bdf8;">Uploaded by ${movie.uploadedBy}</span>
+        </div>
+        <video controls src="${movie.movieUrl}" style="width: 100%; max-height: 300px; border-radius: 6px; margin-top: 6px;"></video>
+      </li>
+    `).join('');
+  } catch (err) {
+    movieList.innerHTML = '<li style="color:#ef4444;">Failed to load movies.</li>';
+  }
+}
+
+// Requests Logic
 const sendRequestBtn = document.getElementById('send-request-btn');
 const requestText = document.getElementById('request-text');
 
@@ -180,3 +245,4 @@ document.getElementById('clear-requests-btn').addEventListener('click', () => {
 
 checkUserSession();
 fetchGlobalTracks();
+fetchGlobalMovies();

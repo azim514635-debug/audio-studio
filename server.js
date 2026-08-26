@@ -7,6 +7,7 @@ const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 let globalTracks = [];
+let globalMovies = [];
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -21,13 +22,16 @@ app.get('/api/tracks', (req, res) => {
   res.json(globalTracks);
 });
 
+app.get('/api/movies', (req, res) => {
+  res.json(globalMovies);
+});
+
 app.post('/api/upload', upload.single('audio'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No audio file received' });
     }
 
-    // Upload using 'auto' resource type to properly handle .m4a, .mp3, etc.
     const result = await cloudinary.uploader.upload(req.file.path, {
       resource_type: 'auto'
     });
@@ -45,7 +49,39 @@ app.post('/api/upload', upload.single('audio'), async (req, res) => {
     globalTracks.push(newTrack);
     res.json({ success: true, track: newTrack });
   } catch (err) {
-    console.error('CLOUDINARY UPLOAD ERROR:', err);
+    console.error('AUDIO UPLOAD ERROR:', err);
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/upload-movie', upload.single('movie'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No movie file received' });
+    }
+
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      resource_type: 'video',
+      chunk_size: 6000000 // Enables chunked upload for larger files
+    });
+
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    const newMovie = {
+      title: req.body.title || 'Untitled Movie',
+      uploadedBy: req.body.uploadedBy || 'Anonymous',
+      movieUrl: result.secure_url
+    };
+
+    globalMovies.push(newMovie);
+    res.json({ success: true, movie: newMovie });
+  } catch (err) {
+    console.error('MOVIE UPLOAD ERROR:', err);
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }

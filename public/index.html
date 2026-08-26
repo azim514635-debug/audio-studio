@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audio Studio Pro</title>
+  <title>Audio & Movie Studio Pro</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- NAME POPUP MODAL -->
   <div id="name-modal" class="modal-overlay">
     <div class="modal-card">
-      <h2>Welcome to Audio Studio</h2>
+      <h2>Welcome to Studio Pro</h2>
       <p>Please enter your name to unlock uploading and sending requests.</p>
       <input type="text" id="modal-name-input" placeholder="Your name...">
       <button id="modal-save-btn" class="btn-primary">Continue</button>
@@ -20,12 +20,14 @@
   <div class="app-container">
     <nav class="sidebar">
       <div class="brand">
-        <h2>Audio Studio</h2>
+        <h2>Studio Pro</h2>
         <span class="badge">PRO</span>
       </div>
       <ul class="nav-links">
         <li class="nav-item active" data-page="library">🎵 Songs</li>
+        <li class="nav-item" data-page="movies">🎬 Movies</li>
         <li class="nav-item" data-page="upload">⬆️ Upload Music</li>
+        <li class="nav-item" data-page="movie-upload">🎥 Upload Movie</li>
         <li class="nav-item" data-page="request">📩 Contact Azim</li>
         <li class="nav-item" data-page="admin">🔒 Admin Panel</li>
       </ul>
@@ -33,7 +35,7 @@
     </nav>
 
     <main class="main-content">
-      <!-- PAGE 1: SONGS LIBRARY (DEFAULT) -->
+      <!-- PAGE 1: SONGS LIBRARY -->
       <section id="page-library" class="page active">
         <div class="header-card">
           <h1>Music Library</h1>
@@ -44,7 +46,18 @@
         </div>
       </section>
 
-      <!-- PAGE 2: UPLOAD MUSIC -->
+      <!-- PAGE 2: MOVIES LIBRARY -->
+      <section id="page-movies" class="page">
+        <div class="header-card">
+          <h1>Movie Library</h1>
+          <p>Watch movies shared by the community.</p>
+        </div>
+        <div class="card">
+          <ul id="movie-list" class="track-list"></ul>
+        </div>
+      </section>
+
+      <!-- PAGE 3: UPLOAD MUSIC -->
       <section id="page-upload" class="page">
         <h2>Upload Your Music</h2>
         <div class="card">
@@ -57,7 +70,20 @@
         </div>
       </section>
 
-      <!-- PAGE 3: REQUEST -->
+      <!-- PAGE 4: UPLOAD MOVIE -->
+      <section id="page-movie-upload" class="page">
+        <h2>Upload a Movie</h2>
+        <div class="card">
+          <form id="movie-upload-form">
+            <input type="text" id="movie-title-input" placeholder="Enter movie title..." required>
+            <input type="file" id="movie-file" accept="video/*" required>
+            <button type="submit" class="btn-primary" id="movie-upload-btn">Upload Movie</button>
+          </form>
+          <p id="movie-upload-status" style="margin-top: 10px; font-size: 0.9rem; color: #38bdf8;"></p>
+        </div>
+      </section>
+
+      <!-- PAGE 5: REQUEST -->
       <section id="page-request" class="page">
         <h2>Send a Request to Azim</h2>
         <div class="card">
@@ -66,7 +92,7 @@
         </div>
       </section>
 
-      <!-- PAGE 4: ADMIN -->
+      <!-- PAGE 6: ADMIN -->
       <section id="page-admin" class="page">
         <h2>Admin Dashboard</h2>
         <div class="card">
