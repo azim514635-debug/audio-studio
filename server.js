@@ -93,7 +93,7 @@ app.get('/', (req, res) => {
               sContainer.innerHTML = data.songs.map(s => \`
                 <div class="card">
                   <img src="\${s.thumbnailUrl}" alt="\${s.title}">
-                  <h3>\_\_escaped_string_\_\_\${s.title}</h3>
+                  <h3>\${s.title}</h3>
                   <a href="\${s.songUrl}" target="_blank">Play Song</a>
                 </div>
               \`).join('');
@@ -153,4 +153,4 @@ app.post('/api/admin/link', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(\`Server running on port \${PORT}\`));
