@@ -43,7 +43,17 @@ app.get('/api/data', (req, res) => {
   res.json({ songs, movies });
 });
 
-// Upload Song (No thumbnail needed)
+// Verify Admin Password Route
+app.post('/api/verify-admin', (req, res) => {
+  const { adminSecret } = req.body;
+  if (adminSecret === ADMIN_SECRET) {
+    res.json({ success: true });
+  } else {
+    res.status(403).json({ success: false });
+  }
+});
+
+// Upload Song (File)
 app.post('/api/upload/song', upload.single('mediaFile'), async (req, res) => {
   try {
     const { title, uploader } = req.body;
@@ -58,7 +68,8 @@ app.post('/api/upload/song', upload.single('mediaFile'), async (req, res) => {
       id: Date.now().toString(),
       title,
       uploader: uploader || 'Anonymous',
-      songUrl
+      songUrl,
+      thumbnailUrl: ''
     });
     res.redirect('/');
   } catch (err) {
@@ -66,7 +77,7 @@ app.post('/api/upload/song', upload.single('mediaFile'), async (req, res) => {
   }
 });
 
-// Upload Movie (No thumbnail needed)
+// Upload Movie (File)
 app.post('/api/upload/movie', upload.single('mediaFile'), async (req, res) => {
   try {
     const { title, uploader } = req.body;
@@ -81,12 +92,35 @@ app.post('/api/upload/movie', upload.single('mediaFile'), async (req, res) => {
       id: Date.now().toString(),
       title,
       uploader: uploader || 'Anonymous',
-      movieUrl
+      movieUrl,
+      thumbnailUrl: ''
     });
     res.redirect('/');
   } catch (err) {
     res.status(500).send("Upload failed: " + err.message);
   }
+});
+
+// Upload Link (Admin only)
+app.post('/api/upload/link', (req, res) => {
+  const { type, title, mediaUrl, thumbnailUrl, adminSecret } = req.body;
+  if (adminSecret !== ADMIN_SECRET) return res.status(403).send("Unauthorized");
+
+  const newItem = {
+    id: Date.now().toString(),
+    title,
+    uploader: 'Admin',
+    thumbnailUrl: thumbnailUrl || ''
+  };
+
+  if (type === 'song') {
+    newItem.songUrl = mediaUrl;
+    songs.push(newItem);
+  } else {
+    newItem.movieUrl = mediaUrl;
+    movies.push(newItem);
+  }
+  res.redirect('/');
 });
 
 // Delete file

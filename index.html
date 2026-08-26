@@ -8,13 +8,12 @@
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0f19; color: #f8fafc; padding: 20px; margin: 0; }
     .container { max-width: 500px; margin: 0 auto; }
     
-    /* Welcome Popup Overlay */
     #welcome-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 15, 25, 0.95); display: flex; justify-content: center; align-items: center; z-index: 9999; }
     .modal-box { background: #131b2e; padding: 30px; border-radius: 16px; width: 85%; max-width: 350px; text-align: center; border: 1px solid #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
     .modal-box h2 { color: #38bdf8; margin-top: 0; font-size: 22px; }
     .modal-box p { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
 
-    .main-title { text-align: center; color: #38bdf8; font-size: 24px; font-weight: bold; margin-bottom: 20px; letter-spacing: 0.5px; }
+    .main-title { text-align: center; color: #38bdf8; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
 
     .menu-list { background: #131b2e; border-radius: 12px; padding: 10px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
     .menu-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: #cbd5e1; text-decoration: none; font-size: 16px; font-weight: 500; border-radius: 8px; cursor: pointer; }
@@ -31,12 +30,13 @@
     .section-title { color: #38bdf8; font-size: 18px; margin: 15px 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 25px; }
     .card { background: #1e293b; padding: 12px; border-radius: 10px; text-align: center; position: relative; }
-    .card h3 { font-size: 14px; margin: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
-    .card p { font-size: 11px; color: #94a3b8; margin: 0 0 8px 0; }
+    .card img { width: 100%; height: 100px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }
+    .card h3 { font-size: 14px; margin: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+    .card p { font-size: 11px; color: #94a3b8; margin: 0 0 6px 0; }
     .card-actions button { background: #334155; color: #fff; border: none; padding: 4px 8px; font-size: 10px; border-radius: 4px; cursor: pointer; margin: 2px; width: auto; }
     .card-actions button.del { background: #ef4444; }
     
-    .admin-section { background: #131b2e; padding: 20px; border-radius: 12px; border: 1px solid #1e293b; }
+    .admin-section { background: #131b2e; padding: 20px; border-radius: 12px; border: 1px solid #1e293b; margin-bottom: 15px; }
     .admin-section h3 { color: #fbbf24; margin-top: 0; margin-bottom: 15px; }
     label { font-size: 12px; color: #94a3b8; display: block; margin-top: 8px; }
     input, select { display: block; width: 100%; box-sizing: border-box; margin: 4px 0 10px; padding: 10px; background: #0b0f19; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-  <!-- Welcome Popup Modal -->
+  <!-- Welcome Popup -->
   <div id="welcome-modal">
     <div class="modal-box">
       <h2>Azim's Studio Pro</h2>
@@ -89,11 +89,21 @@
       <div id="movies-container" class="grid"><p style="color: #64748b; font-size: 13px;">No movies available.</p></div>
     </div>
 
-    <!-- Upload Tab with Selector Menu -->
+    <!-- Upload Tab -->
     <div id="upload-tab" class="content-section">
       <div class="admin-section">
         <h3>Upload Media</h3>
         <p style="font-size:12px; color:#94a3b8; margin-top:0;">Uploading as: <strong id="displayUploader" style="color:#38bdf8;"></strong></p>
+
+        <!-- Admin-only extra selector wrapper -->
+        <div id="adminUploadOptions" style="display:none; background:#1e293b; padding:12px; border-radius:8px; margin-bottom:12px; border: 1px dashed #fbbf24;">
+          <p style="color:#fbbf24; font-size:12px; margin:0 0 6px 0; font-weight:bold;">🔓 Admin Mode Active</p>
+          <label>Upload Source Type:</label>
+          <select id="sourceTypeSelector" onchange="toggleSourceType()">
+            <option value="device">📱 Choose File from Device</option>
+            <option value="link">🔗 External Link + Thumbnail URL</option>
+          </select>
+        </div>
 
         <label>Select Media Type:</label>
         <select id="mediaTypeSelector" onchange="toggleUploadForm()">
@@ -103,10 +113,23 @@
 
         <form id="dynamicUploadForm" action="/api/upload/song" method="POST" enctype="multipart/form-data">
           <input type="hidden" name="uploader" id="hiddenUploaderField">
+          <input type="hidden" name="adminSecret" id="hiddenAdminSecretField">
+          
           <label id="titleLabel">Song Title:</label>
           <input type="text" name="title" id="formTitleInput" placeholder="Enter title" required>
-          <label id="fileLabel">Audio File (.mp3):</label>
-          <input type="file" name="mediaFile" id="formFileInput" accept="audio/*" required>
+          
+          <div id="fileInputContainer">
+            <label id="fileLabel">Audio File (.mp3):</label>
+            <input type="file" name="mediaFile" id="formFileInput" accept="audio/*" required>
+          </div>
+
+          <div id="linkInputContainer" style="display:none;">
+            <label>Direct Media URL:</label>
+            <input type="text" name="mediaUrl" id="formMediaUrl" placeholder="https://...">
+            <label>Thumbnail Image URL (Optional):</label>
+            <input type="text" name="thumbnailUrl" id="formThumbUrl" placeholder="https://...">
+          </div>
+
           <button type="submit" id="submitBtnText">Upload Song</button>
         </form>
       </div>
@@ -115,10 +138,10 @@
     <!-- Admin Panel Tab -->
     <div id="admin-tab" class="content-section">
       <div class="admin-section">
-        <h3>🔒 Admin Control</h3>
+        <h3>🔒 Admin Control Panel</h3>
         <label>Admin Password:</label>
-        <input type="password" id="adminPassInput" placeholder="Enter Admin Password">
-        <p style="font-size:11px; color:#94a3b8;">Entering the correct password grants absolute power to edit or delete any file on the site.</p>
+        <input type="password" id="adminPassInput" placeholder="Enter Admin Password" oninput="checkAdminPassword()">
+        <p id="adminStatusText" style="font-size:12px; color:#ef4444; margin-top:8px;">Status: Locked 🔒</p>
       </div>
     </div>
 
@@ -129,6 +152,7 @@
 
   <script>
     let currentUser = localStorage.getItem('azimStudioUser') || '';
+    let isAdminUnlocked = false;
 
     if(currentUser) {
       document.getElementById('welcome-modal').style.display = 'none';
@@ -137,14 +161,63 @@
 
     function saveWelcomeName() {
       const val = document.getElementById('popupNameInput').value.trim();
-      if(!val) {
-        alert("Please enter your name!");
-        return;
-      }
+      if(!val) { alert("Please enter your name!"); return; }
       currentUser = val;
       localStorage.setItem('azimStudioUser', currentUser);
       document.getElementById('displayUploader').innerText = currentUser;
       document.getElementById('welcome-modal').style.display = 'none';
+    }
+
+    async function checkAdminPassword() {
+      const adminSecret = document.getElementById('adminPassInput').value;
+      document.getElementById('hiddenAdminSecretField').value = adminSecret;
+
+      const res = await fetch('/api/verify-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminSecret })
+      });
+
+      const data = await res.json();
+      const adminBox = document.getElementById('adminUploadOptions');
+      const statusText = document.getElementById('adminStatusText');
+
+      if(data.success) {
+        isAdminUnlocked = true;
+        adminBox.style.display = 'block';
+        statusText.style.color = '#38bdf8';
+        statusText.innerText = 'Status: Unlocked 🔓 (Link & URL options enabled in Upload Tab)';
+      } else {
+        isAdminUnlocked = false;
+        adminBox.style.display = 'none';
+        statusText.style.color = '#ef4444';
+        statusText.innerText = 'Status: Locked 🔒';
+      }
+      toggleSourceType();
+    }
+
+    function toggleSourceType() {
+      const source = isAdminUnlocked ? document.getElementById('sourceTypeSelector').value : 'device';
+      const fileContainer = document.getElementById('fileInputContainer');
+      const linkContainer = document.getElementById('linkInputContainer');
+      const fileInput = document.getElementById('formFileInput');
+      const mediaUrlInput = document.getElementById('formMediaUrl');
+      const form = document.getElementById('dynamicUploadForm');
+      const mediaType = document.getElementById('mediaTypeSelector').value;
+
+      if(source === 'link') {
+        fileContainer.style.display = 'none';
+        linkContainer.style.display = 'block';
+        fileInput.required = false;
+        mediaUrlInput.required = true;
+        form.action = '/api/upload/link';
+      } else {
+        fileContainer.style.display = 'block';
+        linkContainer.style.display = 'none';
+        fileInput.required = true;
+        mediaUrlInput.required = false;
+        form.action = mediaType === 'song' ? '/api/upload/song' : '/api/upload/movie';
+      }
     }
 
     function toggleUploadForm() {
@@ -156,36 +229,33 @@
       const submitBtn = document.getElementById('submitBtnText');
 
       form.querySelector('#hiddenUploaderField').value = currentUser;
+      form.querySelector('#hiddenAdminSecretField').value = document.getElementById('adminPassInput').value;
+
+      const source = isAdminUnlocked ? document.getElementById('sourceTypeSelector').value : 'device';
 
       if(type === 'song') {
-        form.action = '/api/upload/song';
         titleLabel.innerText = 'Song Title:';
         fileLabel.innerText = 'Audio File (.mp3):';
         fileInput.accept = 'audio/*';
         submitBtn.innerText = 'Upload Song';
+        if(source === 'device') form.action = '/api/upload/song';
       } else {
-        form.action = '/api/upload/movie';
         titleLabel.innerText = 'Movie Title:';
         fileLabel.innerText = 'Video File (.mp4):';
         fileInput.accept = 'video/*';
         submitBtn.innerText = 'Upload Movie';
+        if(source === 'device') form.action = '/api/upload/movie';
       }
+      if(source === 'link') form.action = '/api/upload/link';
     }
-
-    // Initialize form setting on load
-    document.addEventListener("DOMContentLoaded", () => {
-      const hiddenField = document.getElementById('hiddenUploaderField');
-      if(hiddenField) hiddenField.value = currentUser;
-    });
 
     function switchTab(tabId, element) {
       document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
       document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
       document.getElementById(tabId).classList.add('active');
       element.classList.add('active');
-      if(tabId === 'upload-tab') {
-        document.getElementById('hiddenUploaderField').value = currentUser;
-      }
+      document.getElementById('hiddenUploaderField').value = currentUser;
+      document.getElementById('hiddenAdminSecretField').value = document.getElementById('adminPassInput').value;
     }
 
     function getAdminSecret() {
@@ -203,7 +273,7 @@
       });
 
       if(res.ok) location.reload();
-      else alert("Unauthorized! Only the uploader or admin can delete this file.");
+      else alert("Unauthorized!");
     }
 
     async function renameFile(type, id) {
@@ -218,7 +288,7 @@
       });
 
       if(res.ok) location.reload();
-      else alert("Unauthorized! Only the uploader or admin can rename this file.");
+      else alert("Unauthorized!");
     }
 
     fetch('/api/data')
@@ -228,6 +298,7 @@
         if(data.songs.length > 0) {
           sContainer.innerHTML = data.songs.map(s => `
             <div class="card">
+              ${s.thumbnailUrl ? `<img src="${s.thumbnailUrl}" alt="${s.title}">` : ''}
               <h3>${s.title}</h3>
               <p>By: ${s.uploader}</p>
               <audio controls style="width:100%; margin-top:4px; height:28px;"><source src="${s.songUrl}" type="audio/mpeg"></audio>
@@ -243,6 +314,7 @@
         if(data.movies.length > 0) {
           mContainer.innerHTML = data.movies.map(m => `
             <div class="card">
+              ${m.thumbnailUrl ? `<img src="${m.thumbnailUrl}" alt="${m.title}">` : ''}
               <h3>${m.title}</h3>
               <p>By: ${m.uploader}</p>
               <a href="${m.movieUrl}" target="_blank" style="display:block; margin-top:4px; background:#38bdf8; color:#0b0f19; padding:6px; text-decoration:none; border-radius:4px; font-weight:bold; font-size:12px;">Watch Movie</a>
