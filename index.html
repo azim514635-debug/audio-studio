@@ -111,7 +111,7 @@
           <option value="movie">🎬 Movie (.mp4)</option>
         </select>
 
-        <form id="dynamicUploadForm" action="/api/upload/song" method="POST" enctype="multipart/form-data">
+        <form id="dynamicUploadForm" onsubmit="handleFormSubmit(event)">
           <input type="hidden" name="uploader" id="hiddenUploaderField">
           <input type="hidden" name="adminSecret" id="hiddenAdminSecretField">
           
@@ -153,6 +153,7 @@
   <script>
     let currentUser = localStorage.getItem('azimStudioUser') || '';
     let isAdminUnlocked = false;
+    let currentActionUrl = '/api/upload/song';
 
     if(currentUser) {
       document.getElementById('welcome-modal').style.display = 'none';
@@ -202,7 +203,6 @@
       const linkContainer = document.getElementById('linkInputContainer');
       const fileInput = document.getElementById('formFileInput');
       const mediaUrlInput = document.getElementById('formMediaUrl');
-      const form = document.getElementById('dynamicUploadForm');
       const mediaType = document.getElementById('mediaTypeSelector').value;
 
       if(source === 'link') {
@@ -210,26 +210,25 @@
         linkContainer.style.display = 'block';
         fileInput.required = false;
         mediaUrlInput.required = true;
-        form.action = '/api/upload/link';
+        currentActionUrl = '/api/upload/link';
       } else {
         fileContainer.style.display = 'block';
         linkContainer.style.display = 'none';
         fileInput.required = true;
         mediaUrlInput.required = false;
-        form.action = mediaType === 'song' ? '/api/upload/song' : '/api/upload/movie';
+        currentActionUrl = mediaType === 'song' ? '/api/upload/song' : '/api/upload/movie';
       }
     }
 
     function toggleUploadForm() {
       const type = document.getElementById('mediaTypeSelector').value;
-      const form = document.getElementById('dynamicUploadForm');
       const titleLabel = document.getElementById('titleLabel');
       const fileLabel = document.getElementById('fileLabel');
       const fileInput = document.getElementById('formFileInput');
       const submitBtn = document.getElementById('submitBtnText');
 
-      form.querySelector('#hiddenUploaderField').value = currentUser;
-      form.querySelector('#hiddenAdminSecretField').value = document.getElementById('adminPassInput').value;
+      document.getElementById('hiddenUploaderField').value = currentUser;
+      document.getElementById('hiddenAdminSecretField').value = document.getElementById('adminPassInput').value;
 
       const source = isAdminUnlocked ? document.getElementById('sourceTypeSelector').value : 'device';
 
@@ -238,15 +237,55 @@
         fileLabel.innerText = 'Audio File (.mp3):';
         fileInput.accept = 'audio/*';
         submitBtn.innerText = 'Upload Song';
-        if(source === 'device') form.action = '/api/upload/song';
+        if(source === 'device') currentActionUrl = '/api/upload/song';
       } else {
         titleLabel.innerText = 'Movie Title:';
         fileLabel.innerText = 'Video File (.mp4):';
         fileInput.accept = 'video/*';
         submitBtn.innerText = 'Upload Movie';
-        if(source === 'device') form.action = '/api/upload/movie';
+        if(source === 'device') currentActionUrl = '/api/upload/movie';
       }
-      if(source === 'link') form.action = '/api/upload/link';
+      if(source === 'link') currentActionUrl = '/api/upload/link';
+    }
+
+    async function handleFormSubmit(event) {
+      event.preventDefault();
+      const form = document.getElementById('dynamicUploadForm');
+      document.getElementById('hiddenUploaderField').value = currentUser;
+      document.getElementById('hiddenAdminSecretField').value = document.getElementById('adminPassInput').value;
+
+      const formData = new FormData(form);
+      
+      // If using link mode, pass the correct sub-type
+      if(currentActionUrl === '/api/upload/link') {
+        formData.append('type', document.getElementById('mediaTypeSelector').value);
+      }
+
+      const submitBtn = document.getElementById('submitBtnText');
+      const originalText = submitBtn.innerText;
+      submitBtn.innerText = 'Uploading... Please wait...';
+      submitBtn.disabled = true;
+
+      try {
+        const res = await fetch(currentActionUrl, {
+          method: 'POST',
+          body: formData
+        });
+
+        if(res.ok) {
+          alert('Upload successful!');
+          location.reload();
+        } else {
+          const errText = await res.text();
+          alert('Upload failed: ' + errText);
+          submitBtn.innerText = originalText;
+          submitBtn.disabled = false;
+        }
+      } catch (err) {
+        alert('Network error during upload: ' + err.message);
+        submitBtn.innerText = originalText;
+        submitBtn.disabled = false;
+      }
     }
 
     function switchTab(tabId, element) {

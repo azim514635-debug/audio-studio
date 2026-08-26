@@ -71,7 +71,7 @@ app.post('/api/upload/song', upload.single('mediaFile'), async (req, res) => {
       songUrl,
       thumbnailUrl: ''
     });
-    res.redirect('/');
+    res.send("Success");
   } catch (err) {
     res.status(500).send("Upload failed: " + err.message);
   }
@@ -95,7 +95,7 @@ app.post('/api/upload/movie', upload.single('mediaFile'), async (req, res) => {
       movieUrl,
       thumbnailUrl: ''
     });
-    res.redirect('/');
+    res.send("Success");
   } catch (err) {
     res.status(500).send("Upload failed: " + err.message);
   }
@@ -120,7 +120,7 @@ app.post('/api/upload/link', (req, res) => {
     newItem.movieUrl = mediaUrl;
     movies.push(newItem);
   }
-  res.redirect('/');
+  res.send("Success");
 });
 
 // Delete file
