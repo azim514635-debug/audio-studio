@@ -6,54 +6,79 @@
   <title>Azim's Studio Pro</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0f19; color: #f8fafc; padding: 20px; margin: 0; }
-    .container { max-width: 800px; margin: 0 auto; }
-    .brand-header { font-size: 24px; font-weight: bold; color: #fff; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
-    .brand-header span { background: #6366f1; font-size: 11px; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px; }
+    .container { max-width: 500px; margin: 0 auto; }
     
-    h2 { color: #38bdf8; font-size: 20px; margin-top: 30px; display: flex; align-items: center; gap: 8px; }
+    /* Menu Links List */
+    .menu-list { background: #131b2e; border-radius: 12px; padding: 10px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .menu-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: #cbd5e1; text-decoration: none; font-size: 16px; font-weight: 500; border-radius: 8px; transition: background 0.2s; }
+    .menu-item:hover, .menu-item.active { background: #1e293b; color: #38bdf8; }
+    .menu-item.active { background: #1e1b4b; color: #818cf8; }
     
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin-bottom: 25px; }
-    .card { background: #1e293b; padding: 10px; border-radius: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
-    .card img { width: 100%; height: 160px; object-fit: cover; border-radius: 6px; }
+    /* Hero Banner Card */
+    .hero-card { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 24px; border-radius: 16px; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3); }
+    .hero-card h1 { font-size: 26px; margin: 0 0 8px 0; color: #ffffff; }
+    .hero-card p { margin: 0; color: #e0e7ff; font-size: 14px; line-height: 1.5; }
+
+    /* Content Sections */
+    .section-title { color: #38bdf8; font-size: 18px; margin: 25px 0 15px 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 25px; }
+    .card { background: #1e293b; padding: 10px; border-radius: 10px; text-align: center; }
+    .card img { width: 100%; height: 140px; object-fit: cover; border-radius: 6px; }
     .card h3 { font-size: 14px; margin: 8px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card a { display: block; margin-top: 6px; background: #38bdf8; color: #0b0f19; padding: 6px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; }
-    .card a:hover { background: #0ea5e9; }
-    
-    .admin-section { background: #151c2c; padding: 20px; border-radius: 12px; margin-top: 40px; border: 1px solid #1e293b; box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
-    .admin-section h3 { color: #fbbf24; margin-top: 0; margin-bottom: 20px; }
-    .admin-section h4 { color: #f8fafc; margin-bottom: 8px; font-size: 15px; }
-    
-    input { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 14px; padding: 10px 12px; background: #0b0f19; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
-    input:focus { outline: none; border-color: #38bdf8; }
-    
-    button { background: #6366f1; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 8px; font-weight: bold; width: 100%; font-size: 14px; transition: background 0.2s; }
+
+    /* Admin Section */
+    .admin-section { background: #131b2e; padding: 20px; border-radius: 12px; margin-top: 30px; border: 1px solid #1e293b; }
+    .admin-section h3 { color: #fbbf24; margin-top: 0; margin-bottom: 15px; }
+    .admin-section h4 { color: #f8fafc; margin-bottom: 6px; font-size: 14px; }
+    input { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 12px; padding: 10px; background: #0b0f19; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
+    button { background: #6366f1; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 8px; font-weight: bold; width: 100%; font-size: 14px; }
     button:hover { background: #4f46e5; }
-    
-    .empty-text { color: #64748b; font-size: 14px; margin: 5px 0 15px; }
-    hr { border: 0; border-top: 1px solid #1e293b; margin: 25px 0; }
+    hr { border: 0; border-top: 1px solid #1e293b; margin: 20px 0; }
+
+    /* Footer */
+    .footer { text-align: center; color: #64748b; font-size: 13px; margin: 40px 0 20px 0; }
+    .footer span { color: #ef4444; }
+    .footer strong { color: #a855f7; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="brand-header">Azim's Studio Pro <span>PRO</span></div>
+    <!-- Navigation List Menu -->
+    <div class="menu-list">
+      <a href="#songs" class="menu-item active">🎵 Songs</a>
+      <a href="#movies" class="menu-item">🎬 Movies</a>
+      <a href="#admin" class="menu-item">⬆️ Upload Music</a>
+      <a href="#admin" class="menu-item">🎥 Upload Movie</a>
+      <a href="#contact" class="menu-item">✉️ Contact Azim</a>
+      <a href="#admin" class="menu-item">🔒 Admin Panel</a>
+    </div>
 
-    <h2>🎵 Songs</h2>
-    <div id="songs-container" class="grid"><p class="empty-text">No songs available.</p></div>
+    <!-- Hero Card Banner -->
+    <div class="hero-card">
+      <h1>Music Library</h1>
+      <p>Listen to songs uploaded by the community.</p>
+    </div>
 
-    <h2>🎬 Movies</h2>
-    <div id="movies-container" class="grid"><p class="empty-text">No movies available.</p></div>
+    <!-- Content Displays -->
+    <h3 class="section-title">🎵 Songs Library</h3>
+    <div id="songs-container" class="grid"><p style="color: #64748b; font-size: 13px;">No songs available.</p></div>
 
-    <h2>📂 External Links & Downloads</h2>
-    <div id="links-container" class="grid"><p class="empty-text">No links available.</p></div>
+    <h3 class="section-title">🎬 Movies Library</h3>
+    <div id="movies-container" class="grid"><p style="color: #64748b; font-size: 13px;">No movies available.</p></div>
 
-    <div class="admin-section">
-      <h3>🔒 Admin Panel (Uploads)</h3>
+    <h3 class="section-title">📂 External Links</h3>
+    <div id="links-container" class="grid"><p style="color: #64748b; font-size: 13px;">No links available.</p></div>
+
+    <!-- Admin Upload Panel -->
+    <div class="admin-section" id="admin">
+      <h3>🔒 Admin Panel & Uploads</h3>
       
       <form action="/api/admin/song" method="POST">
         <h4>Upload Song</h4>
-        <input type="text" name="title" placeholder="Enter song name..." required>
+        <input type="text" name="title" placeholder="Song Name" required>
         <input type="text" name="thumbnailUrl" placeholder="Thumbnail Image URL" required>
-        <input type="text" name="songUrl" placeholder="Song Stream/Audio URL" required>
+        <input type="text" name="songUrl" placeholder="Audio Stream URL" required>
         <input type="password" name="adminSecret" placeholder="Admin Password" required>
         <button type="submit">Add Song</button>
       </form>
@@ -64,7 +89,7 @@
         <h4>Upload Movie</h4>
         <input type="text" name="title" placeholder="Movie Title" required>
         <input type="text" name="thumbnailUrl" placeholder="Thumbnail Image URL" required>
-        <input type="text" name="movieUrl" placeholder="Movie URL" required>
+        <input type="text" name="movieUrl" placeholder="Movie Watch URL" required>
         <input type="password" name="adminSecret" placeholder="Admin Password" required>
         <button type="submit">Add Movie</button>
       </form>
@@ -72,13 +97,18 @@
       <hr>
 
       <form action="/api/admin/link" method="POST">
-        <h4>Upload External Link (e.g., Download Link)</h4>
-        <input type="text" name="title" placeholder="Link Title (e.g., Download Avengers Here)" required>
+        <h4>Upload External Link</h4>
+        <input type="text" name="title" placeholder="Link Title" required>
         <input type="text" name="thumbnailUrl" placeholder="Thumbnail Image URL" required>
-        <input type="text" name="redirectUrl" placeholder="Destination Custom URL" required>
+        <input type="text" name="redirectUrl" placeholder="Destination URL" required>
         <input type="password" name="adminSecret" placeholder="Admin Password" required>
-        <button type="submit">Add External Link</button>
+        <button type="submit">Add Link</button>
       </form>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer" id="contact">
+      Created & Maintained with <span>❤</span> by <strong>Azim</strong>
     </div>
   </div>
 
@@ -92,7 +122,7 @@
             <div class="card">
               <img src="${s.thumbnailUrl}" alt="${s.title}">
               <h3>${s.title}</h3>
-              <a href="${s.songUrl}" target="_blank">Play Song</a>
+              <a href="${s.songUrl}" target="_blank">Play</a>
             </div>
           `).join('');
         }
@@ -103,7 +133,7 @@
             <div class="card">
               <img src="${m.thumbnailUrl}" alt="${m.title}">
               <h3>${m.title}</h3>
-              <a href="${m.movieUrl}" target="_blank">Watch Movie</a>
+              <a href="${m.movieUrl}" target="_blank">Watch</a>
             </div>
           `).join('');
         }
@@ -114,7 +144,7 @@
             <div class="card">
               <img src="${l.thumbnailUrl}" alt="${l.title}">
               <h3>${l.title}</h3>
-              <a href="${l.redirectUrl}" target="_blank">Open Link</a>
+              <a href="${l.redirectUrl}" target="_blank">Open</a>
             </div>
           `).join('');
         }
