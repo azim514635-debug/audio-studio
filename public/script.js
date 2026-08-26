@@ -40,6 +40,7 @@ navItems.forEach(item => {
       const password = prompt('Enter Admin Password:');
       if (password === 'azim-website') {
         isAdminUnlocked = true;
+        alert('Admin unlocked! You can now manage files directly from the library pages too.');
       } else {
         alert('Incorrect Password!');
         return;
@@ -132,7 +133,16 @@ async function fetchGlobalTracks() {
   }
   trackList.innerHTML = tracks.map(t => `
     <li style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
-      <strong style="color: #fff;">${t.title}</strong>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <strong style="color: #fff;">🎵 ${t.title} <span style="font-size:0.8rem; color:#94a3b8; font-weight:normal;">(By: ${t.uploadedBy})</span></strong>
+        ${isAdminUnlocked ? `
+          <div style="display:flex; gap:6px;">
+            <button onclick="viewInfo('Song', '${t.title}', '${t.uploadedBy}')" class="btn-primary" style="padding:4px 8px; font-size:0.75rem; background:#0ea5e9;">Info</button>
+            <button onclick="renameItem('track', '${t.id}', '${t.title}')" class="btn-primary" style="padding:4px 8px; font-size:0.75rem;">Rename</button>
+            <button onclick="deleteItem('track', '${t.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.75rem;">Delete</button>
+          </div>
+        ` : ''}
+      </div>
       <audio controls src="${t.audioUrl}" style="width: 100%;"></audio>
     </li>`).join('');
 }
@@ -147,7 +157,16 @@ async function fetchGlobalMovies() {
   }
   movieList.innerHTML = movies.map(m => `
     <li style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
-      <strong style="color: #fff;">${m.title}</strong>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <strong style="color: #fff;">🎬 ${m.title} <span style="font-size:0.8rem; color:#94a3b8; font-weight:normal;">(By: ${m.uploadedBy})</span></strong>
+        ${isAdminUnlocked ? `
+          <div style="display:flex; gap:6px;">
+            <button onclick="viewInfo('Movie', '${m.title}', '${m.uploadedBy}')" class="btn-primary" style="padding:4px 8px; font-size:0.75rem; background:#0ea5e9;">Info</button>
+            <button onclick="renameItem('movie', '${m.id}', '${m.title}')" class="btn-primary" style="padding:4px 8px; font-size:0.75rem;">Rename</button>
+            <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.75rem;">Delete</button>
+          </div>
+        ` : ''}
+      </div>
       <video controls src="${m.movieUrl}" style="width: 100%; max-height: 250px; border-radius: 6px;"></video>
     </li>`).join('');
 }
@@ -166,9 +185,10 @@ async function loadAdminDashboard() {
     html += `
       <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
         <span style="color:#fff;">🎵 ${t.title}</span>
-        <div>
+        <div style="display:flex; gap:6px;">
+          <button onclick="viewInfo('Song', '${t.title}', '${t.uploadedBy}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Info</button>
           <button onclick="renameItem('track', '${t.id}', '${t.title}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
-          <button onclick="deleteItem('track', '${t.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem; margin-left:6px;">Delete</button>
+          <button onclick="deleteItem('track', '${t.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
         </div>
       </div>`;
   });
@@ -179,15 +199,20 @@ async function loadAdminDashboard() {
     html += `
       <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
         <span style="color:#fff;">🎬 ${m.title}</span>
-        <div>
+        <div style="display:flex; gap:6px;">
+          <button onclick="viewInfo('Movie', '${m.title}', '${m.uploadedBy}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Info</button>
           <button onclick="renameItem('movie', '${m.id}', '${m.title}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
-          <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem; margin-left:6px;">Delete</button>
+          <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
         </div>
       </div>`;
   });
 
   box.innerHTML = html;
 }
+
+window.viewInfo = function(type, title, uploader) {
+  alert(`File Details:\n- Type: ${type}\n- Title: ${title}\n- Uploaded By: ${uploader}`);
+};
 
 window.deleteItem = async function(type, id) {
   if (!confirm('Are you sure you want to delete this file?')) return;
