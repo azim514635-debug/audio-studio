@@ -19,7 +19,6 @@ app.use(express.urlencoded({ extended: true }));
 
 let songs = [];
 let movies = [];
-let externalLinks = [];
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "mypassword123";
 
@@ -28,7 +27,7 @@ const uploadToCloudinary = (fileBuffer) => {
     let stream = cloudinary.uploader.upload_stream(
       { resource_type: "auto" },
       (error, result) => {
-        if (result) resolve(result.secure_url);
+        if (result) resolve(result);
         else reject(error);
       }
     );
@@ -41,53 +40,99 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/data', (req, res) => {
-  res.json({ songs, movies, links: externalLinks });
+  res.json({ songs, movies });
 });
 
-app.post('/api/admin/song', upload.fields([{ name: 'thumbnail' }, { name: 'audioFile' }]), async (req, res) => {
+// Upload Song
+app.post('/api/upload/song', upload.fields([{ name: 'thumbnail' }, { name: 'audioFile' }]), async (req, res) => {
   try {
-    const { title, adminSecret } = req.body;
-    if (adminSecret !== ADMIN_SECRET) return res.status(403).send("Unauthorized");
-
+    const { title, uploader } = req.body;
     let thumbnailUrl = '';
     let songUrl = '';
 
     if (req.files['thumbnail']) {
-      thumbnailUrl = await uploadToCloudinary(req.files['thumbnail'][0].buffer);
+      const resImg = await uploadToCloudinary(req.files['thumbnail'][0].buffer);
+      thumbnailUrl = resImg.secure_url;
     }
     if (req.files['audioFile']) {
-      songUrl = await uploadToCloudinary(req.files['audioFile'][0].buffer);
+      const resAudio = await uploadToCloudinary(req.files['audioFile'][0].buffer);
+      songUrl = resAudio.secure_url;
     }
 
-    songs.push({ title, thumbnailUrl, songUrl });
+    songs.push({
+      id: Date.now().toString(),
+      title,
+      uploader: uploader || 'Anonymous',
+      thumbnailUrl,
+      songUrl
+    });
     res.redirect('/');
   } catch (err) {
-    console.error(err);
     res.status(500).send("Upload failed: " + err.message);
   }
 });
 
-app.post('/api/admin/movie', upload.fields([{ name: 'thumbnail' }, { name: 'movieFile' }]), async (req, res) => {
+// Upload Movie
+app.post('/api/upload/movie', upload.fields([{ name: 'thumbnail' }, { name: 'movieFile' }]), async (req, res) => {
   try {
-    const { title, adminSecret } = req.body;
-    if (adminSecret !== ADMIN_SECRET) return res.status(403).send("Unauthorized");
-
+    const { title, uploader } = req.body;
     let thumbnailUrl = '';
     let movieUrl = '';
 
     if (req.files['thumbnail']) {
-      thumbnailUrl = await uploadToCloudinary(req.files['thumbnail'][0].buffer);
+      const resImg = await uploadToCloudinary(req.files['thumbnail'][0].buffer);
+      thumbnailUrl = resImg.secure_url;
     }
     if (req.files['movieFile']) {
-      movieUrl = await uploadToCloudinary(req.files['movieFile'][0].buffer);
+      const resVideo = await uploadToCloudinary(req.files['movieFile'][0].buffer);
+      movieUrl = resVideo.secure_url;
     }
 
-    movies.push({ title, thumbnailUrl, movieUrl });
+    movies.push({
+      id: Date.now().toString(),
+      title,
+      uploader: uploader || 'Anonymous',
+      thumbnailUrl,
+      movieUrl
+    });
     res.redirect('/');
   } catch (err) {
-    console.error(err);
     res.status(500).send("Upload failed: " + err.message);
   }
+});
+
+// Delete file (Admin or Owner)
+app.post('/api/delete', (req, res) => {
+  const { type, id, uploader, adminSecret } = req.body;
+  const isAdmin = adminSecret === ADMIN_SECRET;
+
+  const list = type === 'song' ? songs : movies;
+  const index = list.findIndex(item => item.id === id);
+
+  if (index === -1) return res.status(404).send("Not found");
+
+  if (isAdmin || list[index].uploader === uploader) {
+    list.splice(index, 1);
+    return res.send("Success");
+  }
+  res.status(403).send("Unauthorized");
+});
+
+// Rename file (Admin or Owner)
+app.post('/api/rename', (req, res) => {
+  const { type, id, newTitle, uploader, adminSecret } = req.body;
+  const isAdmin = adminSecret === ADMIN_SECRET;
+
+  const list = type === 'song' ? songs : movies;
+  const item = list.find(i => i.id === id);
+
+  if (!item) return res.status(404).send("Not found");
+
+  if (isAdmin || item.uploader === uploader) {
+    item.title = newTitle;
+    return res.send("Success");
+  }
+  res.status(403).send("Unauthorized");
 });
 
 const PORT = process.env.PORT || 3000;
