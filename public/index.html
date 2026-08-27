@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audio & Movie Studio Pro</title>
+  <title>Studio Pro — Audio & Video Upload + Chat</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="name-modal" class="modal-overlay">
     <div class="modal-card">
       <h2>Welcome to Studio Pro</h2>
-      <p>Please enter your name to unlock uploading and sending requests.</p>
-      <input type="text" id="modal-name-input" placeholder="Your name...">
+      <p>Please enter your name to unlock uploading, chatting and sending requests.</p>
+      <input type="text" id="modal-name-input" placeholder="Your name..." autocomplete="off">
       <button id="modal-save-btn" class="btn-primary">Continue</button>
     </div>
   </div>
@@ -25,8 +25,8 @@
       <ul class="nav-links">
         <li class="nav-item active" data-page="library">🎵 Songs</li>
         <li class="nav-item" data-page="movies">🎬 Movies</li>
-        <li class="nav-item" data-page="upload">⬆️ Upload Music</li>
-        <li class="nav-item" data-page="movie-upload">🎥 Upload Movie</li>
+        <li class="nav-item" data-page="upload">⬆️ Upload Media</li>
+        <li class="nav-item" data-page="chat">💬 Chat <span class="nav-count" id="nav-message-count"></span></li>
         <li class="nav-item" data-page="request">📩 Contact Azim</li>
         <li class="nav-item" data-page="admin">🔒 Admin Panel</li>
       </ul>
@@ -34,6 +34,7 @@
     </nav>
 
     <main class="main-content">
+      <!-- Songs Library -->
       <section id="page-library" class="page active">
         <div class="header-card">
           <h1>Music Library</h1>
@@ -44,6 +45,7 @@
         </div>
       </section>
 
+      <!-- Movies Library -->
       <section id="page-movies" class="page">
         <div class="header-card">
           <h1>Movie Library</h1>
@@ -54,30 +56,115 @@
         </div>
       </section>
 
+      <!-- Professional Upload Media -->
       <section id="page-upload" class="page">
-        <h2>Upload Multiple Songs</h2>
-        <div class="card">
-          <form id="upload-form">
-            <input type="text" id="song-title-input" placeholder="Base song title prefix..." required>
-            <input type="file" id="audio-file" accept="audio/*" multiple required>
-            <button type="submit" class="btn-primary" id="upload-btn">Upload All Audio</button>
-          </form>
-          <p id="upload-status" style="margin-top: 10px; font-size: 0.9rem; color: #38bdf8;"></p>
+        <div class="header-card">
+          <h1>Professional Media Upload</h1>
+          <p>Upload audio &amp; video with live progress, link sharing and custom thumbnails.</p>
+        </div>
+
+        <div class="upload-layout">
+          <div class="card">
+            <div class="segmented" id="media-type-seg">
+              <button type="button" class="seg-btn active" data-kind="audio">🎵 Audio</button>
+              <button type="button" class="seg-btn" data-kind="video">🎬 Video</button>
+            </div>
+
+            <div class="segmented" id="source-seg" style="margin-top: 10px;">
+              <button type="button" class="seg-btn active" data-source="device">📁 From Device</button>
+              <button type="button" class="seg-btn" data-source="link">🔗 From Link</button>
+            </div>
+
+            <!-- Media name -->
+            <label class="field-label" for="media-title">Media Name</label>
+            <div id="name-prefix-wrap">
+              <input type="text" id="media-title" placeholder="e.g. My Summer Mix — Track 1">
+              <p class="field-hint" id="title-hint">Tip: when uploading multiple files, files are named <strong>“Name 1”, “Name 2”…</strong> using this prefix.</p>
+            </div>
+
+            <!-- DEVICE source -->
+            <div id="device-pane">
+              <input type="file" id="media-file" multiple hidden>
+              <div id="drop-zone">
+                <div class="drop-icon">⬆️</div>
+                <p><strong>Drop audio/video files here</strong></p>
+                <p class="field-hint">or</p>
+                <button type="button" class="btn-primary" id="pick-media-btn">Browse Files</button>
+                <p class="field-hint">MP3, M4A, WAV, MP4, MKV, MOV…</p>
+                <div id="selected-files" class="selected-files"></div>
+              </div>
+            </div>
+
+            <!-- LINK source -->
+            <div id="link-pane" style="display:none;">
+              <label class="field-label" for="media-url">Direct Media URL <span class="req">*</span></label>
+              <input type="url" id="media-url" placeholder="https://example.com/track.mp3">
+              <p class="field-hint">Link-only uploads require admin access.</p>
+            </div>
+
+            <!-- Thumbnail: URL or file -->
+            <div class="thumb-block">
+              <div class="thumb-options">
+                <label class="field-label">Thumbnail</label>
+                <div class="segmented" id="thumb-seg">
+                  <button type="button" class="seg-btn active" data-thumbsrc="url">🖼 URL</button>
+                  <button type="button" class="seg-btn" data-thumbsrc="file">📄 File</button>
+                </div>
+              </div>
+              <div id="thumb-url-wrap">
+                <input type="url" id="thumb-url" placeholder="https://example.com/cover.jpg (optional)">
+              </div>
+              <div id="thumb-file-wrap" style="display:none;">
+                <input type="file" id="thumb-file" accept="image/*" hidden>
+                <button type="button" class="btn-secondary" id="pick-thumb-btn">Choose Image File</button>
+                <span class="thumb-file-name" id="thumb-file-name">No image selected</span>
+              </div>
+              <div id="thumb-preview" class="thumb-preview" style="display:none;">
+                <img id="thumb-preview-img" alt="Thumbnail preview">
+                <button type="button" class="thumb-clear" id="thumb-clear-btn" title="Remove thumbnail">×</button>
+              </div>
+            </div>
+
+            <button type="button" class="btn-primary btn-lg" id="start-upload-btn">Upload Media</button>
+          </div>
+
+          <!-- Live queue / progress -->
+          <div class="card upload-queue-card">
+            <div class="card-header">
+              <h3 id="queue-title">Upload Queue</h3>
+              <span class="queue-status" id="queue-status">Ready</span>
+            </div>
+            <div id="upload-queue" class="upload-queue">
+              <p class="empty-hint" id="queue-empty">Nothing here yet. Choose files or a link to get started.</p>
+            </div>
+            <div id="upload-history" class="upload-history"></div>
+          </div>
         </div>
       </section>
 
-      <section id="page-movie-upload" class="page">
-        <h2>Upload Multiple Movies</h2>
-        <div class="card">
-          <form id="movie-upload-form">
-            <input type="text" id="movie-title-input" placeholder="Base movie title prefix..." required>
-            <input type="file" id="movie-file" accept="video/*" multiple required>
-            <button type="submit" class="btn-primary" id="movie-upload-btn">Upload All Movies</button>
-          </form>
-          <p id="movie-upload-status" style="margin-top: 10px; font-size: 0.9rem; color: #38bdf8;"></p>
+      <!-- Professional Chat -->
+      <section id="page-chat" class="page">
+        <div class="header-card" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
+          <h1>Community Chat</h1>
+          <p>Talk with everyone on Studio Pro.</p>
+        </div>
+
+        <div class="card chat-card">
+          <div class="chat-toolbar">
+            <span class="chat-stats" id="chat-stats">Live chat</span>
+            <button type="button" class="btn-danger btn-sm" id="clear-chat-btn" style="display:none;">🗑 Clear all</button>
+          </div>
+          <div id="chat-messages" class="chat-messages">
+            <div class="chat-loading">Loading messages…</div>
+          </div>
+          <div class="chat-input-row">
+            <textarea id="chat-input" rows="1" placeholder="Type a message… (Enter to send, Shift+Enter for new line)"></textarea>
+            <button type="button" id="chat-send-btn" class="btn-primary">Send ➤</button>
+          </div>
         </div>
       </section>
 
+      <!-- Requests -->
       <section id="page-request" class="page">
         <h2>Send a Request to Azim</h2>
         <div class="card">
@@ -86,6 +173,7 @@
         </div>
       </section>
 
+      <!-- Admin Dashboard -->
       <section id="page-admin" class="page">
         <h2>Admin Dashboard</h2>
         <div class="card" style="margin-bottom: 20px;">
@@ -104,7 +192,7 @@
       </section>
 
       <footer>
-        <p>Created & Maintained with ❤️ by <strong>Azim</strong></p>
+        <p>Created &amp; Maintained with ❤️ by <strong>Azim</strong></p>
       </footer>
     </main>
   </div>
