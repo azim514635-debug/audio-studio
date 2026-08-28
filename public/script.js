@@ -238,8 +238,8 @@ async function fetchGlobalTracks() {
           ${isAdminUnlocked ? `
             <div class="track-actions">
               <button onclick="viewInfo('Song', '${escapeHtml(t.title).replace(/'/g, "\\'")}', '${escapeHtml(t.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
-              <button onclick="renameItem('track', '${t.id}', '${escapeHtml(t.title).replace(/'/g, "\\'")}')" class="btn-primary">Rename</button>
-              <button onclick="deleteItem('track', '${t.id}')" class="btn-danger">Delete</button>
+              <button onclick="renameItem('song', '${t.id}', '${escapeHtml(t.title).replace(/'/g, "\\'")}')" class="btn-primary">Rename</button>
+              <button onclick="deleteItem('song', '${t.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
         <audio controls src="${escapeHtml(t.audioUrl || t.songUrl)}" style="width: 100%;"></audio>
@@ -321,6 +321,7 @@ window.viewInfo = function (type, title, uploader) {
 };
 
 window.deleteItem = async function (type, id) {
+  type = type === 'track' ? 'song' : type;
   if (!confirm('Are you sure you want to delete this file?')) return;
   const res = await fetch(`/api/media/${type}/${id}`, {
     method: 'DELETE',
@@ -335,6 +336,7 @@ window.deleteItem = async function (type, id) {
 };
 
 window.renameItem = async function (type, id, oldTitle) {
+  type = type === 'track' ? 'song' : type;
   const newTitle = prompt('Enter new title:', oldTitle);
   if (!newTitle || newTitle.trim() === '') return;
   const res = await fetch(`/api/media/${type}/${id}`, {
@@ -370,8 +372,8 @@ async function loadAdminDashboard() {
         <span style="color:#fff;">🎵 ${escapeHtml(t.title)} <span style="font-size:0.72rem; color:#94a3b8;">— ${escapeHtml(t.uploader)}</span></span>
         <div style="display:flex; gap:6px;">
           <button onclick="viewInfo('Song', '${safeTitle}', '${escapeHtml(t.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Info</button>
-          <button onclick="renameItem('track', '${t.id}', '${safeTitle}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
-          <button onclick="deleteItem('track', '${t.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
+          <button onclick="renameItem('song', '${t.id}', '${safeTitle}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
+          <button onclick="deleteItem('song', '${t.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
         </div>
       </div>`;
   });

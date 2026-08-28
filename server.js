@@ -105,6 +105,27 @@ const mediaList = (type, db) => {
 };
 const isMediaType = (type) => type === 'song' || type === 'songs' || type === 'movie' || type === 'movies' || type === 'link' || type === 'links';
 
+const cloudinaryPublicId = (url) => {
+  if (!url || typeof url !== 'string' || !url.includes('res.cloudinary.com')) return null;
+  const m = url.match(/\/upload\/(?:v\d+\/)?([^\/?#]+)/);
+  if (!m) return null;
+  return m[1].replace(/\.[^.]+$/, '');
+};
+
+const destroyCloudinaryMedia = (item) => {
+  const jobs = [];
+  const push = (url, rtype) => {
+    const pid = cloudinaryPublicId(url);
+    if (pid) jobs.push(new Promise((resolve) => {
+      cloudinary.uploader.destroy(pid, { resource_type: rtype }, () => resolve());
+    }));
+  };
+  push(item.songUrl || item.movieUrl, 'video');
+  push(item.url, 'raw');
+  push(item.thumbnailUrl, 'image');
+  return Promise.all(jobs);
+};
+
 const uploadToCloudinary = (file, resourceType, cb) => {
   if (!file) return cb(null, '');
   const stream = cloudinary.uploader.upload_stream({ resource_type: resourceType }, (err, result) => {
@@ -388,6 +409,7 @@ app.delete('/api/media/:type/:id', async (req, res) => {
   const idx = list.indexOf(item);
   list.splice(idx, 1);
   await saveDb(db);
+  await destroyCloudinaryMedia(item);
   res.json({ success: true });
 });
 
@@ -409,10 +431,11 @@ app.post('/api/delete', async (req, res) => {
   const db = await getDb();
   const list = mediaList(type, db);
   const item = list.find((i) => i.id === id);
-  if (!item) return res.status(404).send('Not found');
-  if (!canManage(item, uploader, adminSecret)) return res.status(403).send('Unauthorized');
+  if (!item) return res.sendStatus(404);
+  if (!canManage(item, uploader, adminSecret)) return res.sendStatus(403);
   list.splice(list.indexOf(item), 1);
   await saveDb(db);
+  await destroyCloudinaryMedia(item);
   res.sendStatus(200);
 });
 

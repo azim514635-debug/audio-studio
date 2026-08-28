@@ -440,6 +440,10 @@ audio, video {
   background: #0a0f1d;
 }
 
+audio {
+  height: 38px;
+}
+
 /* ======================= SEGMENTED CONTROL ======================= */
 .segmented {
   display: flex;
@@ -769,11 +773,18 @@ footer strong { color: #818cf8; }
   font-weight: 600;
 }
 
-.admin-circle {
+.admin-fab {
   position: fixed;
-  top: 14px;
-  left: 14px;
+  bottom: 22px;
+  right: 22px;
   z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-circle {
   width: 52px;
   height: 52px;
   border-radius: 50%;
@@ -798,6 +809,18 @@ footer strong { color: #818cf8; }
   border-color: #10b981;
 }
 
+.admin-fab-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(10, 14, 26, 0.75);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
 /* ========================== SCROLLBAR =========================== */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -814,7 +837,8 @@ footer strong { color: #818cf8; }
   .msg-bubble { max-width: 82%; }
   .header-card { padding: 20px; }
   .header-card h1 { font-size: 1.25rem; }
-  .admin-circle { top: 12px; left: 12px; width: 46px; height: 46px; }
+  .admin-fab { bottom: 16px; right: 16px; }
+  .admin-circle { width: 46px; height: 46px; font-size: 1.2rem; }
 }
 
 @media (max-width: 480px) {
