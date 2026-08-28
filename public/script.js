@@ -1251,6 +1251,8 @@ let messagingConfigured = false;
 let messaging = null;
 let fcmToken = null;
 const NOTIF_DISMISS_KEY = 'azim_notif_dismissed';
+const NOTIF_ENABLED_KEY = 'azim_notif_enabled';
+let notificationsEnabled = localStorage.getItem(NOTIF_ENABLED_KEY) === '1';
 
 function isSecureContext() {
   return window.isSecureContext && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
@@ -1283,10 +1285,17 @@ async function initMessaging() {
     await registerServiceWorker();
     const perm = Notification.permission;
     if (perm === 'granted') {
-      await getAndStoreToken();
+      const tok = await getAndStoreToken();
+      notificationsEnabled = !!tok;
+      localStorage.setItem(NOTIF_ENABLED_KEY, notificationsEnabled ? '1' : '0');
+      updateNotifButton();
     } else if (perm === 'denied') {
+      notificationsEnabled = false;
+      localStorage.setItem(NOTIF_ENABLED_KEY, '0');
       setNotifStatus('Notifications are blocked. Use the browser’s site settings to allow them.', 'off');
     } else {
+      notificationsEnabled = false;
+      localStorage.setItem(NOTIF_ENABLED_KEY, '0');
       setNotifStatus('Notifications are available. Tap the button below to enable.', 'off');
       maybePromptForNotifications();
     }
@@ -1313,6 +1322,9 @@ async function enableNotifications() {
     localStorage.removeItem(NOTIF_DISMISS_KEY);
     const banner = $('notif-prompt-banner');
     if (banner) banner.classList.add('hidden');
+    notificationsEnabled = true;
+    localStorage.setItem(NOTIF_ENABLED_KEY, '1');
+    updateNotifButton();
     await registerServiceWorker();
     await getAndStoreToken();
     setupForegroundListener();
@@ -1367,13 +1379,15 @@ async function disableNotifications() {
     } catch (e) { /* ignore */ }
   }
   fcmToken = null;
+  notificationsEnabled = false;
+  localStorage.setItem(NOTIF_ENABLED_KEY, '0');
   setNotifStatus('Notifications disabled. You can re-enable anytime.', 'off');
 }
 
 function updateNotifButton() {
   const btn = $('enable-notif-btn');
   if (!btn) return;
-  if (Notification && Notification.permission === 'granted') {
+  if (notificationsEnabled) {
     btn.textContent = 'Disable Notifications';
     btn.className = 'btn-primary btn-lg btn-danger';
   } else {
@@ -1396,7 +1410,7 @@ function setNotifStatus(text, state) {
 
 if ($('enable-notif-btn')) {
   $('enable-notif-btn').addEventListener('click', async () => {
-    if (Notification && Notification.permission === 'granted') {
+    if (notificationsEnabled) {
       await disableNotifications();
     } else {
       await enableNotifications();
