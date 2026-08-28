@@ -46,25 +46,19 @@ function initFirebase() {
   }
 
   if (!serviceAccount) {
-    const msg = '[Firebase] Missing FIREBASE_SERVICE_ACCOUNT. ' +
-      'Set the FIREBASE_SERVICE_ACCOUNT env var (a JSON string) on your hosting platform ' +
-      '(Render -> Environment -> FIREBASE_SERVICE_ACCOUNT). Data lives in Firestore and will be LOST if Firebase is not configured.';
-    if (isProduction()) {
-      console.error(msg);
-      console.error('[Firebase] Aborting startup: refusing to run with non-persistent in-memory storage in production.');
-      process.exit(1);
-    }
-    console.warn(msg + ' Falling back to LOCAL in-memory storage (dev only, data will NOT persist).');
+    console.warn(
+      '[Firebase] WARNING: FIREBASE_SERVICE_ACCOUNT is not configured. ' +
+      'The app will run with LOCAL in-memory storage, so songs/movies/links/messages will NOT persist across restarts or redeploys. ' +
+      'To fix, set the FIREBASE_SERVICE_ACCOUNT env var (JSON string) on your hosting platform (Render -> Environment).'
+    );
     return;
   }
   if (!DB_URL) {
-    const msg = '[Firebase] Missing DB_URL. Set the DB_URL env var (your Firestore databaseURL).';
-    if (isProduction()) {
-      console.error(msg);
-      console.error('[Firebase] Aborting startup: refusing to run with non-persistent storage in production.');
-      process.exit(1);
-    }
-    console.warn(msg);
+    console.warn(
+      '[Firebase] WARNING: DB_URL is not configured. ' +
+      'The app will run with LOCAL in-memory storage and data will NOT persist. ' +
+      'Set the DB_URL env var (your Firestore databaseURL) on your hosting platform.'
+    );
     return;
   }
   try {
@@ -75,17 +69,10 @@ function initFirebase() {
     console.log('[Firebase] Connected to Firestore (persistent cloud storage).');
   } catch (e) {
     console.error('[Firebase] Failed to initialize:', e.message);
-    if (isProduction()) {
-      console.error('[Firebase] Aborting startup: refusing to run with non-persistent storage in production.');
-      process.exit(1);
-    }
+    console.warn('[Firebase] Running WITHOUT persistence. Check the error above and your Firebase configuration.');
   }
 }
 initFirebase();
-
-function isProduction() {
-  return process.env.NODE_ENV === 'production' || !!process.env.RENDER || !!process.env.VERCEL || process.env.PORT === '10000';
-}
 
 async function getDb() {
   if (useFirebase) {
