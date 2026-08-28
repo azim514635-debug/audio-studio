@@ -40,61 +40,76 @@
     <header class="topbar">
       <div class="topbar-inner">
         <div class="brand">
-          <span class="brand-logo">🎧</span>
+          <img class="brand-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoQRdoz6Usc2PKiqexO_C5hT0EHm4G85lNGn-dpHeHzg&s=10" alt="Azim's Space logo">
           <span class="brand-name">Azim's <em>Space</em></span>
           <span class="badge">PRO</span>
         </div>
         <div class="topbar-nav-wrap">
-          <select id="page-dropdown" class="page-dropdown" aria-label="Navigate">
-            <option value="library">🎵 Songs</option>
-            <option value="movies">🎬 Movies</option>
-            <option value="links">🔗 Links</option>
-            <option value="upload">⬆️ Upload Media</option>
-            <option value="chat">💬 Chat</option>
-            <option value="request">📩 Contact Azim</option>
-          </select>
+          <button type="button" id="menu-toggle" class="menu-toggle" aria-label="Open menu" aria-expanded="false">
+            <span class="menu-bar"></span>
+            <span class="menu-bar"></span>
+            <span class="menu-bar"></span>
+          </button>
+          <nav id="menu-panel" class="menu-panel" aria-label="Main navigation">
+            <button type="button" class="menu-link" data-page="home">🏠 Home</button>
+            <button type="button" class="menu-link" data-page="library">🎵 Songs</button>
+            <button type="button" class="menu-link" data-page="movies">🎬 Movies</button>
+            <button type="button" class="menu-link" data-page="links">🔗 Links</button>
+            <button type="button" class="menu-link" data-page="upload">⬆️ Upload Media</button>
+            <button type="button" class="menu-link" data-page="chat">💬 Chat <span class="menu-count" id="menu-message-count"></span></button>
+            <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
+          </nav>
         </div>
-        <div class="user-badge" id="user-display">Guest</div>
+        <div class="user-avatar" id="user-avatar">
+          <span class="avatar-initials" id="avatar-initials">👤</span>
+          <span class="avatar-lock">🔒</span>
+        </div>
       </div>
     </header>
 
-    <!-- Responsive navigation cards -->
-    <nav class="nav-grid" aria-label="Main navigation">
-      <button type="button" class="nav-item active" data-page="library">
-        <span class="nav-ico">🎵</span>
-        <span class="nav-text">Songs</span>
-        <span class="nav-sub">Music library</span>
-      </button>
-      <button type="button" class="nav-item" data-page="movies">
-        <span class="nav-ico">🎬</span>
-        <span class="nav-text">Movies</span>
-        <span class="nav-sub">Video library</span>
-      </button>
-      <button type="button" class="nav-item" data-page="links">
-        <span class="nav-ico">🔗</span>
-        <span class="nav-text">Links</span>
-        <span class="nav-sub">Shared links library</span>
-      </button>
-      <button type="button" class="nav-item" data-page="upload">
-        <span class="nav-ico">⬆️</span>
-        <span class="nav-text">Upload Media</span>
-        <span class="nav-sub">Add audio &amp; video</span>
-      </button>
-      <button type="button" class="nav-item" data-page="chat">
-        <span class="nav-ico">💬</span>
-        <span class="nav-text">Chat</span>
-        <span class="nav-sub">Community chat <span class="nav-count" id="nav-message-count"></span></span>
-      </button>
-      <button type="button" class="nav-item" data-page="request">
-        <span class="nav-ico">📩</span>
-        <span class="nav-text">Contact Azim</span>
-        <span class="nav-sub">Send a request</span>
-      </button>
-    </nav>
-
     <main class="main-content">
+      <!-- Home / Dashboard -->
+      <section id="page-home" class="page active">
+        <div class="header-card" style="background: linear-gradient(135deg, #6366f1, #a855f7);">
+          <h1>Welcome to Azim's Space</h1>
+          <p>Choose a section below to get started.</p>
+        </div>
+        <div class="dashboard-grid">
+          <button class="dash-card" data-page="library">
+            <span class="dash-icon">🎵</span>
+            <span class="dash-label">Songs</span>
+            <span class="dash-desc">Listen to community tracks</span>
+          </button>
+          <button class="dash-card" data-page="movies">
+            <span class="dash-icon">🎬</span>
+            <span class="dash-label">Movies</span>
+            <span class="dash-desc">Watch shared videos</span>
+          </button>
+          <button class="dash-card" data-page="links">
+            <span class="dash-icon">🔗</span>
+            <span class="dash-label">Links</span>
+            <span class="dash-desc">Download shared files</span>
+          </button>
+          <button class="dash-card" data-page="upload">
+            <span class="dash-icon">⬆️</span>
+            <span class="dash-label">Upload Media</span>
+            <span class="dash-desc">Share audio & video</span>
+          </button>
+          <button class="dash-card" data-page="chat">
+            <span class="dash-icon">💬</span>
+            <span class="dash-label">Chat</span>
+            <span class="dash-desc">Talk with everyone</span>
+          </button>
+          <button class="dash-card" data-page="request">
+            <span class="dash-icon">📩</span>
+            <span class="dash-label">Contact Azim</span>
+            <span class="dash-desc">Send a request</span>
+          </button>
+        </div>
+      </section>
+
       <!-- Songs Library -->
-      <section id="page-library" class="page active">
+      <section id="page-library" class="page">
         <div class="header-card">
           <h1>🎵 Music Library</h1>
           <p>Listen to songs uploaded by the community.</p>

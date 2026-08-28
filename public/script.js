@@ -3,8 +3,8 @@ const $ = (id) => document.getElementById(id);
 const modalOverlay = $('name-modal');
 const modalNameInput = $('modal-name-input');
 const modalSaveBtn = $('modal-save-btn');
-const userDisplay = $('user-display');
-const navItems = document.querySelectorAll('.nav-item');
+const avatarInitials = $('avatar-initials');
+const navItems = document.querySelectorAll('.menu-link');
 const pages = document.querySelectorAll('.page');
 
 let currentUser = localStorage.getItem('visitorName') || '';
@@ -15,14 +15,21 @@ let isAdminChecking = false;
 /* ------------------------------------------------------------------ */
 /* Name / session                                                      */
 /* ------------------------------------------------------------------ */
+function renderAvatar() {
+  const name = currentUser || 'Guest';
+  let display = name.charAt(0).toUpperCase();
+  if (name === 'Guest') display = '?';
+  avatarInitials.textContent = display;
+  avatarInitials.title = name;
+}
+
 function checkUserSession() {
   if (currentUser) {
     modalOverlay.classList.add('hidden');
-    userDisplay.textContent = `👤 ${currentUser}`;
   } else {
     modalOverlay.classList.remove('hidden');
-    userDisplay.textContent = 'Guest';
   }
+  renderAvatar();
 }
 
 modalSaveBtn.addEventListener('click', () => {
@@ -30,8 +37,8 @@ modalSaveBtn.addEventListener('click', () => {
   if (!name) return alert('Please enter your name to proceed.');
   currentUser = name;
   localStorage.setItem('visitorName', name);
-  userDisplay.textContent = `👤 ${name}`;
   modalOverlay.classList.add('hidden');
+  renderAvatar();
 });
 
 modalNameInput.addEventListener('keydown', (e) => {
@@ -125,27 +132,64 @@ async function navigateTo(targetPage, navEl) {
   navItems.forEach((i) => i.classList.remove('active'));
   pages.forEach((p) => p.classList.remove('active'));
   if (navEl) navEl.classList.add('active');
+  else {
+    const match = Array.from(navItems).find((i) => i.getAttribute('data-page') === targetPage);
+    if (match) match.classList.add('active');
+  }
   $('page-' + targetPage).classList.add('active');
-  const dd = $('page-dropdown');
-  if (dd) dd.value = targetPage;
 
   if (targetPage === 'admin') loadAdminDashboard();
   if (targetPage === 'library') fetchGlobalTracks();
   if (targetPage === 'movies') fetchGlobalMovies();
   if (targetPage === 'links') fetchGlobalLinks();
   if (targetPage === 'chat') { scrollChatToBottom(); }
+
+  closeMenu();
 }
 
 navItems.forEach((item) => {
   item.addEventListener('click', () => navigateTo(item.getAttribute('data-page'), item));
 });
 
-$('page-dropdown').addEventListener('change', (e) => {
-  navigateTo(e.target.value, null);
+document.querySelectorAll('.dash-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    const target = card.getAttribute('data-page');
+    const navMatch = Array.from(navItems).find((i) => i.getAttribute('data-page') === target);
+    navigateTo(target, navMatch || null);
+  });
 });
 
-$('admin-circle-btn').addEventListener('click', () => {
+function openMenu() {
+  const panel = $('menu-panel');
+  const toggle = $('menu-toggle');
+  panel.classList.add('open');
+  toggle.classList.add('open');
+  toggle.setAttribute('aria-expanded', 'true');
+}
+function closeMenu() {
+  const panel = $('menu-panel');
+  const toggle = $('menu-toggle');
+  panel.classList.remove('open');
+  toggle.classList.remove('open');
+  toggle.setAttribute('aria-expanded', 'false');
+}
+$('menu-toggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const panel = $('menu-panel');
+  if (panel.classList.contains('open')) closeMenu();
+  else openMenu();
+});
+document.addEventListener('click', (e) => {
+  if (!$('menu-panel').contains(e.target) && !$('menu-toggle').contains(e.target)) closeMenu();
+});
+
+$('admin-circle-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
   navigateTo('admin', null);
+});
+
+document.querySelector('.brand').addEventListener('click', () => {
+  navigateTo('home', null);
 });
 
 /* ------------------------------------------------------------------ */
@@ -913,13 +957,13 @@ async function loadMessages({ force } = {}) {
       lastMessageId = '';
       chatName = currentUser || 'Anonymous';
       $('chat-stats').textContent = 'Live chat · 0 messages';
-      $('nav-message-count').textContent = '';
+      $('menu-message-count').textContent = '';
       return;
     }
 
     lastMessageId = messages[messages.length - 1].id;
     chatName = currentUser || 'Anonymous';
-    $('nav-message-count').textContent = messages.length;
+    $('menu-message-count').textContent = messages.length;
 
     let html = '';
     let lastDay = '';
