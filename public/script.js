@@ -120,6 +120,20 @@ async function ensureAdmin() {
   });
 }
 
+async function showPage(targetPage) {
+  pages.forEach((p) => p.classList.remove('active'));
+  const match = Array.from(navItems).find((i) => i.getAttribute('data-page') === targetPage);
+  navItems.forEach((i) => i.classList.remove('active'));
+  if (match) match.classList.add('active');
+  $('page-' + targetPage).classList.add('active');
+
+  if (targetPage === 'admin') loadAdminDashboard();
+  if (targetPage === 'library') fetchGlobalTracks();
+  if (targetPage === 'movies') fetchGlobalMovies();
+  if (targetPage === 'links') fetchGlobalLinks();
+  if (targetPage === 'chat') { scrollChatToBottom(); }
+}
+
 async function navigateTo(targetPage, navEl) {
   if ((targetPage === 'upload' || targetPage === 'request') && !requireName()) return;
   if (targetPage === 'chat' && !requireName()) return;
@@ -129,23 +143,35 @@ async function navigateTo(targetPage, navEl) {
     if (!ok) return;
   }
 
-  navItems.forEach((i) => i.classList.remove('active'));
-  pages.forEach((p) => p.classList.remove('active'));
-  if (navEl) navEl.classList.add('active');
-  else {
-    const match = Array.from(navItems).find((i) => i.getAttribute('data-page') === targetPage);
-    if (match) match.classList.add('active');
-  }
-  $('page-' + targetPage).classList.add('active');
+  await showPage(targetPage);
 
-  if (targetPage === 'admin') loadAdminDashboard();
-  if (targetPage === 'library') fetchGlobalTracks();
-  if (targetPage === 'movies') fetchGlobalMovies();
-  if (targetPage === 'links') fetchGlobalLinks();
-  if (targetPage === 'chat') { scrollChatToBottom(); }
+  if (targetPage === 'home') {
+    history.replaceState({ page: 'home' }, '', location.pathname);
+  } else {
+    history.pushState({ page: targetPage }, '', `?page=${targetPage}`);
+  }
 
   closeMenu();
 }
+
+/* Browser / phone back button — return to Home instead of leaving the site */
+window.addEventListener('popstate', () => {
+  const params = new URLSearchParams(location.search);
+  const target = params.get('page') || 'home';
+  showPage(target);
+  closeMenu();
+});
+
+/* On initial load, honor an existing page param in the URL */
+(function restoreInitialPage() {
+  const params = new URLSearchParams(location.search);
+  const target = params.get('page');
+  if (target && target !== 'home' && $('page-' + target)) {
+    showPage(target);
+  } else {
+    history.replaceState({ page: 'home' }, '', location.pathname);
+  }
+})();
 
 navItems.forEach((item) => {
   item.addEventListener('click', () => navigateTo(item.getAttribute('data-page'), item));
