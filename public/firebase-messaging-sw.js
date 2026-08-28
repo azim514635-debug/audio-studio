@@ -4,12 +4,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-com
 
 try {
   const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
+    apiKey: "AIzaSyCbx7nD7o5pJAvvNl41rWnpiQsN5dPOg38",
     authDomain: "azim-studio-chat.firebaseapp.com",
     projectId: "azim-studio-chat",
     storageBucket: "azim-studio-chat.firebasestorage.app",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    messagingSenderId: "153817151852",
+    appId: "1:153817151852:web:5837e1b18032ace4829b49"
   };
 
   firebase.initializeApp(firebaseConfig);
