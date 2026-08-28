@@ -46,7 +46,25 @@ function initFirebase() {
   }
 
   if (!serviceAccount) {
-    console.warn('[Firebase] Missing FIREBASE_SERVICE_ACCOUNT (or service-account file). Falling back to in-memory storage (data will NOT persist).');
+    const msg = '[Firebase] Missing FIREBASE_SERVICE_ACCOUNT. ' +
+      'Set the FIREBASE_SERVICE_ACCOUNT env var (a JSON string) on your hosting platform ' +
+      '(Render -> Environment -> FIREBASE_SERVICE_ACCOUNT). Data lives in Firestore and will be LOST if Firebase is not configured.';
+    if (isProduction()) {
+      console.error(msg);
+      console.error('[Firebase] Aborting startup: refusing to run with non-persistent in-memory storage in production.');
+      process.exit(1);
+    }
+    console.warn(msg + ' Falling back to LOCAL in-memory storage (dev only, data will NOT persist).');
+    return;
+  }
+  if (!DB_URL) {
+    const msg = '[Firebase] Missing DB_URL. Set the DB_URL env var (your Firestore databaseURL).';
+    if (isProduction()) {
+      console.error(msg);
+      console.error('[Firebase] Aborting startup: refusing to run with non-persistent storage in production.');
+      process.exit(1);
+    }
+    console.warn(msg);
     return;
   }
   try {
@@ -54,12 +72,20 @@ function initFirebase() {
     dbRef = require('firebase-admin/firestore').getFirestore(firebaseApp)
       .collection('studio').doc('data');
     useFirebase = true;
-    console.log('[Firebase] Connected to Firestore.');
+    console.log('[Firebase] Connected to Firestore (persistent cloud storage).');
   } catch (e) {
     console.error('[Firebase] Failed to initialize:', e.message);
+    if (isProduction()) {
+      console.error('[Firebase] Aborting startup: refusing to run with non-persistent storage in production.');
+      process.exit(1);
+    }
   }
 }
 initFirebase();
+
+function isProduction() {
+  return process.env.NODE_ENV === 'production' || !!process.env.RENDER || !!process.env.VERCEL || process.env.PORT === '10000';
+}
 
 async function getDb() {
   if (useFirebase) {
