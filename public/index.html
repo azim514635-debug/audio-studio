@@ -3,18 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Studio Pro — Audio & Video Upload + Chat</title>
+  <title>Azim's Space — Audio & Video Upload + Chat</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="name-modal" class="modal-overlay">
     <div class="modal-card">
-      <h2>Welcome to Studio Pro</h2>
+      <h2>Welcome to Azim's Space</h2>
       <p>Please enter your name to unlock uploading, chatting and sending requests.</p>
       <input type="text" id="modal-name-input" placeholder="Your name..." autocomplete="off">
       <button id="modal-save-btn" class="btn-primary">Continue</button>
     </div>
   </div>
+
+  <!-- Admin password modal (matches app style) -->
+  <div id="admin-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2>🔒 Admin Access</h2>
+      <p>Enter the admin password to unlock management tools.</p>
+      <input type="password" id="admin-modal-input" placeholder="Admin password..." autocomplete="off">
+      <div class="admin-modal-btns">
+        <button id="admin-modal-cancel" class="btn-secondary">Cancel</button>
+        <button id="admin-modal-ok" class="btn-primary">Unlock</button>
+      </div>
+      <p id="admin-modal-error" class="admin-modal-error" style="display:none;">Incorrect password. Try again.</p>
+    </div>
+  </div>
+
+  <!-- Floating circular admin button (top-left) -->
+  <button type="button" id="admin-circle-btn" class="admin-circle" title="Admin Panel" aria-label="Admin Panel">
+    🔒
+  </button>
 
   <div class="app-container">
     <!-- Top app bar -->
@@ -22,8 +41,18 @@
       <div class="topbar-inner">
         <div class="brand">
           <span class="brand-logo">🎧</span>
-          <span class="brand-name">Studio <em>Pro</em></span>
+          <span class="brand-name">Azim's <em>Space</em></span>
           <span class="badge">PRO</span>
+        </div>
+        <div class="topbar-nav-wrap">
+          <select id="page-dropdown" class="page-dropdown" aria-label="Navigate">
+            <option value="library">🎵 Songs</option>
+            <option value="movies">🎬 Movies</option>
+            <option value="links">🔗 Links</option>
+            <option value="upload">⬆️ Upload Media</option>
+            <option value="chat">💬 Chat</option>
+            <option value="request">📩 Contact Azim</option>
+          </select>
         </div>
         <div class="user-badge" id="user-display">Guest</div>
       </div>
@@ -41,6 +70,11 @@
         <span class="nav-text">Movies</span>
         <span class="nav-sub">Video library</span>
       </button>
+      <button type="button" class="nav-item" data-page="links">
+        <span class="nav-ico">🔗</span>
+        <span class="nav-text">Links</span>
+        <span class="nav-sub">Shared links library</span>
+      </button>
       <button type="button" class="nav-item" data-page="upload">
         <span class="nav-ico">⬆️</span>
         <span class="nav-text">Upload Media</span>
@@ -55,11 +89,6 @@
         <span class="nav-ico">📩</span>
         <span class="nav-text">Contact Azim</span>
         <span class="nav-sub">Send a request</span>
-      </button>
-      <button type="button" class="nav-item" data-page="admin">
-        <span class="nav-ico">🔒</span>
-        <span class="nav-text">Admin Panel</span>
-        <span class="nav-sub">Manage content</span>
       </button>
     </nav>
 
@@ -86,6 +115,17 @@
         </div>
       </section>
 
+      <!-- Links Library -->
+      <section id="page-links" class="page">
+        <div class="header-card" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
+          <h1>🔗 Links Library</h1>
+          <p>Downloadable links shared by the community. Click to download.</p>
+        </div>
+        <div class="card">
+          <ul id="link-list" class="track-list"></ul>
+        </div>
+      </section>
+
       <!-- Professional Upload Media -->
       <section id="page-upload" class="page">
         <div class="header-card">
@@ -98,6 +138,7 @@
             <div class="segmented" id="media-type-seg">
               <button type="button" class="seg-btn active" data-kind="audio">🎵 Audio</button>
               <button type="button" class="seg-btn" data-kind="video">🎬 Video</button>
+              <button type="button" class="seg-btn" data-kind="link">🔗 Link</button>
             </div>
 
             <div class="segmented" id="source-seg" style="margin-top: 10px;">
@@ -132,8 +173,39 @@
               <p class="field-hint">Link-only uploads require admin access.</p>
             </div>
 
+            <!-- LINK ITEM (Links library) pane -->
+            <div id="link-item-pane" style="display:none;">
+              <label class="field-label" for="link-item-title">Title <span class="req">*</span></label>
+              <input type="text" id="link-item-title" placeholder="e.g. My Study Notes PDF">
+              <label class="field-label" for="link-item-url">Download URL <span class="req">*</span></label>
+              <input type="url" id="link-item-url" placeholder="https://example.com/file.pdf">
+              <p class="field-hint">Visitors can click “Click here to download” to open this link.</p>
+
+              <div class="thumb-block">
+                <div class="thumb-options">
+                  <label class="field-label">Thumbnail</label>
+                  <div class="segmented" id="link-thumb-seg">
+                    <button type="button" class="seg-btn active" data-lthumb="url">🖼 URL</button>
+                    <button type="button" class="seg-btn" data-lthumb="file">📄 File</button>
+                  </div>
+                </div>
+                <div id="link-thumb-url-wrap">
+                  <input type="url" id="link-thumb-url" placeholder="https://example.com/cover.jpg (optional)">
+                </div>
+                <div id="link-thumb-file-wrap" style="display:none;">
+                  <input type="file" id="link-thumb-file" accept="image/*" hidden>
+                  <button type="button" class="btn-secondary" id="pick-link-thumb-btn">Choose Image File</button>
+                  <span class="thumb-file-name" id="link-thumb-file-name">No image selected</span>
+                </div>
+                <div id="link-thumb-preview" class="thumb-preview" style="display:none;">
+                  <img id="link-thumb-preview-img" alt="Thumbnail preview">
+                  <button type="button" class="thumb-clear" id="link-thumb-clear-btn" title="Remove thumbnail">×</button>
+                </div>
+              </div>
+            </div>
+
             <!-- Thumbnail: URL or file -->
-            <div class="thumb-block">
+            <div class="thumb-block" id="thumb-block-root">
               <div class="thumb-options">
                 <label class="field-label">Thumbnail</label>
                 <div class="segmented" id="thumb-seg">
@@ -176,7 +248,7 @@
       <section id="page-chat" class="page">
         <div class="header-card" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
           <h1>💬 Community Chat</h1>
-          <p>Talk with everyone on Studio Pro.</p>
+          <p>Talk with everyone on Azim's Space.</p>
         </div>
 
         <div class="card chat-card">

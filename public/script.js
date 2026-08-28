@@ -53,52 +53,99 @@ async function ensureAdmin() {
   if (isAdminUnlocked) return true;
   if (isAdminChecking) return isAdminUnlocked;
 
-  isAdminChecking = true;
-  const password = prompt('Enter Admin Password:');
-  isAdminChecking = false;
-  if (password === null) return false;
+  return new Promise((resolve) => {
+    const modal = $('admin-modal');
+    const input = $('admin-modal-input');
+    const errEl = $('admin-modal-error');
+    errEl.style.display = 'none';
+    input.value = '';
+    modal.classList.remove('hidden');
+    setTimeout(() => input.focus(), 50);
 
-  try {
-    const res = await fetch('/api/verify-admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminSecret: password })
-    });
-    const data = await res.json();
-    if (data.success) {
-      isAdminUnlocked = true;
-      adminSecret = password;
-      $('clear-chat-btn').style.display = 'inline-block';
-      alert('Admin unlocked! You can now manage files and the chat.');
-      return true;
+    const close = () => { modal.classList.add('hidden'); removeHandlers(); resolve(false); };
+
+    const attempt = async () => {
+      const password = input.value.trim();
+      if (!password) return;
+      try {
+        const res = await fetch('/api/verify-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adminSecret: password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          isAdminUnlocked = true;
+          adminSecret = password;
+          $('clear-chat-btn').style.display = 'inline-block';
+          const circle = $('admin-circle-btn');
+          if (circle) { circle.textContent = '🔓'; circle.classList.add('unlocked'); }
+          modal.classList.add('hidden');
+          removeHandlers();
+          fetchGlobalTracks();
+          fetchGlobalMovies();
+          fetchGlobalLinks();
+          resolve(true);
+        } else {
+          errEl.style.display = 'block';
+        }
+      } catch (e) {
+        errEl.style.display = 'block';
+      }
+    };
+
+    const okHandler = () => attempt();
+    const cancelHandler = () => close();
+    const keyHandler = (e) => {
+      if (e.key === 'Enter') attempt();
+      if (e.key === 'Escape') close();
+    };
+
+    function removeHandlers() {
+      $('admin-modal-ok').removeEventListener('click', okHandler);
+      $('admin-modal-cancel').removeEventListener('click', cancelHandler);
+      modal.removeEventListener('keydown', keyHandler);
     }
-  } catch (e) { /* fall through */ }
-  alert('Incorrect Password!');
-  return false;
+
+    $('admin-modal-ok').addEventListener('click', okHandler);
+    $('admin-modal-cancel').addEventListener('click', cancelHandler);
+    modal.addEventListener('keydown', keyHandler);
+  });
+}
+
+async function navigateTo(targetPage, navEl) {
+  if ((targetPage === 'upload' || targetPage === 'request') && !requireName()) return;
+  if (targetPage === 'chat' && !requireName()) return;
+
+  if (targetPage === 'admin') {
+    const ok = await ensureAdmin();
+    if (!ok) return;
+  }
+
+  navItems.forEach((i) => i.classList.remove('active'));
+  pages.forEach((p) => p.classList.remove('active'));
+  if (navEl) navEl.classList.add('active');
+  $('page-' + targetPage).classList.add('active');
+  const dd = $('page-dropdown');
+  if (dd) dd.value = targetPage;
+
+  if (targetPage === 'admin') loadAdminDashboard();
+  if (targetPage === 'library') fetchGlobalTracks();
+  if (targetPage === 'movies') fetchGlobalMovies();
+  if (targetPage === 'links') fetchGlobalLinks();
+  if (targetPage === 'chat') { scrollChatToBottom(); }
 }
 
 navItems.forEach((item) => {
-  item.addEventListener('click', async () => {
-    const targetPage = item.getAttribute('data-page');
+  item.addEventListener('click', () => navigateTo(item.getAttribute('data-page'), item));
+});
 
-    if ((targetPage === 'upload' || targetPage === 'request') && !requireName()) return;
-    if (targetPage === 'chat' && !requireName()) return;
+$('page-dropdown').addEventListener('change', (e) => {
+  navigateTo(e.target.value, null);
+});
 
-    if (targetPage === 'admin') {
-      const ok = await ensureAdmin();
-      if (!ok) return;
-    }
-
-    navItems.forEach((i) => i.classList.remove('active'));
-    pages.forEach((p) => p.classList.remove('active'));
-    item.classList.add('active');
-    $('page-' + targetPage).classList.add('active');
-
-    if (targetPage === 'admin') loadAdminDashboard();
-    if (targetPage === 'library') fetchGlobalTracks();
-    if (targetPage === 'movies') fetchGlobalMovies();
-    if (targetPage === 'chat') { scrollChatToBottom(); }
-  });
+$('admin-circle-btn').addEventListener('click', () => {
+  navigateTo('admin', null);
 });
 
 /* ------------------------------------------------------------------ */
@@ -189,6 +236,42 @@ async function fetchGlobalMovies() {
     </li>`).join('');
 }
 
+async function fetchGlobalLinks() {
+  const linkList = $('link-list');
+  if (!linkList) return;
+  let links = [];
+  try {
+    const res = await fetch('/api/links');
+    links = await res.json();
+  } catch (e) { /* ignore */ }
+
+  if (!links || links.length === 0) {
+    linkList.innerHTML = '<li style="color:#94a3b8;">No links yet. Add one from the Upload page.</li>';
+    return;
+  }
+  linkList.innerHTML = links.map((l) => `
+    <li class="track-item">
+      ${l.thumbnailUrl
+        ? `<img class="track-thumb" src="${escapeHtml(l.thumbnailUrl)}" alt="">`
+        : `<div class="track-thumb-placeholder">🔗</div>`}
+      <div class="track-body">
+        <div class="track-title-row">
+          <div>
+            <div class="track-title">🔗 ${escapeHtml(l.title)}</div>
+            <div class="track-by">Shared by: ${escapeHtml(l.uploader)}</div>
+          </div>
+          ${isAdminUnlocked ? `
+            <div class="track-actions">
+              <button onclick="viewInfo('Link', '${escapeHtml(l.title).replace(/'/g, "\\'")}', '${escapeHtml(l.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
+              <button onclick="renameItem('link', '${l.id}', '${escapeHtml(l.title).replace(/'/g, "\\'")}')" class="btn-primary">Rename</button>
+              <button onclick="deleteItem('link', '${l.id}')" class="btn-danger">Delete</button>
+            </div>` : ''}
+        </div>
+        <a class="btn-primary download-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">⬇ Click here to download</a>
+      </div>
+    </li>`).join('');
+}
+
 window.viewInfo = function (type, title, uploader) {
   alert(`File Details:\n- Type: ${type}\n- Title: ${title}\n- Uploaded By: ${uploader}`);
 };
@@ -229,9 +312,10 @@ async function loadAdminDashboard() {
   loadRequests();
   const box = $('admin-media-box');
 
-  const [tracksRes, moviesRes] = await Promise.all([fetch('/api/tracks'), fetch('/api/movies')]);
+  const [tracksRes, moviesRes, linksRes] = await Promise.all([fetch('/api/tracks'), fetch('/api/movies'), fetch('/api/links')]);
   const tracks = await tracksRes.json();
   const movies = await moviesRes.json();
+  const links = await linksRes.json();
 
   let html = '<h4>Songs</h4>';
   if (tracks.length === 0) html += '<p style="color:#94a3b8; font-size:0.9rem;">No songs.</p>';
@@ -259,6 +343,21 @@ async function loadAdminDashboard() {
           <button onclick="viewInfo('Movie', '${safeTitle}', '${escapeHtml(m.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Info</button>
           <button onclick="renameItem('movie', '${m.id}', '${safeTitle}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
           <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
+        </div>
+      </div>`;
+  });
+
+  html += '<h4 style="margin-top:15px;">Links</h4>';
+  if (links.length === 0) html += '<p style="color:#94a3b8; font-size:0.9rem;">No links.</p>';
+  links.forEach((l) => {
+    const safeTitle = escapeHtml(l.title).replace(/'/g, "\\'");
+    html += `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
+        <span style="color:#fff;">🔗 ${escapeHtml(l.title)} <span style="font-size:0.72rem; color:#94a3b8;">— ${escapeHtml(l.uploader)}</span></span>
+        <div style="display:flex; gap:6px;">
+          <button onclick="window.open('${escapeHtml(l.url)}','_blank')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Open</button>
+          <button onclick="renameItem('link', '${l.id}', '${safeTitle}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
+          <button onclick="deleteItem('link', '${l.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
         </div>
       </div>`;
   });
@@ -311,8 +410,9 @@ let queueItems = [];      // { key, name, kindLabel, status, progress, error, da
 let uploading = false;
 
 function kindIsVideo() { return currentKind === 'video'; }
-function kindName() { return kindIsVideo() ? 'movie' : 'song'; }
-function typeLabel() { return kindIsVideo() ? 'Video' : 'Audio'; }
+function kindIsLink() { return currentKind === 'link'; }
+function kindName() { return currentKind === 'link' ? 'link' : (kindIsVideo() ? 'movie' : 'song'); }
+function typeLabel() { return kindIsLink() ? 'Link' : (kindIsVideo() ? 'Video' : 'Audio'); }
 
 /* Segmented buttons */
 document.querySelectorAll('#media-type-seg .seg-btn').forEach((btn) => {
@@ -320,20 +420,28 @@ document.querySelectorAll('#media-type-seg .seg-btn').forEach((btn) => {
     currentKind = btn.dataset.kind;
     document.querySelectorAll('#media-type-seg .seg-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
+    renderKindPanes();
     $('media-file').accept = kindIsVideo() ? 'video/*' : 'audio/*';
-    $('start-upload-btn').textContent = currentSource === 'link' ? 'Add Link' : 'Upload Media';
+    $('start-upload-btn').textContent = currentSource === 'link' ? 'Add Link' : (kindIsLink() ? 'Add Link' : 'Upload Media');
     updateQueueTitle();
   });
 });
+
+function renderKindPanes() {
+  const linkMode = kindIsLink();
+  $('device-pane').style.display = (!linkMode && currentSource === 'device') ? 'block' : 'none';
+  $('link-pane').style.display = (!linkMode && currentSource === 'link') ? 'block' : 'none';
+  $('link-item-pane').style.display = linkMode ? 'block' : 'none';
+  $('thumb-block-root').style.display = linkMode ? 'none' : 'block';
+}
 
 document.querySelectorAll('#source-seg .seg-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     currentSource = btn.dataset.source;
     document.querySelectorAll('#source-seg .seg-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
-    $('device-pane').style.display = currentSource === 'device' ? 'block' : 'none';
-    $('link-pane').style.display = currentSource === 'link' ? 'block' : 'none';
-    $('start-upload-btn').textContent = currentSource === 'link' ? 'Add Link' : 'Upload Media';
+    renderKindPanes();
+    $('start-upload-btn').textContent = currentSource === 'link' ? 'Add Link' : (kindIsLink() ? 'Add Link' : 'Upload Media');
   });
 });
 
@@ -460,6 +568,100 @@ function updateThumbPreview() {
   img.src = '';
 }
 
+/* ------------------------------------------------------------------ */
+/* LINKS LIBRARY upload (title + URL + thumbnail)                      */
+/* ------------------------------------------------------------------ */
+let currentLinkThumbSource = 'url';
+let selectedLinkThumbFile = null;
+
+document.querySelectorAll('#link-thumb-seg .seg-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    currentLinkThumbSource = btn.dataset.lthumb;
+    document.querySelectorAll('#link-thumb-seg .seg-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    $('link-thumb-url-wrap').style.display = currentLinkThumbSource === 'url' ? 'block' : 'none';
+    $('link-thumb-file-wrap').style.display = currentLinkThumbSource === 'file' ? 'block' : 'none';
+    updateLinkThumbPreview();
+  });
+});
+
+const linkThumbFileInput = $('link-thumb-file');
+$('pick-link-thumb-btn').addEventListener('click', (e) => { e.stopPropagation(); linkThumbFileInput.click(); });
+linkThumbFileInput.addEventListener('change', () => {
+  if (linkThumbFileInput.files.length) {
+    selectedLinkThumbFile = linkThumbFileInput.files[0];
+    $('link-thumb-file-name').textContent = selectedLinkThumbFile.name;
+    updateLinkThumbPreview();
+  }
+});
+
+$('link-thumb-clear-btn').addEventListener('click', () => {
+  selectedLinkThumbFile = null;
+  $('link-thumb-url').value = '';
+  $('link-thumb-file-name').textContent = 'No image selected';
+  updateLinkThumbPreview();
+});
+
+$('link-thumb-url').addEventListener('input', updateLinkThumbPreview);
+
+function getLinkThumbUrlValue() {
+  return currentLinkThumbSource === 'url' ? $('link-thumb-url').value.trim() : '';
+}
+
+function updateLinkThumbPreview() {
+  const preview = $('link-thumb-preview');
+  const img = $('link-thumb-preview-img');
+  const thumbVal = currentLinkThumbSource === 'url'
+    ? $('link-thumb-url').value.trim()
+    : (selectedLinkThumbFile ? URL.createObjectURL(selectedLinkThumbFile) : '');
+
+  if ((currentLinkThumbSource === 'file' && selectedLinkThumbFile) || (currentLinkThumbSource === 'url' && thumbVal)) {
+    preview.style.display = 'inline-block';
+    img.src = thumbVal;
+    return;
+  }
+  preview.style.display = 'none';
+  img.src = '';
+}
+
+async function startLinkItemUpload() {
+  if (!requireName()) return;
+  const title = $('link-item-title').value.trim();
+  const url = $('link-item-url').value.trim();
+  if (!url) { alert('Please enter the download URL.'); return; }
+
+  const key = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+  queueItems.push({ key, name: title || url, kindLabel: 'Link', status: 'uploading', progress: 50, progressText: 'Adding link…' });
+  renderQueue();
+
+  const formData = new FormData();
+  formData.append('title', title || 'Untitled');
+  formData.append('url', url);
+  formData.append('uploader', currentUser || 'Anonymous');
+  const thumbUrl = getLinkThumbUrlValue();
+  if (thumbUrl) formData.append('thumbnailUrl', thumbUrl);
+  if (currentLinkThumbSource === 'file' && selectedLinkThumbFile) formData.append('thumbnailFile', selectedLinkThumbFile);
+
+  try {
+    const res = await fetch('/api/upload/link-item', { method: 'POST', body: formData });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      updateQueueProgress(key, 100, { status: 'done', data: data.item });
+      addHistoryItem(data.item, 'link');
+      $('link-item-title').value = '';
+      $('link-item-url').value = '';
+      $('link-thumb-url').value = '';
+      selectedLinkThumbFile = null;
+      $('link-thumb-file-name').textContent = 'No image selected';
+      updateLinkThumbPreview();
+    } else {
+      updateQueueProgress(key, 100, { status: 'error', error: data.error || ('Link upload failed (' + res.status + ')') });
+    }
+  } catch (e) {
+    updateQueueProgress(key, 100, { status: 'error', error: 'Network error: ' + e.message });
+  }
+}
+
 /* Queue UI */
 function updateQueueTitle() {
   $('queue-title').textContent = `${typeLabel()} Upload Queue`;
@@ -494,9 +696,9 @@ function renderQueue() {
 
     let meta = `<span>${escapeHtml(q.name)}</span>`;
     if (q.status === 'done' && q.data) {
-      const url = q.data.songUrl || q.data.movieUrl || '';
-      const action = q.data.songUrl ? 'Listen' : 'Watch';
-      meta = `<span><a href="${escapeHtml(url)}" target="_blank" rel="noopener">▶ ${action}</a>`
+      const url = q.data.songUrl || q.data.movieUrl || q.data.url || '';
+      const action = q.data.url ? 'Download' : (q.data.songUrl ? 'Listen' : 'Watch');
+      meta = `<span><a href="${escapeHtml(url)}" target="_blank" rel="noopener">⬇ ${action}</a>`
         + ` · <a href="${escapeHtml(url)}" target="_blank">Open</a></span>`;
     } else if (q.status === 'error' && q.error) {
       meta = `<span title="${escapeHtml(q.error)}">${escapeHtml(q.error)}</span>`;
@@ -504,8 +706,9 @@ function renderQueue() {
       meta = `<span>${formatSize(q.loaded)}</span>`;
     }
 
+    const icon = kindIsLink() || q.data?.url ? '🔗' : (kindIsVideo() ? '🎬' : '🎵');
     el.innerHTML = `
-      <div class="qi-top"><span class="qi-name">${kindIsVideo() ? '🎬' : '🎵'} ${escapeHtml(q.name)}</span><span class="qi-state ${stateCls}">${stateText}</span></div>
+      <div class="qi-top"><span class="qi-name">${icon} ${escapeHtml(q.name)}</span><span class="qi-state ${stateCls}">${stateText}</span></div>
       <div class="progress-track"><div class="progress-fill" style="width:${q.progress}%"></div></div>
       <div class="qi-meta">${meta}</div>`;
 
@@ -525,6 +728,7 @@ function updateQueueProgress(key, progress, extra) {
 
 /* submit */
 $('start-upload-btn').addEventListener('click', () => {
+  if (kindIsLink()) { startLinkItemUpload(); return; }
   if (currentSource === 'device') startDeviceUpload();
   else startLinkUpload();
 });
@@ -610,7 +814,7 @@ function uploadOneFile(file, title, type, thumbnailUrl) {
 
 function addHistoryItem(item, type) {
   const history = $('upload-history');
-  const href = item.songUrl || item.movieUrl || '#';
+  const href = item.songUrl || item.movieUrl || item.url || '#';
   const box = document.createElement('div');
   box.className = 'queue-item done';
   box.style.marginTop = '10px';
@@ -620,13 +824,14 @@ function addHistoryItem(item, type) {
       <span class="qi-state done">Added</span>
     </div>
     <div class="qi-meta">
-      <span>${type === 'movie' ? 'Video' : 'Audio'} · By ${escapeHtml(item.uploader || 'Anonymous')}</span>
+      <span>${type === 'link' ? 'Link' : (type === 'movie' ? 'Video' : 'Audio')} · By ${escapeHtml(item.uploader || 'Anonymous')}</span>
       <span><a href="${escapeHtml(href)}" target="_blank" rel="noopener">Open ↗</a></span>
     </div>`;
   history.prepend(box);
 
   fetchGlobalTracks();
   fetchGlobalMovies();
+  fetchGlobalLinks();
 }
 
 async function startLinkUpload() {
@@ -811,5 +1016,6 @@ setInterval(() => loadMessages(), 3500);
 checkUserSession();
 fetchGlobalTracks();
 fetchGlobalMovies();
+fetchGlobalLinks();
 loadMessages({ force: true });
 updateQueueTitle();
