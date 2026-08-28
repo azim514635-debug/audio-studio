@@ -11,6 +11,17 @@ let currentUser = localStorage.getItem('visitorName') || '';
 let isAdminUnlocked = false;
 let adminSecret = '';
 let isAdminChecking = false;
+const BOSS_KEY = 'azim_boss_unlocked';
+let isBossUnlocked = localStorage.getItem(BOSS_KEY) === '1';
+
+function isBossName() {
+  const n = (currentUser || '').trim().toLowerCase();
+  return n === 'azim';
+}
+
+function roleLabel() {
+  return isBossName() ? 'Boss' : 'Admin';
+}
 
 /* ------------------------------------------------------------------ */
 /* Name / session                                                      */
@@ -39,6 +50,7 @@ modalSaveBtn.addEventListener('click', () => {
   localStorage.setItem('visitorName', name);
   modalOverlay.classList.add('hidden');
   renderAvatar();
+  if (isBossName() && (isBossUnlocked || isAdminUnlocked)) applyBossLabeling();
 });
 
 modalNameInput.addEventListener('keydown', (e) => {
@@ -54,11 +66,100 @@ function requireName() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Navigation + admin gate (server-verified)                           */
+/* Navigation + admin/boss gate (server-verified)                      */
 /* ------------------------------------------------------------------ */
+async function ensureBossUnlock() {
+  if (isBossUnlocked || isAdminUnlocked) return true;
+  if (!isBossName()) return true;
+
+  return new Promise((resolve) => {
+    const modal = $('boss-modal');
+    if (!modal) { resolve(false); return; }
+    const input = $('boss-modal-input');
+    const errEl = $('boss-modal-error');
+    const promptEl = $('boss-modal-prompt');
+    errEl.style.display = 'none';
+    input.value = '';
+    if (promptEl) promptEl.textContent = 'You are ' + currentUser + ' — enter your pass to declare you are the Boss.';
+    modal.classList.remove('hidden');
+    setTimeout(() => input.focus(), 50);
+
+    const close = () => { modal.classList.add('hidden'); removeHandlers(); resolve(false); };
+
+    const attempt = async () => {
+      const password = input.value.trim();
+      if (!password) return;
+      try {
+        const res = await fetch('/api/verify-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adminSecret: password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          isBossUnlocked = true;
+          isAdminUnlocked = true;
+          localStorage.setItem(BOSS_KEY, '1');
+          adminSecret = password;
+          const circle = $('admin-circle-btn');
+          if (circle) { circle.textContent = '🔓'; circle.classList.add('unlocked'); }
+          $('clear-chat-btn').style.display = 'inline-block';
+          modal.classList.add('hidden');
+          removeHandlers();
+          applyBossLabeling();
+          fetchGlobalTracks();
+          fetchGlobalMovies();
+          fetchGlobalLinks();
+          resolve(true);
+        } else {
+          errEl.style.display = 'block';
+        }
+      } catch (e) {
+        errEl.style.display = 'block';
+      }
+    };
+
+    const okHandler = () => attempt();
+    const cancelHandler = () => close();
+    const keyHandler = (e) => {
+      if (e.key === 'Enter') attempt();
+      if (e.key === 'Escape') close();
+    };
+
+    function removeHandlers() {
+      $('boss-modal-ok').removeEventListener('click', okHandler);
+      $('boss-modal-cancel').removeEventListener('click', cancelHandler);
+      modal.removeEventListener('keydown', keyHandler);
+    }
+
+    $('boss-modal-ok').addEventListener('click', okHandler);
+    $('boss-modal-cancel').addEventListener('click', cancelHandler);
+    modal.addEventListener('keydown', keyHandler);
+  });
+}
+
+function applyBossLabeling() {
+  const label = roleLabel();
+  document.querySelectorAll('[data-admin-text]').forEach((el) => {
+    el.textContent = el.textContent.replace(/^Admin/, label);
+  });
+  // Relabel visible "Admin" strings only for the boss
+  const circle = $('admin-circle-btn');
+  if (circle) circle.title = (isBossName() ? 'Boss' : 'Admin') + ' Panel';
+  const fabLabel = document.querySelector('.admin-fab-label');
+  if (fabLabel) fabLabel.textContent = (isBossName() ? 'Boss' : 'Admin') + ' Panel';
+  const heading = $('boss-admin-heading');
+  if (heading) heading.textContent = '🔒 ' + (isBossName() ? 'Boss' : 'Admin') + ' Dashboard';
+}
+
 async function ensureAdmin() {
-  if (isAdminUnlocked) return true;
+  if (isAdminUnlocked || isBossUnlocked) return true;
   if (isAdminChecking) return isAdminUnlocked;
+  if (isBossName()) {
+    const unlocked = await ensureBossUnlock();
+    if (unlocked) { isAdminUnlocked = true; applyBossLabeling(); return true; }
+    return false;
+  }
 
   return new Promise((resolve) => {
     const modal = $('admin-modal');
@@ -89,6 +190,7 @@ async function ensureAdmin() {
           if (circle) { circle.textContent = '🔓'; circle.classList.add('unlocked'); }
           modal.classList.add('hidden');
           removeHandlers();
+          applyBossLabeling();
           fetchGlobalTracks();
           fetchGlobalMovies();
           fetchGlobalLinks();
@@ -132,6 +234,7 @@ async function showPage(targetPage) {
   if (targetPage === 'movies') fetchGlobalMovies();
   if (targetPage === 'links') fetchGlobalLinks();
   if (targetPage === 'chat') { scrollChatToBottom(); }
+  if (targetPage === 'notifications') initMessaging();
 }
 
 async function navigateTo(targetPage, navEl) {
@@ -261,14 +364,15 @@ async function fetchGlobalTracks() {
             <div class="track-title">🎵 ${escapeHtml(t.title)}</div>
             <div class="track-by">By: ${escapeHtml(t.uploader)}</div>
           </div>
-          ${isAdminUnlocked ? `
+          ${isAdminUnlocked || isBossUnlocked ? `
             <div class="track-actions">
               <button onclick="viewInfo('Song', '${escapeHtml(t.title).replace(/'/g, "\\'")}', '${escapeHtml(t.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
               <button onclick="renameItem('song', '${t.id}', '${escapeHtml(t.title).replace(/'/g, "\\'")}')" class="btn-primary">Rename</button>
               <button onclick="deleteItem('song', '${t.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
-        <audio controls src="${escapeHtml(t.audioUrl || t.songUrl)}" style="width: 100%;"></audio>
+        ${(isAdminUnlocked || isBossUnlocked) ? seenHtml(t) : ''}
+        <audio controls src="${escapeHtml(t.audioUrl || t.songUrl)}" style="width: 100%;" onplay="markSeen('song', '${t.id}')"></audio>
       </div>
     </li>`).join('');
 }
@@ -294,14 +398,15 @@ async function fetchGlobalMovies() {
             <div class="track-title">🎬 ${escapeHtml(m.title)}</div>
             <div class="track-by">By: ${escapeHtml(m.uploader)}</div>
           </div>
-          ${isAdminUnlocked ? `
+          ${isAdminUnlocked || isBossUnlocked ? `
             <div class="track-actions">
               <button onclick="viewInfo('Movie', '${escapeHtml(m.title).replace(/'/g, "\\'")}', '${escapeHtml(m.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
               <button onclick="renameItem('movie', '${m.id}', '${escapeHtml(m.title).replace(/'/g, "\\'")}')" class="btn-primary">Rename</button>
               <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
-        <video controls src="${escapeHtml(m.movieUrl)}" style="width: 100%; max-height: 280px; border-radius: 6px;"></video>
+        ${(isAdminUnlocked || isBossUnlocked) ? seenHtml(m) : ''}
+        <video controls src="${escapeHtml(m.movieUrl)}" style="width: 100%; max-height: 280px; border-radius: 6px;" onplay="markSeen('movie', '${m.id}')"></video>
       </div>
     </li>`).join('');
 }
@@ -330,14 +435,15 @@ async function fetchGlobalLinks() {
             <div class="track-title">🔗 ${escapeHtml(l.title)}</div>
             <div class="track-by">Shared by: ${escapeHtml(l.uploader)}</div>
           </div>
-          ${isAdminUnlocked ? `
+          ${isAdminUnlocked || isBossUnlocked ? `
             <div class="track-actions">
               <button onclick="viewInfo('Link', '${escapeHtml(l.title).replace(/'/g, "\\'")}', '${escapeHtml(l.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
               <button onclick="renameItem('link', '${l.id}', '${escapeHtml(l.title).replace(/'/g, "\\'")}')" class="btn-primary">Rename</button>
               <button onclick="deleteItem('link', '${l.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
-        <a class="btn-primary download-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">⬇ Click here to download</a>
+        ${(isAdminUnlocked || isBossUnlocked) ? seenHtml(l) : ''}
+        <a class="btn-primary download-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${l.id}')">⬇ Click here to download</a>
       </div>
     </li>`).join('');
 }
@@ -437,9 +543,16 @@ async function loadAdminDashboard() {
   box.innerHTML = html;
 }
 
-function loadRequests() {
+async function loadRequests() {
   const requestsBox = $('requests-box');
-  const requests = JSON.parse(localStorage.getItem('azim_user_requests') || '[]');
+  let requests = [];
+  try {
+    const res = await fetch('/api/requests');
+    const data = await res.json();
+    requests = data.requests || requests;
+  } catch (e) {
+    requests = JSON.parse(localStorage.getItem('azim_user_requests') || '[]');
+  }
   if (requests.length === 0) {
     requestsBox.innerHTML = '<p style="color:#94a3b8;">No pending requests found.</p>';
     return;
@@ -447,19 +560,26 @@ function loadRequests() {
   requestsBox.innerHTML = requests.map((req) => `
     <div class="request-item">
       <strong>${escapeHtml(req.user)}:</strong> ${escapeHtml(req.text)}
-      <small>${escapeHtml(req.date)}</small>
+      <small>${escapeHtml(req.date || new Date(Number(req.timestamp) || Date.now()).toLocaleString())}</small>
     </div>
   `).join('');
 }
 
-$('clear-requests-btn').addEventListener('click', () => {
+$('clear-requests-btn').addEventListener('click', async () => {
   if (confirm('Clear all stored requests?')) {
     localStorage.removeItem('azim_user_requests');
+    try {
+      await fetch('/api/requests/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminSecret })
+      });
+    } catch (e) { /* non-blocking */ }
     loadRequests();
   }
 });
 
-$('send-request-btn').addEventListener('click', () => {
+$('send-request-btn').addEventListener('click', async () => {
   if (!requireName()) return;
   const text = $('request-text').value.trim();
   if (!text) return alert('Please type a message first.');
@@ -468,6 +588,13 @@ $('send-request-btn').addEventListener('click', () => {
   localStorage.setItem('azim_user_requests', JSON.stringify(requests));
   $('request-text').value = '';
   alert('Request submitted! Azim will see it in the Admin Panel.');
+  try {
+    await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: currentUser, text })
+    });
+  } catch (e) { /* non-blocking */ }
 });
 
 /* ------------------------------------------------------------------ */
@@ -977,6 +1104,10 @@ async function loadMessages({ force } = {}) {
     const messages = data.messages || [];
     if (!force && messages.length && lastMessageId === messages[messages.length - 1].id) return;
 
+    if (!force && messages.length && lastMessageId && messages[messages.length - 1].id !== lastMessageId) {
+      fireChatNotification(messages[messages.length - 1]);
+    }
+
     const container = $('chat-messages');
     const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
 
@@ -995,6 +1126,8 @@ async function loadMessages({ force } = {}) {
 
     let html = '';
     let lastDay = '';
+    const chatPage = $('page-chat');
+    const chatVisible = chatPage && chatPage.classList.contains('active');
     messages.forEach((m) => {
       const dk = dayKey(m.timestamp);
       if (dk !== lastDay) {
@@ -1002,6 +1135,7 @@ async function loadMessages({ force } = {}) {
         lastDay = dk;
       }
       const own = m.user === chatName;
+      const eyes = (isAdminUnlocked || isBossUnlocked) ? seenHtml(m) : '';
       html += `
         <div class="msg-row ${own ? 'own' : ''}">
           <div class="msg-avatar">${escapeHtml((m.user || '?').charAt(0))}</div>
@@ -1009,8 +1143,10 @@ async function loadMessages({ force } = {}) {
             <div class="msg-user">${escapeHtml(m.user)}${own ? ' · you' : ''}</div>
             <div class="msg-text">${escapeHtml(m.text)}</div>
             <div class="msg-time">${formatChatTime(m.timestamp)}</div>
+            ${eyes}
           </div>
         </div>`;
+      if (chatVisible && currentUser && m.user !== currentUser) markSeen('message', m.id);
     });
 
     container.innerHTML = html;
@@ -1083,6 +1219,302 @@ $('clear-chat-btn').addEventListener('click', async () => {
 setInterval(() => loadMessages(), 3500);
 
 /* ------------------------------------------------------------------ */
+/* FIREBASE CLOUD MESSAGING — PUSH NOTIFICATIONS                       */
+/* ------------------------------------------------------------------ */
+let firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "azim-studio-chat.firebaseapp.com",
+  projectId: "azim-studio-chat",
+  storageBucket: "azim-studio-chat.firebasestorage.app",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID",
+  vapidKey: "YOUR_VAPID_KEY"
+};
+let messagingConfigured = false;
+
+let messaging = null;
+let fcmToken = null;
+const NOTIF_DISMISS_KEY = 'azim_notif_dismissed';
+
+function isSecureContext() {
+  return window.isSecureContext && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+}
+
+function notificationsSupported() {
+  return 'Notification' in window && 'serviceWorker' in navigator && isSecureContext();
+}
+
+async function fetchMessagingConfig() {
+  try {
+    const res = await fetch('/api/notify/config');
+    const data = await res.json();
+    if (data.firebaseConfig) {
+      firebaseConfig = Object.assign({}, data.firebaseConfig, { vapidKey: data.vapidKey || firebaseConfig.vapidKey });
+    }
+    messagingConfigured = !!data.messagingConfigured;
+  } catch (e) { /* keep defaults */ }
+}
+
+async function initMessaging() {
+  await fetchMessagingConfig();
+  if (!notificationsSupported()) {
+    setNotifStatus('Notifications need a secure (HTTPS) connection and a supported browser.', 'unsupported');
+    return;
+  }
+  try {
+    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    messaging = firebase.messaging();
+    await registerServiceWorker();
+    const perm = Notification.permission;
+    if (perm === 'granted') {
+      await getAndStoreToken();
+    } else if (perm === 'denied') {
+      setNotifStatus('Notifications are blocked. Use the browser’s site settings to allow them.', 'off');
+    } else {
+      setNotifStatus('Notifications are available. Tap the button below to enable.', 'off');
+      maybePromptForNotifications();
+    }
+    setupForegroundListener();
+  } catch (e) {
+    setNotifStatus('Firebase messaging not configured. Add your FCM keys on the server.', 'unsupported');
+  }
+}
+
+/* Friendly, non-intrusive prompt: shown once; "Not Now" silences it (until
+   the user chooses to enable from the Notifications page). */
+function maybePromptForNotifications() {
+  const banner = $('notif-prompt-banner');
+  if (!banner) return;
+  if (Notification.permission !== 'default') return;   // granted or denied
+  if (localStorage.getItem(NOTIF_DISMISS_KEY) === '1') return; // "Not Now" already chosen
+  banner.classList.remove('hidden');
+}
+
+async function enableNotifications() {
+  if (!notificationsSupported()) { alert('Notifications are not supported in this browser or connection.'); return; }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    localStorage.removeItem(NOTIF_DISMISS_KEY);
+    const banner = $('notif-prompt-banner');
+    if (banner) banner.classList.add('hidden');
+    await registerServiceWorker();
+    await getAndStoreToken();
+    setupForegroundListener();
+    return true;
+  }
+  if (perm === 'denied') {
+    setNotifStatus('Notifications are blocked. Enable them in your browser’s site settings, then return here.', 'off');
+  } else {
+    setNotifStatus('Notification prompt dismissed. You can try again anytime.', 'off');
+  }
+  return false;
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    let reg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+    if (!reg) reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+    return reg;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getAndStoreToken() {
+  if (!messaging) return null;
+  try {
+    fcmToken = await messaging.getToken({ vapidKey: firebaseConfig.vapidKey });
+    if (fcmToken) {
+      await fetch('/api/notify/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: fcmToken, name: currentUser || 'Guest' })
+      });
+      setNotifStatus('Notifications enabled. You’ll be notified of new activity.', 'on');
+      return fcmToken;
+    }
+  } catch (e) {
+    setNotifStatus('Could not enable notifications: ' + (e && e.message ? e.message : 'unknown error'), 'off');
+  }
+  return null;
+}
+
+async function disableNotifications() {
+  if (fcmToken) {
+    try {
+      await fetch('/api/notify/unregister', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: fcmToken })
+      });
+    } catch (e) { /* ignore */ }
+  }
+  fcmToken = null;
+  setNotifStatus('Notifications disabled. You can re-enable anytime.', 'off');
+}
+
+function updateNotifButton() {
+  const btn = $('enable-notif-btn');
+  if (!btn) return;
+  if (Notification && Notification.permission === 'granted') {
+    btn.textContent = 'Disable Notifications';
+    btn.className = 'btn-primary btn-lg btn-danger';
+  } else {
+    btn.textContent = 'Enable Notifications';
+    btn.className = 'btn-primary btn-lg';
+  }
+}
+
+function setNotifStatus(text, state) {
+  const el = $('notif-status-text');
+  const dot = document.querySelector('.notif-status-dot');
+  if (!el) return;
+  el.textContent = text;
+  if (dot) {
+    dot.className = 'notif-status-dot';
+    if (state) dot.classList.add(state);
+  }
+  updateNotifButton();
+}
+
+if ($('enable-notif-btn')) {
+  $('enable-notif-btn').addEventListener('click', async () => {
+    if (Notification && Notification.permission === 'granted') {
+      await disableNotifications();
+    } else {
+      await enableNotifications();
+    }
+  });
+}
+if ($('notif-prompt-enable')) {
+  $('notif-prompt-enable').addEventListener('click', async () => {
+    const ok = await enableNotifications();
+    if (!ok && Notification.permission === 'default') {
+      const banner = $('notif-prompt-banner');
+      if (banner) banner.classList.add('hidden');
+    }
+  });
+}
+if ($('notif-prompt-later')) {
+  $('notif-prompt-later').addEventListener('click', () => {
+    localStorage.setItem(NOTIF_DISMISS_KEY, '1');
+    const banner = $('notif-prompt-banner');
+    if (banner) banner.classList.add('hidden');
+  });
+}
+
+/* Foreground message handling (tab is open): just route silently */
+function setupForegroundListener() {
+  if (!messaging) return;
+  try {
+    messaging.onMessage((payload) => {
+      const url = (payload.data && payload.data.url) || '/';
+      openNotificationUrl(url);
+    });
+  } catch (e) { /* ignore */ }
+}
+
+function openNotificationUrl(url) {
+  try {
+    const params = new URLSearchParams((url.split('?')[1] || ''));
+    const target = params.get('page') || 'home';
+    if ($('page-' + target)) {
+      navigateTo(navigatePageName(target), null);
+    }
+  } catch (e) { /* ignore */ }
+}
+function navigatePageName(p) {
+  if (p === 'library' || p === 'movies' || p === 'links') return p;
+  if (p === 'chat') return 'chat';
+  if (p === 'admin') return 'admin';
+  if (p === 'notifications') return 'notifications';
+  if (p === 'request') return 'request';
+  if (p === 'upload') return 'upload';
+  return 'home';
+}
+
+/* Admin / Boss: send an announcement to all users */
+$('send-notif-btn').addEventListener('click', async () => {
+  if (!isAdminUnlocked && !isBossUnlocked) { alert('Admin access required to send notifications.'); return; }
+  const title = $('notif-title').value.trim();
+  const body = $('notif-body').value.trim();
+  if (!title && !body) { alert('Please enter a title or message.'); return; }
+  try {
+    const res = await fetch('/api/notify/announce', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body, adminSecret })
+    });
+    const data = await res.json();
+    $('notif-send-result').textContent = data.success
+      ? ('Sent to ' + data.sent + ' device(s).')
+      : (data.error || 'Failed to send.');
+    if (data.success) { $('notif-title').value = ''; $('notif-body').value = ''; }
+  } catch (e) {
+    $('notif-send-result').textContent = 'Network error: ' + e.message;
+  }
+});
+
+async function sendChatNotification(user, text) {
+  try {
+    await fetch('/api/notify/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user, text })
+    });
+  } catch (e) { /* non-blocking */ }
+}
+
+let chatNotifCooldown = 0;
+let lastChatNotifText = '';
+
+async function fireChatNotification(message) {
+  const chatPage = $('page-chat');
+  const chatActive = chatPage && chatPage.classList.contains('active') && document.hasFocus();
+  if (chatActive) return;
+  const now = Date.now();
+  if (now - chatNotifCooldown < 10000) return;
+  if (message && message.text === lastChatNotifText) return;
+  chatNotifCooldown = now;
+  lastChatNotifText = message ? message.text : '';
+
+  await sendChatNotification(message.user || 'Someone', message.text || '');
+
+  if (Notification && Notification.permission === 'granted') {
+    navigator.serviceWorker.ready.then((reg) => {
+      reg.showNotification((message.user || 'Someone') + ' messaged in chat', {
+        body: message ? message.text : 'Open the chat to see what’s new.',
+        icon: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoQRdoz6Usc2PKiqexO_C5hT0EHm4G85lNGn-dpHeHzg&s=10',
+        tag: 'azim-chat-' + now,
+        renotify: false,
+        data: { url: '/?page=chat' }
+      });
+    }).catch(() => { /* ignore */ });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* "Seen by" tracking                                                  */
+/* ------------------------------------------------------------------ */
+async function markSeen(type, id) {
+  if (!currentUser) return;
+  try {
+    await fetch('/api/seen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, id, name: currentUser })
+    });
+  } catch (e) { /* non-blocking */ }
+}
+
+function seenHtml(item) {
+  if (!item || !Array.isArray(item.seen) || item.seen.length === 0) return '';
+  const names = item.seen.map((s) => escapeHtml(s.name)).join(', ');
+  return `<div class="seen-by" title="Seen by: ${names}">👁 Seen by ${escapeHtml(names)}</div>`;
+}
+
+/* ------------------------------------------------------------------ */
 /* Init                                                                */
 /* ------------------------------------------------------------------ */
 checkUserSession();
@@ -1091,3 +1523,5 @@ fetchGlobalMovies();
 fetchGlobalLinks();
 loadMessages({ force: true });
 updateQueueTitle();
+initMessaging();
+if (isBossName() && (isBossUnlocked || isAdminUnlocked)) applyBossLabeling();

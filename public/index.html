@@ -36,12 +36,39 @@
     </div>
   </div>
 
+  <!-- Boss password modal (shown only to the owner, e.g. name "Azim") -->
+  <div id="boss-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2>👑 Boss Access</h2>
+      <p id="boss-modal-prompt">Enter your pass to declare you are the Boss.</p>
+      <input type="password" id="boss-modal-input" placeholder="Boss pass..." autocomplete="off">
+      <div class="admin-modal-btns">
+        <button id="boss-modal-cancel" class="btn-secondary">Cancel</button>
+        <button id="boss-modal-ok" class="btn-primary">I'm the Boss</button>
+      </div>
+      <p id="boss-modal-error" class="admin-modal-error" style="display:none;">Incorrect pass. Try again.</p>
+    </div>
+  </div>
+
+  <!-- Friendly notification prompt banner -->
+  <div id="notif-prompt-banner" class="notif-prompt hidden">
+    <div class="notif-prompt-inner">
+      <span class="notif-prompt-icon">🔔</span>
+      <div class="notif-prompt-text">
+        <strong>Stay in the loop!</strong>
+        <span>Get notified about new uploads, chat messages and updates.</span>
+      </div>
+      <button type="button" id="notif-prompt-later" class="btn-secondary btn-sm">Not Now</button>
+      <button type="button" id="notif-prompt-enable" class="btn-primary btn-sm">Enable</button>
+    </div>
+  </div>
+
   <!-- Floating circular admin button (bottom-right) -->
   <div id="admin-fab" class="admin-fab">
     <button type="button" id="admin-circle-btn" class="admin-circle" title="Admin Panel" aria-label="Admin Panel">
       🔒
     </button>
-    <span class="admin-fab-label">Admin Panel</span>
+    <span class="admin-fab-label" data-admin-text>Admin Panel</span>
   </div>
 
   <div class="app-container">
@@ -66,6 +93,7 @@
             <button type="button" class="menu-link" data-page="links">🔗 Links</button>
             <button type="button" class="menu-link" data-page="upload">⬆️ Upload Media</button>
             <button type="button" class="menu-link" data-page="chat">💬 Chat <span class="menu-count" id="menu-message-count"></span></button>
+            <button type="button" class="menu-link" data-page="notifications">🔔 Notifications</button>
             <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
           </nav>
         </div>
@@ -304,7 +332,7 @@
       <!-- Admin Dashboard -->
       <section id="page-admin" class="page">
         <div class="header-card" style="background: linear-gradient(135deg, #111827, #374151);">
-          <h1>🔒 Admin Dashboard</h1>
+          <h1 id="boss-admin-heading">🔒 Admin Dashboard</h1>
           <p>Manage uploaded media and review user requests.</p>
         </div>
         <div class="card" style="margin-bottom: 20px;">
@@ -322,12 +350,45 @@
         </div>
       </section>
 
+      <!-- Notifications -->
+      <section id="page-notifications" class="page">
+        <div class="header-card" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
+          <h1>🔔 Notifications</h1>
+          <p>Get notified when new media is added or a new chat message arrives — even when the site is closed.</p>
+        </div>
+        <div class="card">
+          <div class="notif-card">
+            <div class="notif-icon">🔔</div>
+            <h3>Push Notifications</h3>
+            <p class="notif-desc">Enable push notifications to stay up to date. You can turn them off anytime.</p>
+            <div class="notif-status" id="notif-status">
+              <span class="notif-status-dot"></span>
+              <span id="notif-status-text">Checking…</span>
+            </div>
+            <button type="button" class="btn-primary btn-lg" id="enable-notif-btn">Enable Notifications</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 data-admin-text>Admin — Send Notification</h3>
+          </div>
+          <label class="field-label" for="notif-title">Title</label>
+          <input type="text" id="notif-title" placeholder="e.g. New song added!">
+          <label class="field-label" for="notif-body">Message</label>
+          <textarea id="notif-body" placeholder="e.g. Check out the latest uploads in the library."></textarea>
+          <button type="button" class="btn-primary" id="send-notif-btn">Send to All Users</button>
+          <p class="field-hint" id="notif-send-result"></p>
+        </div>
+      </section>
+
       <footer>
         <p>Created &amp; Maintained with ❤️ by <strong>Azim</strong></p>
       </footer>
     </main>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
