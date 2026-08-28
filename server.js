@@ -1,7 +1,18 @@
 const express = require('express');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+const streamifier = require('streamifier');
 const fs = require('fs');
 const path = require('path');
+
+if (fs.existsSync(path.join(__dirname, '.env'))) {
+  for (const line of fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split('\n')) {
+    const m = line.match(/^\s*([\w.-]+)\s*=\s*(.*)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+  }
+}
+
+cloudinary.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,20 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-if (!fs.existsSync('public/uploads')) {
-  fs.mkdirSync('public/uploads', { recursive: true });
-}
-
-const sanitize = (name) => String(name || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'public/uploads/'),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname || '');
-    cb(null, Date.now() + '-' + Math.round(Math.random() * 1e9) + (ext ? sanitize(ext) : ''));
-  }
-});
-const upload = multer({ storage, limits: { fileSize: 2048 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2048 * 1024 * 1024 } });
 
 const DB_FILE = 'database.json';
 function getDb() {
@@ -47,9 +45,16 @@ function saveDb(data) {
 }
 
 const makeId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-const fileUrl = (file) => `/uploads/${file.filename}`;
 const mediaList = (type, db) => (type === 'movie' || type === 'movies' ? db.movies : db.songs);
 const isMediaType = (type) => type === 'song' || type === 'songs' || type === 'movie' || type === 'movies';
+
+const uploadToCloudinary = (file, resourceType, cb) => {
+  if (!file) return cb(null, '');
+  const stream = cloudinary.uploader.upload_stream({ resource_type: resourceType }, (err, result) => {
+    cb(err || null, result ? result.secure_url : '');
+  });
+  streamifier.createReadStream(file.buffer).pipe(stream);
+};
 
 /* ------------------------------------------------------------------ */
 /* Public data / library                                               */
@@ -95,24 +100,33 @@ app.post(
     if (!mediaFile) return res.status(400).json({ success: false, error: 'No media file received.' });
 
     const thumbnailFile = req.files && req.files.thumbnailFile && req.files.thumbnailFile[0];
-    const db = getDb();
-    const item = {
-      id: makeId(),
-      title: String(req.body.title || mediaFile.originalname || 'Untitled').trim(),
-      uploader: String(req.body.uploader || 'Anonymous').trim(),
-      thumbnailUrl: thumbnailFile ? fileUrl(thumbnailFile) : (req.body.thumbnailUrl || ''),
-      createdAt: new Date().toISOString()
-    };
+    const mediaResource = type === 'movie' ? 'video' : 'video';
+    uploadToCloudinary(mediaFile, mediaResource, (mediaErr, mediaUrl) => {
+      if (mediaErr) return res.status(500).json({ success: false, error: 'Cloudinary upload failed: ' + mediaErr.message });
 
-    if (type === 'movie') {
-      item.movieUrl = fileUrl(mediaFile);
-      db.movies.unshift(item);
-    } else {
-      item.songUrl = fileUrl(mediaFile);
-      db.songs.unshift(item);
-    }
-    saveDb(db);
-    res.json({ success: true, type, item });
+      uploadToCloudinary(thumbnailFile, 'image', (thumbErr, thumbUrl) => {
+        if (thumbErr) return res.status(500).json({ success: false, error: 'Cloudinary upload failed: ' + thumbErr.message });
+
+        const db = getDb();
+        const item = {
+          id: makeId(),
+          title: String(req.body.title || mediaFile.originalname || 'Untitled').trim(),
+          uploader: String(req.body.uploader || 'Anonymous').trim(),
+          thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
+          createdAt: new Date().toISOString()
+        };
+
+        if (type === 'movie') {
+          item.movieUrl = mediaUrl;
+          db.movies.unshift(item);
+        } else {
+          item.songUrl = mediaUrl;
+          db.songs.unshift(item);
+        }
+        saveDb(db);
+        res.json({ success: true, type, item });
+      });
+    });
   }
 );
 
@@ -128,18 +142,26 @@ app.post(
     if (!mediaFile) return res.status(400).send('No file uploaded.');
 
     const thumbnailFile = req.files && req.files.thumbnailFile && req.files.thumbnailFile[0];
-    const db = getDb();
-    const item = {
-      id: makeId(),
-      title: String(req.body.title || mediaFile.originalname).trim(),
-      uploader: String(req.body.uploader || 'Anonymous').trim(),
-      songUrl: fileUrl(mediaFile),
-      thumbnailUrl: thumbnailFile ? fileUrl(thumbnailFile) : (req.body.thumbnailUrl || ''),
-      createdAt: new Date().toISOString()
-    };
-    db.songs.unshift(item);
-    saveDb(db);
-    res.send('Song uploaded successfully!');
+    uploadToCloudinary(mediaFile, 'video', (mediaErr, mediaUrl) => {
+      if (mediaErr) return res.status(500).send('Cloudinary upload failed: ' + mediaErr.message);
+
+      uploadToCloudinary(thumbnailFile, 'image', (thumbErr, thumbUrl) => {
+        if (thumbErr) return res.status(500).send('Cloudinary upload failed: ' + thumbErr.message);
+
+        const db = getDb();
+        const item = {
+          id: makeId(),
+          title: String(req.body.title || mediaFile.originalname).trim(),
+          uploader: String(req.body.uploader || 'Anonymous').trim(),
+          songUrl: mediaUrl,
+          thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
+          createdAt: new Date().toISOString()
+        };
+        db.songs.unshift(item);
+        saveDb(db);
+        res.send('Song uploaded successfully!');
+      });
+    });
   }
 );
 
@@ -154,18 +176,26 @@ app.post(
     if (!mediaFile) return res.status(400).send('No file uploaded.');
 
     const thumbnailFile = req.files && req.files.thumbnailFile && req.files.thumbnailFile[0];
-    const db = getDb();
-    const item = {
-      id: makeId(),
-      title: String(req.body.title || mediaFile.originalname).trim(),
-      uploader: String(req.body.uploader || 'Anonymous').trim(),
-      movieUrl: fileUrl(mediaFile),
-      thumbnailUrl: thumbnailFile ? fileUrl(thumbnailFile) : (req.body.thumbnailUrl || ''),
-      createdAt: new Date().toISOString()
-    };
-    db.movies.unshift(item);
-    saveDb(db);
-    res.send('Movie uploaded successfully!');
+    uploadToCloudinary(mediaFile, 'video', (mediaErr, mediaUrl) => {
+      if (mediaErr) return res.status(500).send('Cloudinary upload failed: ' + mediaErr.message);
+
+      uploadToCloudinary(thumbnailFile, 'image', (thumbErr, thumbUrl) => {
+        if (thumbErr) return res.status(500).send('Cloudinary upload failed: ' + thumbErr.message);
+
+        const db = getDb();
+        const item = {
+          id: makeId(),
+          title: String(req.body.title || mediaFile.originalname).trim(),
+          uploader: String(req.body.uploader || 'Anonymous').trim(),
+          movieUrl: mediaUrl,
+          thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
+          createdAt: new Date().toISOString()
+        };
+        db.movies.unshift(item);
+        saveDb(db);
+        res.send('Movie uploaded successfully!');
+      });
+    });
   }
 );
 
@@ -183,19 +213,31 @@ app.post('/api/upload/link', upload.single('thumbnailFile'), (req, res) => {
     id: makeId(),
     title: String(title || 'Untitled').trim(),
     uploader: String(uploader || 'Admin').trim(),
-    thumbnailUrl: req.file ? fileUrl(req.file) : (thumbnailUrl || ''),
     createdAt: new Date().toISOString()
   };
 
-  if (type === 'movie' || type === 'movies') {
-    item.movieUrl = mediaUrl;
-    db.movies.unshift(item);
+  const finish = () => {
+    if (type === 'movie' || type === 'movies') {
+      item.movieUrl = mediaUrl;
+      db.movies.unshift(item);
+    } else {
+      item.songUrl = mediaUrl;
+      db.songs.unshift(item);
+    }
+    saveDb(db);
+    res.json({ success: true, type: type === 'movie' || type === 'movies' ? 'movie' : 'song', item });
+  };
+
+  if (req.file) {
+    uploadToCloudinary(req.file, 'image', (err, url) => {
+      if (err) return res.status(500).json({ success: false, error: 'Cloudinary upload failed: ' + err.message });
+      item.thumbnailUrl = url || (thumbnailUrl || '');
+      finish();
+    });
   } else {
-    item.songUrl = mediaUrl;
-    db.songs.unshift(item);
+    item.thumbnailUrl = thumbnailUrl || '';
+    finish();
   }
-  saveDb(db);
-  res.json({ success: true, type: type === 'movie' || type === 'movies' ? 'movie' : 'song', item });
 });
 
 /* ------------------------------------------------------------------ */
