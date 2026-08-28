@@ -17,27 +17,57 @@
   </div>
 
   <div class="app-container">
-    <nav class="sidebar">
-      <div class="brand">
-        <h2>Studio Pro</h2>
-        <span class="badge">PRO</span>
+    <!-- Top app bar -->
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <span class="brand-logo">🎧</span>
+          <span class="brand-name">Studio <em>Pro</em></span>
+          <span class="badge">PRO</span>
+        </div>
+        <div class="user-badge" id="user-display">Guest</div>
       </div>
-      <ul class="nav-links">
-        <li class="nav-item active" data-page="library">🎵 Songs</li>
-        <li class="nav-item" data-page="movies">🎬 Movies</li>
-        <li class="nav-item" data-page="upload">⬆️ Upload Media</li>
-        <li class="nav-item" data-page="chat">💬 Chat <span class="nav-count" id="nav-message-count"></span></li>
-        <li class="nav-item" data-page="request">📩 Contact Azim</li>
-        <li class="nav-item" data-page="admin">🔒 Admin Panel</li>
-      </ul>
-      <div class="user-badge" id="user-display">Guest</div>
+    </header>
+
+    <!-- Responsive navigation cards -->
+    <nav class="nav-grid" aria-label="Main navigation">
+      <button type="button" class="nav-item active" data-page="library">
+        <span class="nav-ico">🎵</span>
+        <span class="nav-text">Songs</span>
+        <span class="nav-sub">Music library</span>
+      </button>
+      <button type="button" class="nav-item" data-page="movies">
+        <span class="nav-ico">🎬</span>
+        <span class="nav-text">Movies</span>
+        <span class="nav-sub">Video library</span>
+      </button>
+      <button type="button" class="nav-item" data-page="upload">
+        <span class="nav-ico">⬆️</span>
+        <span class="nav-text">Upload Media</span>
+        <span class="nav-sub">Add audio &amp; video</span>
+      </button>
+      <button type="button" class="nav-item" data-page="chat">
+        <span class="nav-ico">💬</span>
+        <span class="nav-text">Chat</span>
+        <span class="nav-sub">Community chat <span class="nav-count" id="nav-message-count"></span></span>
+      </button>
+      <button type="button" class="nav-item" data-page="request">
+        <span class="nav-ico">📩</span>
+        <span class="nav-text">Contact Azim</span>
+        <span class="nav-sub">Send a request</span>
+      </button>
+      <button type="button" class="nav-item" data-page="admin">
+        <span class="nav-ico">🔒</span>
+        <span class="nav-text">Admin Panel</span>
+        <span class="nav-sub">Manage content</span>
+      </button>
     </nav>
 
     <main class="main-content">
       <!-- Songs Library -->
       <section id="page-library" class="page active">
         <div class="header-card">
-          <h1>Music Library</h1>
+          <h1>🎵 Music Library</h1>
           <p>Listen to songs uploaded by the community.</p>
         </div>
         <div class="card">
@@ -48,7 +78,7 @@
       <!-- Movies Library -->
       <section id="page-movies" class="page">
         <div class="header-card">
-          <h1>Movie Library</h1>
+          <h1>🎬 Movie Library</h1>
           <p>Watch movies shared by the community.</p>
         </div>
         <div class="card">
@@ -59,7 +89,7 @@
       <!-- Professional Upload Media -->
       <section id="page-upload" class="page">
         <div class="header-card">
-          <h1>Professional Media Upload</h1>
+          <h1>⬆️ Professional Media Upload</h1>
           <p>Upload audio &amp; video with live progress, link sharing and custom thumbnails.</p>
         </div>
 
@@ -145,7 +175,7 @@
       <!-- Professional Chat -->
       <section id="page-chat" class="page">
         <div class="header-card" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
-          <h1>Community Chat</h1>
+          <h1>💬 Community Chat</h1>
           <p>Talk with everyone on Studio Pro.</p>
         </div>
 
@@ -166,7 +196,10 @@
 
       <!-- Requests -->
       <section id="page-request" class="page">
-        <h2>Send a Request to Azim</h2>
+        <div class="header-card">
+          <h1>📩 Send a Request to Azim</h1>
+          <p>Share your message, feedback or feature request.</p>
+        </div>
         <div class="card">
           <textarea id="request-text" placeholder="Type your message or feature request here..."></textarea>
           <button id="send-request-btn" class="btn-primary">Submit Request</button>
@@ -175,7 +208,10 @@
 
       <!-- Admin Dashboard -->
       <section id="page-admin" class="page">
-        <h2>Admin Dashboard</h2>
+        <div class="header-card" style="background: linear-gradient(135deg, #111827, #374151);">
+          <h1>🔒 Admin Dashboard</h1>
+          <p>Manage uploaded media and review user requests.</p>
+        </div>
         <div class="card" style="margin-bottom: 20px;">
           <div class="card-header">
             <h3>Manage Uploaded Media (Rename / Delete)</h3>
