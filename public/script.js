@@ -50,7 +50,12 @@ modalSaveBtn.addEventListener('click', () => {
   localStorage.setItem('visitorName', name);
   modalOverlay.classList.add('hidden');
   renderAvatar();
-  if (isBossName() && (isBossUnlocked || isAdminUnlocked)) applyBossLabeling();
+  if (isBossName()) {
+    greetBoss();
+  } else if (isBossUnlocked) {
+    isBossUnlocked = false; isAdminUnlocked = false;
+    localStorage.removeItem(BOSS_KEY);
+  }
 });
 
 modalNameInput.addEventListener('keydown', (e) => {
@@ -63,6 +68,17 @@ function requireName() {
     return false;
   }
   return true;
+}
+
+async function greetBoss() {
+  const promptEl = $('boss-modal-prompt');
+  const headingEl = $('boss-modal-heading');
+  if (headingEl) headingEl.textContent = '👑 Welcome Boss, ' + currentUser + '!';
+  if (promptEl) promptEl.textContent = 'To confirm you are the Boss, please enter the pass to unlock the Boss/Admin panel.';
+  const unlocked = await ensureBossUnlock();
+  if (unlocked) {
+    applyBossLabeling();
+  }
 }
 
 /* ------------------------------------------------------------------ */
