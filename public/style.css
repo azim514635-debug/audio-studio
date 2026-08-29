@@ -936,6 +936,14 @@ footer .footer-author { margin-top: 0; }
   line-height: 1.3;
 }
 
+/* Hide floating buttons when the on-screen keyboard is open */
+body.keyboard-open .admin-fab,
+body.keyboard-open .notif-fab {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
 /* Notification enable/disable popup */
 .notif-popup {
   position: fixed;

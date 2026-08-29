@@ -1673,6 +1673,27 @@ function seenHtml(item) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Hide floating buttons while the on-screen keyboard is shown         */
+/* ------------------------------------------------------------------ */
+let keyboardOpen = false;
+function updateKeyboardState() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const keyboardIsOpen = vv.height < window.innerHeight - 120;
+  if (keyboardIsOpen !== keyboardOpen) {
+    keyboardOpen = keyboardIsOpen;
+    document.body.classList.toggle('keyboard-open', keyboardIsOpen);
+  }
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', updateKeyboardState);
+  window.visualViewport.addEventListener('scroll', updateKeyboardState);
+} else {
+  window.addEventListener('resize', updateKeyboardState);
+}
+updateKeyboardState();
+
+/* ------------------------------------------------------------------ */
 /* Init                                                                */
 /* ------------------------------------------------------------------ */
 checkUserSession();
