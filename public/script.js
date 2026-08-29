@@ -1070,6 +1070,18 @@ function kindIsLink() { return currentKind === 'link'; }
 function kindName() { return currentKind === 'link' ? 'link' : (kindIsVideo() ? 'movie' : 'song'); }
 function typeLabel() { return kindIsLink() ? 'Link' : (kindIsVideo() ? 'Video' : 'Audio'); }
 
+function detectKindFromFile(file) {
+  if (!file) return null;
+  const mime = (file.type || '').toLowerCase();
+  const ext = (String(file.name).split('.').pop() || '').toLowerCase();
+  const videoExt = ['mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v', '3gp', 'ogv', 'ts', 'wmv', 'flv', 'mpeg', 'mpg', 'm4a', 'mp3', 'aac'];
+  if (mime.startsWith('video/')) return 'movie';
+  if (mime.startsWith('audio/')) return 'song';
+  if (videoExt.slice(0, 13).includes(ext) && !['m4a', 'mp3', 'aac'].includes(ext)) return 'movie';
+  if (['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac', 'opus', 'wma', 'amr', 'm4b'].includes(ext)) return 'song';
+  return null;
+}
+
 /* Segmented buttons */
 document.querySelectorAll('#media-type-seg .seg-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -1077,7 +1089,7 @@ document.querySelectorAll('#media-type-seg .seg-btn').forEach((btn) => {
     document.querySelectorAll('#media-type-seg .seg-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     renderKindPanes();
-    $('media-file').accept = kindIsVideo() ? 'video/*' : 'audio/*';
+    $('media-file').accept = 'audio/*,video/*';
     $('start-upload-btn').textContent = currentSource === 'link' ? 'Add Link' : (kindIsLink() ? 'Add Link' : 'Upload Media');
     updateQueueTitle();
   });
@@ -1147,7 +1159,7 @@ function renderSelectedFiles() {
   }
   box.innerHTML = selectedMediaFiles.map((f, i) => `
     <div class="selected-file">
-      <span>${kindIsVideo() ? '🎬' : '🎵'}</span>
+      <span>${detectKindFromFile(f) === 'movie' ? '🎬' : '🎵'}</span>
       <span class="sf-name">${escapeHtml(f.name)}</span>
       <span class="sf-size">${formatSize(f.size)}</span>
       <button type="button" class="sf-remove" data-i="${i}" title="Remove">✕</button>
@@ -1362,7 +1374,7 @@ function renderQueue() {
       meta = `<span>${formatSize(q.loaded)}</span>`;
     }
 
-    const icon = kindIsLink() || q.data?.url ? '🔗' : (kindIsVideo() ? '🎬' : '🎵');
+    const icon = q.kindLabel === 'Link' ? '🔗' : (q.kindLabel === 'Video' ? '🎬' : '🎵');
     el.innerHTML = `
       <div class="qi-top"><span class="qi-name">${icon} ${escapeHtml(q.name)}</span><span class="qi-state ${stateCls}">${stateText}</span></div>
       <div class="progress-track"><div class="progress-fill" style="width:${q.progress}%"></div></div>
@@ -1406,7 +1418,8 @@ async function startDeviceUpload() {
     else if (baseTitle) title = `${baseTitle} ${i + 1}`;
     else title = file.name.replace(/\.[^.]+$/, '') || 'Untitled';
 
-    await uploadOneFile(file, title, kindName(), thumbValue);
+    const actualKind = detectKindFromFile(file) || kindName();
+    await uploadOneFile(file, title, actualKind, thumbValue);
   }
 
   uploading = false;
@@ -1421,7 +1434,8 @@ async function startDeviceUpload() {
 function uploadOneFile(file, title, type, thumbnailUrl) {
   return new Promise((resolve) => {
     const key = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-    queueItems.push({ key, name: title, kindLabel: typeLabel(), status: 'waiting', progress: 0, error: '' });
+    const label = type === 'movie' ? 'Video' : (type === 'link' ? 'Link' : 'Audio');
+    queueItems.push({ key, name: title, kindLabel: label, status: 'waiting', progress: 0, error: '' });
     renderQueue();
 
     const formData = new FormData();
