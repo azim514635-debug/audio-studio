@@ -134,31 +134,20 @@
     <div class="main-title">Azim's Studio Pro</div>
 
     <div class="menu-list">
-      <div class="menu-item active" onclick="switchTab('songs-tab', this)">🎵 Songs</div>
-      <div class="menu-item" onclick="switchTab('movies-tab', this)">🎬 Movies</div>
+      <div class="menu-item active" onclick="switchTab('library-tab', this)">🎵 Library</div>
       <div class="menu-item" onclick="switchTab('upload-tab', this)">⬆️ Upload Media</div>
       <div class="menu-item" onclick="switchTab('chat-tab', this)">💬 Chat</div>
       <div class="menu-item" onclick="switchTab('admin-tab', this)">🔒 Admin Panel</div>
     </div>
 
-    <!-- Songs Tab -->
-    <div id="songs-tab" class="content-section active">
+    <!-- Library Tab -->
+    <div id="library-tab" class="content-section active">
       <div class="hero-card">
-        <h1>Music Library</h1>
-        <p>Listen to community-uploaded tracks.</p>
+        <h1>Media Library</h1>
+        <p>Everything uploaded, newest first.</p>
       </div>
-      <h3 class="section-title">🎵 Songs Library</h3>
-      <div id="songs-container" class="grid"><p style="color: #64748b; font-size: 13px;">No songs available.</p></div>
-    </div>
-
-    <!-- Movies Tab -->
-    <div id="movies-tab" class="content-section">
-      <div class="hero-card" style="background: linear-gradient(135deg, #0ea5e9, #3b82f6);">
-        <h1>Movie Library</h1>
-        <p>Watch community-uploaded movies.</p>
-      </div>
-      <h3 class="section-title">🎬 Movies Library</h3>
-      <div id="movies-container" class="grid"><p style="color: #64748b; font-size: 13px;">No movies available.</p></div>
+      <h3 class="section-title">🎵 Songs & Videos</h3>
+      <div id="library-container" class="grid"><p style="color: #64748b; font-size: 13px;">No media available.</p></div>
     </div>
 
     <!-- Upload Tab (professional) -->
@@ -341,34 +330,34 @@
 
     async function loadLibrary() {
       const data = await (await fetch('/api/data')).json();
-      const songs = data.songs || [];
-      const movies = data.movies || [];
+      const items = [
+        ...(data.songs || []).map(s => ({ ...s, kind: 'song' })),
+        ...(data.movies || []).map(m => ({ ...m, kind: 'movie' }))
+      ].sort((a, b) => {
+        const ta = Date.parse(a.createdAt || '') || 0;
+        const tb = Date.parse(b.createdAt || '') || 0;
+        return tb - ta;
+      });
 
-      const sContainer = document.getElementById('songs-container');
-      sContainer.innerHTML = songs.length ? songs.map(s => `
-        <div class="card">
-          ${s.thumbnailUrl ? `<img src="${escapeHtml(s.thumbnailUrl)}" alt="">` : '<div class="thumb-ph">🎵</div>'}
-          <h3>${escapeHtml(s.title)}</h3>
-          <p>By: ${escapeHtml(s.uploader)}</p>
-          <audio controls style="width:100%; margin-top:4px; height:28px;"><source src="${escapeHtml(s.songUrl)}"></audio>
-          <div class="card-actions" style="margin-top:8px;">
-            <button class="btn-sm" onclick="renameFile('song', '${s.id}')">Rename</button>
-            <button class="btn-sm del" onclick="deleteFile('song', '${s.id}')">Delete</button>
-          </div>
-        </div>`).join('') : '<p style="color: #64748b; font-size: 13px;">No songs available.</p>';
-
-      const mContainer = document.getElementById('movies-container');
-      mContainer.innerHTML = movies.length ? movies.map(m => `
-        <div class="card">
-          ${m.thumbnailUrl ? `<img src="${escapeHtml(m.thumbnailUrl)}" alt="">` : '<div class="thumb-ph">🎬</div>'}
-          <h3>${escapeHtml(m.title)}</h3>
-          <p>By: ${escapeHtml(m.uploader)}</p>
-          <a href="${escapeHtml(m.movieUrl)}" target="_blank" style="display:block; margin-top:4px; background:#38bdf8; color:#0b0f19; padding:6px; text-decoration:none; border-radius:4px; font-weight:bold; font-size:12px;">Watch Movie</a>
-          <div class="card-actions" style="margin-top:8px;">
-            <button class="btn-sm" onclick="renameFile('movie', '${m.id}')">Rename</button>
-            <button class="btn-sm del" onclick="deleteFile('movie', '${m.id}')">Delete</button>
-          </div>
-        </div>`).join('') : '<p style="color: #64748b; font-size: 13px;">No movies available.</p>';
+      const container = document.getElementById('library-container');
+      container.innerHTML = items.length ? items.map(it => {
+        const isVideo = it.kind === 'movie';
+        const url = it.movieUrl || it.songUrl || '#';
+        const play = isVideo
+          ? `<a href="${escapeHtml(url)}" target="_blank" style="display:block; margin-top:4px; background:#38bdf8; color:#0b0f19; padding:6px; text-decoration:none; border-radius:4px; font-weight:bold; font-size:12px;">▶ Watch Video</a>`
+          : `<audio controls style="width:100%; margin-top:4px; height:28px;"><source src="${escapeHtml(url)}"></audio>`;
+        return `
+          <div class="card">
+            ${it.thumbnailUrl ? `<img src="${escapeHtml(it.thumbnailUrl)}" alt="">` : `<div class="thumb-ph">${isVideo ? '🎬' : '🎵'}</div>`}
+            <h3>${escapeHtml(it.title)}</h3>
+            <p>By: ${escapeHtml(it.uploader)}</p>
+            ${play}
+            <div class="card-actions" style="margin-top:8px;">
+              <button class="btn-sm" onclick="renameFile('${isVideo ? 'movie' : 'song'}', '${it.id}')">Rename</button>
+              <button class="btn-sm del" onclick="deleteFile('${isVideo ? 'movie' : 'song'}', '${it.id}')">Delete</button>
+            </div>
+          </div>`;
+      }).join('') : '<p style="color: #64748b; font-size: 13px;">No media available.</p>';
     }
 
     function getUploader() { return currentUser || 'Anonymous'; }

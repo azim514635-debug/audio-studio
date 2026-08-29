@@ -1032,11 +1032,11 @@ async function sendToNamedDevices(name, title, body, data) {
 
 /* Fire-and-forget broadcast when media is added (used server-side on uploads) */
 function sendUploadNotification(type, title, uploader) {
-  const kind = type === 'movie' ? 'Movie' : 'Song';
+  const kind = type === 'movie' ? 'Video' : 'Song';
   sendToAllDevices(
     'New ' + kind + ' added!',
     String(title || 'Check it out') + ' — by ' + String(uploader || 'Anonymous'),
-    { url: type === 'movie' ? '/?page=movies' : '/?page=library', type: String(type || 'song') },
+    { url: '/?page=library', type: String(type || 'song') },
     uploader
   ).catch(() => { /* non-blocking */ });
 }
@@ -1076,11 +1076,11 @@ app.post('/api/notify/announce', ah(async (req, res) => {
 app.post('/api/notify/upload', ah(async (req, res) => {
   if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const { type, title, uploader } = req.body;
-  const kind = type === 'movie' ? 'Movie' : (type === 'link' ? 'Link' : 'Song');
+  const kind = type === 'movie' ? 'Video' : (type === 'link' ? 'Link' : 'Song');
   const result = await sendToAllDevices(
     'New ' + kind + ' added!',
     String(title || 'Check it out') + ' — by ' + String(uploader || 'Anonymous'),
-    { url: type === 'movie' ? '/?page=movies' : (type === 'link' ? '/?page=links' : '/?page=library'), type: String(type || 'song') },
+    { url: '/?page=library', type: String(type || 'song') },
     uploader
   );
   res.json({ success: true, ...result });
