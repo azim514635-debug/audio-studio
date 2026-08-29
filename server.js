@@ -264,8 +264,11 @@ app.post('/api/auth/register', ah(async (req, res) => {
   const db = await getDb();
   const existing = findUser(db.users, name);
   if (existing) {
-    if (existing.status === 'unregistered') {
-      return res.status(403).json({ success: false, code: 'unregistered', error: 'Your account has been unregistered by the boss. Please appeal to get it restored.' });
+    if (existing.status === 'disabled' || existing.status === 'unregistered') {
+      return res.status(403).json({ success: false, code: 'disabled', error: 'Your account has been disabled by the boss. Please appeal to get it restored.' });
+    }
+    if (existing.status === 'permanent') {
+      return res.status(403).json({ success: false, code: 'permanent', error: 'Your account has been permanently disabled by the boss.' });
     }
     return res.status(409).json({ success: false, error: 'That name is already registered. Please log in.' });
   }
@@ -293,11 +296,18 @@ app.post('/api/auth/login', ah(async (req, res) => {
     return res.status(401).json({ success: false, error: 'Incorrect password. Please try again.' });
   }
 
-  if (user.status === 'unregistered') {
+  if (user.status === 'disabled' || user.status === 'unregistered') {
     return res.status(403).json({
       success: false,
-      code: 'unregistered',
-      error: 'Your account has been unregistered by the boss.'
+      code: 'disabled',
+      error: 'Your account has been disabled by the boss.'
+    });
+  }
+  if (user.status === 'permanent') {
+    return res.status(403).json({
+      success: false,
+      code: 'permanent',
+      error: 'Your account has been permanently disabled by the boss.'
     });
   }
 
@@ -324,31 +334,40 @@ app.get('/api/auth/admin', ah(async (req, res) => {
   const db = await getDb();
   const users = (db.users || []).map((u) => ({
     name: u.name,
-    status: u.status || 'active',
+    status: u.status === 'unregistered' ? 'disabled' : (u.status || 'active'),
     createdAt: u.createdAt || null,
     lastLogin: u.lastLogin || null
   }));
   res.json({ success: true, users, appeals: (db.appeals || []) });
 }));
 
-/* Admin: unregister (deactivate) a user account */
-app.post('/api/auth/unregister', ah(async (req, res) => {
+/* Admin: disable (temporary) or permanently disable a user account.
+   A permanent disable is irreversible — there is no re-enable path for it. */
+app.post('/api/auth/disable', ah(async (req, res) => {
   if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const name = normalizeName(req.body.name);
   if (!name) return res.status(400).json({ success: false, error: 'Missing user name.' });
+  const permanent = req.body.permanent === true;
 
   await withDbWrite(async () => {
     const d = await getDb();
     const u = findUser(d.users, name);
     if (u) {
-      u.status = 'unregistered';
+      // Re-enabling a *temporary* disabled account clears its pending appeal.
+      if (permanent) {
+        u.status = 'permanent';
+        d.appeals = (d.appeals || []).filter((a) => String(a.name).toLowerCase() !== String(name).toLowerCase());
+      } else {
+        u.status = 'disabled';
+      }
       await saveDb(d);
     }
   });
   res.json({ success: true });
 }));
 
-/* Admin: approve / re-register a user account (activate again) */
+/* Admin: approve (re-enable) a TEMPORARILY disabled account. Permanent
+   disables cannot be reversed. */
 app.post('/api/auth/approve', ah(async (req, res) => {
   if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const name = normalizeName(req.body.name);
@@ -357,7 +376,7 @@ app.post('/api/auth/approve', ah(async (req, res) => {
   await withDbWrite(async () => {
     const d = await getDb();
     const u = findUser(d.users, name);
-    if (u) {
+    if (u && u.status === 'disabled') {
       u.status = 'active';
       d.appeals = (d.appeals || []).filter((a) => String(a.name).toLowerCase() !== String(name).toLowerCase());
       await saveDb(d);
@@ -366,7 +385,8 @@ app.post('/api/auth/approve', ah(async (req, res) => {
   res.json({ success: true });
 }));
 
-/* User: appeal after being unregistered */
+/* User: appeal after being temporarily disabled. Permanently disabled
+   accounts cannot appeal. */
 app.post('/api/auth/appeal', ah(async (req, res) => {
   const name = normalizeName(req.body.name);
   const text = String(req.body.text || '').trim().slice(0, 500);
@@ -376,6 +396,12 @@ app.post('/api/auth/appeal', ah(async (req, res) => {
   const db = await getDb();
   const user = findUser(db.users, name);
   if (!user) return res.status(404).json({ success: false, error: 'Account not found.' });
+  if (user.status === 'permanent') {
+    return res.status(403).json({ success: false, code: 'permanent', error: 'This account has been permanently disabled and cannot be appealed.' });
+  }
+  if (user.status !== 'disabled') {
+    return res.status(400).json({ success: false, error: 'This account is not disabled.' });
+  }
 
   await withDbWrite(async () => {
     const d = await getDb();

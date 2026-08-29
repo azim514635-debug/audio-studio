@@ -144,12 +144,12 @@
     </div>
   </div>
 
-  <!-- Unregistered / appeal modal -->
+  <!-- Disabled / appeal modal -->
   <div id="appeal-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="app-alert-icon">🚫</div>
-      <h2>Account Unregistered</h2>
-      <p>Your account <strong id="appeal-account-name"></strong> has been unregistered by the boss. If you think this is a mistake, click the button below to appeal and get it re-registered.</p>
+      <h2>Account Disabled</h2>
+      <p>Your account <strong id="appeal-account-name"></strong> has been disabled by the boss. If you think this is a mistake, click the button below to appeal and get it re-enabled.</p>
       <textarea id="appeal-text" rows="3" placeholder="Write a short appeal message..." autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);resize:vertical;"></textarea>
       <p id="appeal-error" class="admin-modal-error" style="display:none;"></p>
       <div class="admin-modal-btns">
@@ -440,14 +440,14 @@
           <div class="card-header">
             <h3 data-admin-text>Registered Accounts</h3>
           </div>
-          <p class="field-hint">Manage registered user accounts. You can unregister an account or re-register it.</p>
+          <p class="field-hint">Manage registered user accounts. You can disable an account (they can appeal) or disable it permanently (cannot be reversed).</p>
           <div id="accounts-box" class="requests-box"></div>
         </div>
         <div class="card" style="margin-top:20px;">
           <div class="card-header">
             <h3 data-admin-text>User Appeals</h3>
           </div>
-          <p class="field-hint">Appeals from users whose accounts were unregistered. Review and approve to re-register.</p>
+          <p class="field-hint">Appeals from users whose accounts were disabled. Review and approve to re-enable them.</p>
           <div id="appeals-box" class="requests-box"></div>
         </div>
         <div class="card" style="margin-top:20px;">

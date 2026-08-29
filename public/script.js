@@ -244,11 +244,16 @@ async function submitAppeal() {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Appeal'; }
   }
 }
-async function showUnregisteredModal(name) {
+async function showDisabledModal(name) {
   authPassInput.value = '';
   authConfirmInput.value = '';
-  await showAlert('Your account has been unregistered by the boss.', 'Account Unregistered', '🚫');
+  await showAlert('Your account has been disabled by the boss. You can appeal to get it restored.', 'Account Disabled', '🚫');
   openAppealModal(name);
+}
+async function showPermanentModal(name) {
+  authPassInput.value = '';
+  authConfirmInput.value = '';
+  await showAlert('Your account has been permanently disabled by the boss and cannot be restored.', 'Account Permanently Disabled', '🔒');
 }
 
 const appealCancelBtn = $('appeal-cancel');
@@ -296,8 +301,10 @@ async function submitAuth() {
     } else if (res.status === 401) {
       authPassInput.value = '';
       await showAlert(data.error || 'Incorrect password. Please try again.', 'Login Failed', '⚠️');
-    } else if (res.status === 403 && data.code === 'unregistered') {
-      await showUnregisteredModal(name);
+    } else if (res.status === 403 && data.code === 'disabled') {
+      await showDisabledModal(name);
+    } else if (res.status === 403 && data.code === 'permanent') {
+      await showPermanentModal(name);
     } else {
       showAuthError(data.error || 'Authentication failed.');
     }
@@ -903,7 +910,7 @@ async function loadRequests() {
   requestsBox.innerHTML = requests.map((req) => `
     <div class="request-item">
       <strong>${escapeHtml(req.user)}:</strong> ${escapeHtml(req.text)}
-      <small>${escapeHtml(req.date || new Date(Number(req.timestamp) || Date.now()).toLocaleString())}</small>
+      <small>${escapeHtml(req.date || new Date(Number(req.timestamp) || Date.now()).toLocaleString([], { hour12: true }))}</small>
     </div>
   `).join('');
 }
@@ -937,15 +944,23 @@ async function loadAccounts() {
   }
   box.innerHTML = users.map((u) => {
     const safeName = jsAttr(u.name);
-    const active = (u.status || 'active') === 'active';
+    const status = u.status || 'active';
     const created = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—';
-    const lastLogin = u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'never';
-    const badge = active
-      ? '<span style="color:#4ade80;font-size:0.75rem;">✓ active</span>'
-      : '<span style="color:#f87171;font-size:0.75rem;">✗ unregistered</span>';
-    const action = active
-      ? `<button onclick="unregisterAccount('${safeName}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Unregister</button>`
-      : `<button onclick="approveAccount('${safeName}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Re-register</button>`;
+    const lastLogin = u.lastLogin ? new Date(u.lastLogin).toLocaleString([], { hour12: true }) : 'never';
+    let badge;
+    if (status === 'active') badge = '<span style="color:#4ade80;font-size:0.75rem;">✓ active</span>';
+    else if (status === 'permanent') badge = '<span style="color:#f87171;font-size:0.75rem;">🔒 permanently disabled</span>';
+    else badge = '<span style="color:#fbbf24;font-size:0.75rem;">✗ disabled</span>';
+    let action = '';
+    if (status === 'active') {
+      action = `
+        <div style="display:flex; gap:6px;">
+          <button onclick="disableAccount('${safeName}', false)" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Disable</button>
+          <button onclick="disableAccount('${safeName}', true)" class="btn-danger" style="padding:4px 8px; font-size:0.8rem; background:#7f1d1d;">Disable Permanently</button>
+        </div>`;
+    } else if (status === 'disabled') {
+      action = `<button onclick="approveAccount('${safeName}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Re-enable</button>`;
+    }
     return `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:6px; margin-bottom:6px; gap:8px; flex-wrap:wrap;">
         <div style="min-width:0;">
@@ -972,7 +987,7 @@ async function loadAppeals() {
   }
   box.innerHTML = appeals.map((a) => {
     const safeName = jsAttr(a.name);
-    const when = a.timestamp ? new Date(a.timestamp).toLocaleString() : '';
+    const when = a.timestamp ? new Date(a.timestamp).toLocaleString([], { hour12: true }) : '';
     return `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:6px; margin-bottom:6px; gap:8px; flex-wrap:wrap;">
         <div style="min-width:0;">
@@ -980,28 +995,34 @@ async function loadAppeals() {
           <div style="font-size:0.75rem; color:#94a3b8;">${escapeHtml(when)}</div>
           <div style="margin-top:4px; color:#e2e8f0; font-size:0.9rem;">“${escapeHtml(a.text)}”</div>
         </div>
-        <button onclick="approveAccount('${safeName}')" class="btn-primary" style="padding:6px 10px; font-size:0.8rem;">Approve &amp; Re-register</button>
+        <button onclick="approveAccount('${safeName}')" class="btn-primary" style="padding:6px 10px; font-size:0.8rem;">Approve &amp; Re-enable</button>
       </div>`;
   }).join('');
 }
 
-window.unregisterAccount = async function (name) {
-  if (!await showConfirm(`Unregister the account “${name}”? The user will not be able to log in.`, 'Unregister Account')) return;
+window.disableAccount = async function (name, permanent) {
+  const msg = permanent
+    ? `Permanently disable the account “${name}”? This CANNOT be undone and the boss cannot re-enable it.`
+    : `Disable the account “${name}”? The user will not be able to log in, but can appeal to be re-enabled.`;
+  const title = permanent ? 'Disable Permanently' : 'Disable Account';
+  if (!await showConfirm(msg, title)) return;
   try {
-    const res = await fetch('/api/auth/unregister', {
+    const res = await fetch('/api/auth/disable', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret || '' },
-      body: JSON.stringify({ name })
+      body: JSON.stringify({ name, permanent })
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); await showAlert(d.error || 'Failed.'); return; }
-    await showAlert(`Account “${name}” has been unregistered.`, 'Done', '✅');
+    await showAlert(
+      permanent ? `Account “${name}” has been permanently disabled.` : `Account “${name}” has been disabled.`,
+      'Done', '✅');
   } catch (e) { await showAlert('Network error.'); return; }
   loadAccounts();
   loadAppeals();
 };
 
 window.approveAccount = async function (name) {
-  if (!await showConfirm(`Re-register the account “${name}”? The user will be able to log in again.`, 'Re-register Account')) return;
+  if (!await showConfirm(`Re-enable the account “${name}”? The user will be able to log in again.`, 'Re-enable Account')) return;
   try {
     const res = await fetch('/api/auth/approve', {
       method: 'POST',
@@ -1009,7 +1030,7 @@ window.approveAccount = async function (name) {
       body: JSON.stringify({ name })
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); await showAlert(d.error || 'Failed.'); return; }
-    await showAlert(`Account “${name}” has been re-registered.`, 'Done', '✅');
+    await showAlert(`Account “${name}” has been re-enabled.`, 'Done', '✅');
   } catch (e) { await showAlert('Network error.'); return; }
   loadAccounts();
   loadAppeals();
@@ -1020,7 +1041,7 @@ $('send-request-btn').addEventListener('click', async () => {
   const text = $('request-text').value.trim();
   if (!text) return showAlert('Please type a message first.');
   const requests = JSON.parse(localStorage.getItem('azim_user_requests') || '[]');
-  requests.unshift({ user: currentUser, text, date: new Date().toLocaleString() });
+  requests.unshift({ user: currentUser, text, date: new Date().toLocaleString([], { hour12: true }) });
   localStorage.setItem('azim_user_requests', JSON.stringify(requests));
   $('request-text').value = '';
   showAlert('Request submitted! Azim will see it in the Admin Panel.');
@@ -1516,7 +1537,7 @@ let renderedDayKey = '';
 let chatName = '';
 
 function formatChatTime(ts) {
-  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 function dayKey(ts) {
   const d = new Date(ts);
