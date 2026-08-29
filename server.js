@@ -98,7 +98,8 @@ async function getDb() {
       links: Array.isArray(val.links) ? val.links : [],
       messages: Array.isArray(val.messages) ? val.messages : [],
       requests: Array.isArray(val.requests) ? val.requests : [],
-      notifTokens: Array.isArray(val.notifTokens) ? val.notifTokens : []
+      notifTokens: Array.isArray(val.notifTokens) ? val.notifTokens : [],
+      users: Array.isArray(val.users) ? val.users : []
     };
   }
   return {
@@ -107,15 +108,16 @@ async function getDb() {
     links: Array.isArray(memoryDb.links) ? memoryDb.links : [],
     messages: Array.isArray(memoryDb.messages) ? memoryDb.messages : [],
     requests: Array.isArray(memoryDb.requests) ? memoryDb.requests : [],
-    notifTokens: Array.isArray(memoryDb.notifTokens) ? memoryDb.notifTokens : []
+    notifTokens: Array.isArray(memoryDb.notifTokens) ? memoryDb.notifTokens : [],
+    users: Array.isArray(memoryDb.users) ? memoryDb.users : []
   };
 }
 
 async function saveDb(data) {
   if (useFirebase) {
-    await dbRef.set({ songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [] });
+    await dbRef.set({ songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [] });
   } else {
-    memoryDb = { songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [] };
+    memoryDb = { songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [] };
   }
   const size = Buffer.byteLength(JSON.stringify(data) || '[]', 'utf8');
   if (size > 700 * 1024) {
@@ -160,6 +162,26 @@ const isAdminReq = (req) => {
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2048 * 1024 * 1024 } });
 
 const makeId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+/* ---- User registration / login (server-side accounts) ---- */
+const crypto = require('crypto');
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return salt + ':' + hash;
+}
+function verifyPassword(password, stored) {
+  if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
+  const [salt, hash] = stored.split(':');
+  const test = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  const a = Buffer.from(hash, 'hex');
+  const b = Buffer.from(test, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+const normalizeName = (name) => String(name || '').trim().slice(0, 40);
+const findUser = (users, name) => users.find((u) => String(u.name).toLowerCase() === String(name).toLowerCase());
+const AUTH_TOKENS = {}; // token -> normalized username (in-memory sessions)
+
 const mediaList = (type, db) => {
   if (type === 'link' || type === 'links') return db.links;
   return (type === 'movie' || type === 'movies' ? db.movies : db.songs);
@@ -224,6 +246,56 @@ app.post('/api/verify-admin', (req, res) => {
   } else {
     res.status(401).json({ success: false, message: 'Invalid password' });
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* User registration / login                                           */
+/* ------------------------------------------------------------------ */
+app.post('/api/auth/register', ah(async (req, res) => {
+  const name = normalizeName(req.body.name);
+  const password = String(req.body.password || '');
+
+  if (!name) return res.status(400).json({ success: false, error: 'Please enter your name.' });
+  if (name.length < 2) return res.status(400).json({ success: false, error: 'Name must be at least 2 characters.' });
+  if (String(password).length < 4) return res.status(400).json({ success: false, error: 'Password must be at least 4 characters.' });
+
+  const db = await getDb();
+  if (findUser(db.users, name)) {
+    return res.status(409).json({ success: false, error: 'That name is already registered. Please log in.' });
+  }
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    d.users = d.users || [];
+    d.users.push({ name, passwordHash: hashPassword(password), createdAt: Date.now(), token: null });
+    await saveDb(d);
+  });
+
+  const token = crypto.randomBytes(24).toString('hex');
+  AUTH_TOKENS[token] = name;
+  res.json({ success: true, token, name });
+}));
+
+app.post('/api/auth/login', ah(async (req, res) => {
+  const name = normalizeName(req.body.name);
+  const password = String(req.body.password || '');
+  if (!name || !password) return res.status(400).json({ success: false, error: 'Please enter your name and password.' });
+
+  const db = await getDb();
+  const user = findUser(db.users, name);
+  if (!user || !verifyPassword(password, user.passwordHash)) {
+    return res.status(401).json({ success: false, error: 'Incorrect name or password.' });
+  }
+
+  const token = crypto.randomBytes(24).toString('hex');
+  AUTH_TOKENS[token] = user.name;
+  res.json({ success: true, token, name: user.name });
+}));
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = String(req.body.token || '');
+  delete AUTH_TOKENS[token];
+  res.json({ success: true });
 });
 
 /* ------------------------------------------------------------------ */

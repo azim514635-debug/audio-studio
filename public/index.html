@@ -13,12 +13,20 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Register / Login modal -->
   <div id="name-modal" class="modal-overlay">
     <div class="modal-card">
-      <h2>Welcome to Azim's Space</h2>
-      <p>Please enter your name to unlock uploading, chatting and sending requests.</p>
-      <input type="text" id="modal-name-input" placeholder="Your name..." autocomplete="off">
-      <button id="modal-save-btn" class="btn-primary">Continue</button>
+      <h2 id="auth-title">Welcome to Azim's Space</h2>
+      <p id="auth-subtitle">Create an account to unlock uploading, chatting and sending requests.</p>
+
+      <input type="text" id="auth-name" placeholder="Enter your name" autocomplete="off">
+      <input type="password" id="auth-password" placeholder="Enter your password" autocomplete="off">
+      <input type="password" id="auth-confirm" placeholder="Confirm password" style="display:none;" autocomplete="off">
+
+      <p id="auth-error" class="admin-modal-error" style="display:none;"></p>
+
+      <button id="auth-submit" class="btn-primary" style="margin-top:8px;">Register</button>
+      <p id="auth-toggle" class="auth-toggle"><span id="auth-toggle-label">Already have an account?</span> <a href="javascript:void(0)" id="auth-toggle-link">Login</a></p>
     </div>
   </div>
 
@@ -145,6 +153,7 @@
             <button type="button" class="menu-link" data-page="upload">⬆️ Upload Media</button>
             <button type="button" class="menu-link" data-page="chat">💬 Chat <span class="menu-count" id="menu-message-count"></span></button>
             <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
+            <button type="button" class="menu-link menu-logout" id="menu-logout" style="color:#f87171;">🚪 Log out</button>
           </nav>
         </div>
         <div class="user-avatar" id="user-avatar">

@@ -100,13 +100,21 @@ function showPrompt(msg, defVal, title, icon) {
 
 /* Convenience: native alert gets a themed "Notice" dialog */
 const modalOverlay = $('name-modal');
-const modalNameInput = $('modal-name-input');
-const modalSaveBtn = $('modal-save-btn');
+const authNameInput = $('auth-name');
+const authPassInput = $('auth-password');
+const authConfirmInput = $('auth-confirm');
+const authSubmitBtn = $('auth-submit');
+const authToggleLink = $('auth-toggle-link');
+const authTitleEl = $('auth-title');
+const authSubtitleEl = $('auth-subtitle');
+const authErrorEl = $('auth-error');
 const avatarInitials = $('avatar-initials');
 const navItems = document.querySelectorAll('.menu-link');
 const pages = document.querySelectorAll('.page');
 
 let currentUser = localStorage.getItem('visitorName') || '';
+let authToken = localStorage.getItem('visitorToken') || '';
+let authMode = 'register'; // 'register' | 'login'
 let isAdminUnlocked = false;
 let adminSecret = '';
 const BOSS_KEY = 'azim_boss_unlocked';
@@ -133,31 +141,101 @@ function renderAvatar() {
 }
 
 function checkUserSession() {
-  if (currentUser) {
+  if (currentUser && authToken) {
     modalOverlay.classList.add('hidden');
   } else {
     modalOverlay.classList.remove('hidden');
+    setAuthMode('register');
   }
   renderAvatar();
 }
 
-modalSaveBtn.addEventListener('click', () => {
-  const name = modalNameInput.value.trim();
-  if (!name) return showAlert('Please enter your name to proceed.');
-  currentUser = name;
-  localStorage.setItem('visitorName', name);
-  modalOverlay.classList.add('hidden');
-  renderAvatar();
-  if (isBossName()) {
-    greetBoss();
-  } else if (isBossUnlocked) {
-    isBossUnlocked = false; isAdminUnlocked = false;
-    localStorage.removeItem(BOSS_KEY);
-  }
-});
+function setAuthMode(mode) {
+  authMode = mode;
+  const isRegister = mode === 'register';
+  authSubmitBtn.textContent = isRegister ? 'Register' : 'Login';
+  authConfirmInput.style.display = isRegister ? 'block' : 'none';
+  authTitleEl.textContent = isRegister ? 'Welcome to Azim\'s Space' : 'Welcome Back';
+  authSubtitleEl.textContent = isRegister
+    ? 'Create an account to unlock uploading, chatting and sending requests.'
+    : 'Login to unlock uploading, chatting and sending requests.';
+  authToggleLink.textContent = isRegister ? 'Login' : 'Register';
+  const toggleLabel = $('auth-toggle-label');
+  if (toggleLabel) toggleLabel.textContent = isRegister ? 'Already have an account?' : 'Don\'t have an account?';
+  authErrorEl.style.display = 'none';
+}
 
-modalNameInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') modalSaveBtn.click();
+function switchAuthMode() {
+  setAuthMode(authMode === 'register' ? 'login' : 'register');
+}
+
+function showAuthError(msg) {
+  authErrorEl.textContent = msg;
+  authErrorEl.style.display = 'block';
+}
+
+async function submitAuth() {
+  const name = authNameInput.value.trim();
+  const password = authPassInput.value;
+  const confirm = authConfirmInput.value;
+
+  authErrorEl.style.display = 'none';
+  if (!name) return showAuthError('Please enter your name.');
+  if (!password) return showAuthError('Please enter your password.');
+
+  if (authMode === 'register') {
+    if (String(password).length < 4) return showAuthError('Password must be at least 4 characters.');
+    if (password !== confirm) return showAuthError('Passwords do not match.');
+  }
+
+  authSubmitBtn.disabled = true;
+  authSubmitBtn.textContent = 'Please wait…';
+  try {
+    const endpoint = authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, password })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      currentUser = data.name || name;
+      authToken = data.token || '';
+      localStorage.setItem('visitorName', currentUser);
+      localStorage.setItem('visitorToken', authToken);
+      modalOverlay.classList.add('hidden');
+      renderAvatar();
+      if (isBossName()) {
+        greetBoss();
+      } else if (isBossUnlocked) {
+        isBossUnlocked = false; isAdminUnlocked = false;
+        localStorage.removeItem(BOSS_KEY);
+      }
+    } else {
+      showAuthError(data.error || 'Authentication failed.');
+    }
+  } catch (e) {
+    showAuthError('Network error: ' + e.message);
+  } finally {
+    authSubmitBtn.disabled = false;
+    setAuthMode(authMode);
+  }
+}
+
+function handleAuthEnter(e) {
+  if (e.key === 'Enter') submitAuth();
+}
+
+authSubmitBtn.addEventListener('click', submitAuth);
+authToggleLink.addEventListener('click', switchAuthMode);
+authNameInput.addEventListener('keydown', handleAuthEnter);
+authPassInput.addEventListener('keydown', handleAuthEnter);
+authConfirmInput.addEventListener('keydown', handleAuthEnter);
+
+const menuLogoutBtn = $('menu-logout');
+if (menuLogoutBtn) menuLogoutBtn.addEventListener('click', () => {
+  closeMenu();
+  logoutUser();
 });
 
 function requireName() {
@@ -166,6 +244,30 @@ function requireName() {
     return false;
   }
   return true;
+}
+
+function logoutUser() {
+  if (authToken) {
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: authToken })
+    }).catch(() => {});
+  }
+  currentUser = '';
+  authToken = '';
+  localStorage.removeItem('visitorName');
+  localStorage.removeItem('visitorToken');
+  localStorage.removeItem(BOSS_KEY);
+  isBossUnlocked = false;
+  isAdminUnlocked = false;
+  setAuthMode('register');
+  authNameInput.value = '';
+  authPassInput.value = '';
+  authConfirmInput.value = '';
+  modalOverlay.classList.remove('hidden');
+  renderAvatar();
+  location.reload();
 }
 
 async function greetBoss() {
