@@ -196,6 +196,66 @@ function showAuthError(msg) {
   authErrorEl.style.display = 'block';
 }
 
+const appealModal = $('appeal-modal');
+const appealNameEl = $('appeal-account-name');
+const appealTextEl = $('appeal-text');
+const appealErrorEl = $('appeal-error');
+let appealTargetName = '';
+
+function openAppealModal(name) {
+  appealTargetName = name;
+  if (appealNameEl) appealNameEl.textContent = name;
+  if (appealTextEl) appealTextEl.value = '';
+  if (appealErrorEl) appealErrorEl.style.display = 'none';
+  if (appealModal) appealModal.classList.remove('hidden');
+}
+function closeAppealModal() {
+  if (appealModal) appealModal.classList.add('hidden');
+}
+async function submitAppeal() {
+  const text = appealTextEl ? appealTextEl.value.trim() : '';
+  if (!appealErrorEl) return;
+  appealErrorEl.style.display = 'none';
+  if (!text) {
+    appealErrorEl.textContent = 'Please write a short appeal message.';
+    appealErrorEl.style.display = 'block';
+    return;
+  }
+  const submitBtn = $('appeal-submit');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending…'; }
+  try {
+    const res = await fetch('/api/auth/appeal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: appealTargetName, text })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      closeAppealModal();
+      await showAlert('Your appeal has been sent to the boss. Please wait for approval.', 'Appeal Sent', '📨');
+    } else {
+      appealErrorEl.textContent = data.error || 'Failed to send appeal.';
+      appealErrorEl.style.display = 'block';
+    }
+  } catch (e) {
+    appealErrorEl.textContent = 'Network error: ' + e.message;
+    appealErrorEl.style.display = 'block';
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Appeal'; }
+  }
+}
+async function showUnregisteredModal(name) {
+  authPassInput.value = '';
+  authConfirmInput.value = '';
+  await showAlert('Your account has been unregistered by the boss.', 'Account Unregistered', '🚫');
+  openAppealModal(name);
+}
+
+const appealCancelBtn = $('appeal-cancel');
+const appealSubmitBtn = $('appeal-submit');
+if (appealCancelBtn) appealCancelBtn.addEventListener('click', closeAppealModal);
+if (appealSubmitBtn) appealSubmitBtn.addEventListener('click', submitAppeal);
+
 async function submitAuth() {
   const name = authNameInput.value.trim();
   const password = authPassInput.value;
@@ -233,6 +293,11 @@ async function submitAuth() {
         isBossUnlocked = false; isAdminUnlocked = false;
         localStorage.removeItem(BOSS_KEY);
       }
+    } else if (res.status === 401) {
+      authPassInput.value = '';
+      await showAlert(data.error || 'Incorrect password. Please try again.', 'Login Failed', '⚠️');
+    } else if (res.status === 403 && data.code === 'unregistered') {
+      await showUnregisteredModal(name);
     } else {
       showAuthError(data.error || 'Authentication failed.');
     }
@@ -764,6 +829,8 @@ window.renameItem = async function (type, id, oldTitle) {
 /* ------------------------------------------------------------------ */
 async function loadAdminDashboard() {
   loadRequests();
+  loadAccounts();
+  loadAppeals();
   const box = $('admin-media-box');
 
   const [tracksRes, moviesRes, linksRes] = await Promise.all([fetch('/api/tracks'), fetch('/api/movies'), fetch('/api/links')]);
@@ -854,6 +921,99 @@ $('clear-requests-btn').addEventListener('click', async () => {
     loadRequests();
   }
 });
+
+async function loadAccounts() {
+  const box = $('accounts-box');
+  if (!box) return;
+  let users = [];
+  try {
+    const res = await fetch('/api/auth/admin', { headers: { 'x-admin-secret': adminSecret || '' } });
+    const data = await res.json();
+    users = data.users || [];
+  } catch (e) { /* ignore */ }
+  if (users.length === 0) {
+    box.innerHTML = '<p style="color:#94a3b8;">No registered accounts yet.</p>';
+    return;
+  }
+  box.innerHTML = users.map((u) => {
+    const safeName = jsAttr(u.name);
+    const active = (u.status || 'active') === 'active';
+    const created = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—';
+    const lastLogin = u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'never';
+    const badge = active
+      ? '<span style="color:#4ade80;font-size:0.75rem;">✓ active</span>'
+      : '<span style="color:#f87171;font-size:0.75rem;">✗ unregistered</span>';
+    const action = active
+      ? `<button onclick="unregisterAccount('${safeName}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Unregister</button>`
+      : `<button onclick="approveAccount('${safeName}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Re-register</button>`;
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:6px; margin-bottom:6px; gap:8px; flex-wrap:wrap;">
+        <div style="min-width:0;">
+          <strong style="color:#fff;">${escapeHtml(u.name)}</strong> ${badge}
+          <div style="font-size:0.75rem; color:#94a3b8;">Registered: ${created} · Last login: ${lastLogin}</div>
+        </div>
+        <div>${action}</div>
+      </div>`;
+  }).join('');
+}
+
+async function loadAppeals() {
+  const box = $('appeals-box');
+  if (!box) return;
+  let appeals = [];
+  try {
+    const res = await fetch('/api/auth/admin', { headers: { 'x-admin-secret': adminSecret || '' } });
+    const data = await res.json();
+    appeals = data.appeals || [];
+  } catch (e) { /* ignore */ }
+  if (appeals.length === 0) {
+    box.innerHTML = '<p style="color:#94a3b8;">No appeals yet.</p>';
+    return;
+  }
+  box.innerHTML = appeals.map((a) => {
+    const safeName = jsAttr(a.name);
+    const when = a.timestamp ? new Date(a.timestamp).toLocaleString() : '';
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:6px; margin-bottom:6px; gap:8px; flex-wrap:wrap;">
+        <div style="min-width:0;">
+          <strong style="color:#fff;">${escapeHtml(a.name)}</strong>
+          <div style="font-size:0.75rem; color:#94a3b8;">${escapeHtml(when)}</div>
+          <div style="margin-top:4px; color:#e2e8f0; font-size:0.9rem;">“${escapeHtml(a.text)}”</div>
+        </div>
+        <button onclick="approveAccount('${safeName}')" class="btn-primary" style="padding:6px 10px; font-size:0.8rem;">Approve &amp; Re-register</button>
+      </div>`;
+  }).join('');
+}
+
+window.unregisterAccount = async function (name) {
+  if (!await showConfirm(`Unregister the account “${name}”? The user will not be able to log in.`, 'Unregister Account')) return;
+  try {
+    const res = await fetch('/api/auth/unregister', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret || '' },
+      body: JSON.stringify({ name })
+    });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); await showAlert(d.error || 'Failed.'); return; }
+    await showAlert(`Account “${name}” has been unregistered.`, 'Done', '✅');
+  } catch (e) { await showAlert('Network error.'); return; }
+  loadAccounts();
+  loadAppeals();
+};
+
+window.approveAccount = async function (name) {
+  if (!await showConfirm(`Re-register the account “${name}”? The user will be able to log in again.`, 'Re-register Account')) return;
+  try {
+    const res = await fetch('/api/auth/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret || '' },
+      body: JSON.stringify({ name })
+    });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); await showAlert(d.error || 'Failed.'); return; }
+    await showAlert(`Account “${name}” has been re-registered.`, 'Done', '✅');
+  } catch (e) { await showAlert('Network error.'); return; }
+  loadAccounts();
+  loadAppeals();
+};
 
 $('send-request-btn').addEventListener('click', async () => {
   if (!requireName()) return;

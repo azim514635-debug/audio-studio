@@ -99,7 +99,8 @@ async function getDb() {
       messages: Array.isArray(val.messages) ? val.messages : [],
       requests: Array.isArray(val.requests) ? val.requests : [],
       notifTokens: Array.isArray(val.notifTokens) ? val.notifTokens : [],
-      users: Array.isArray(val.users) ? val.users : []
+      users: Array.isArray(val.users) ? val.users : [],
+      appeals: Array.isArray(val.appeals) ? val.appeals : []
     };
   }
   return {
@@ -109,15 +110,16 @@ async function getDb() {
     messages: Array.isArray(memoryDb.messages) ? memoryDb.messages : [],
     requests: Array.isArray(memoryDb.requests) ? memoryDb.requests : [],
     notifTokens: Array.isArray(memoryDb.notifTokens) ? memoryDb.notifTokens : [],
-    users: Array.isArray(memoryDb.users) ? memoryDb.users : []
+    users: Array.isArray(memoryDb.users) ? memoryDb.users : [],
+    appeals: Array.isArray(memoryDb.appeals) ? memoryDb.appeals : []
   };
 }
 
 async function saveDb(data) {
   if (useFirebase) {
-    await dbRef.set({ songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [] });
+    await dbRef.set({ songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [] });
   } else {
-    memoryDb = { songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [] };
+    memoryDb = { songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [] };
   }
   const size = Buffer.byteLength(JSON.stringify(data) || '[]', 'utf8');
   if (size > 700 * 1024) {
@@ -249,7 +251,7 @@ app.post('/api/verify-admin', (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* User registration / login                                           */
+/* User registration / login / account management                      */
 /* ------------------------------------------------------------------ */
 app.post('/api/auth/register', ah(async (req, res) => {
   const name = normalizeName(req.body.name);
@@ -260,14 +262,18 @@ app.post('/api/auth/register', ah(async (req, res) => {
   if (String(password).length < 4) return res.status(400).json({ success: false, error: 'Password must be at least 4 characters.' });
 
   const db = await getDb();
-  if (findUser(db.users, name)) {
+  const existing = findUser(db.users, name);
+  if (existing) {
+    if (existing.status === 'unregistered') {
+      return res.status(403).json({ success: false, code: 'unregistered', error: 'Your account has been unregistered by the boss. Please appeal to get it restored.' });
+    }
     return res.status(409).json({ success: false, error: 'That name is already registered. Please log in.' });
   }
 
   await withDbWrite(async () => {
     const d = await getDb();
     d.users = d.users || [];
-    d.users.push({ name, passwordHash: hashPassword(password), createdAt: Date.now(), token: null });
+    d.users.push({ name, passwordHash: hashPassword(password), createdAt: Date.now(), token: null, status: 'active', lastLogin: null });
     await saveDb(d);
   });
 
@@ -284,8 +290,22 @@ app.post('/api/auth/login', ah(async (req, res) => {
   const db = await getDb();
   const user = findUser(db.users, name);
   if (!user || !verifyPassword(password, user.passwordHash)) {
-    return res.status(401).json({ success: false, error: 'Incorrect name or password.' });
+    return res.status(401).json({ success: false, error: 'Incorrect password. Please try again.' });
   }
+
+  if (user.status === 'unregistered') {
+    return res.status(403).json({
+      success: false,
+      code: 'unregistered',
+      error: 'Your account has been unregistered by the boss.'
+    });
+  }
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const u = findUser(d.users, name);
+    if (u) { u.lastLogin = Date.now(); await saveDb(d); }
+  });
 
   const token = crypto.randomBytes(24).toString('hex');
   AUTH_TOKENS[token] = user.name;
@@ -297,6 +317,77 @@ app.post('/api/auth/logout', (req, res) => {
   delete AUTH_TOKENS[token];
   res.json({ success: true });
 });
+
+/* Admin: list all registered accounts + appeals */
+app.get('/api/auth/admin', ah(async (req, res) => {
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const db = await getDb();
+  const users = (db.users || []).map((u) => ({
+    name: u.name,
+    status: u.status || 'active',
+    createdAt: u.createdAt || null,
+    lastLogin: u.lastLogin || null
+  }));
+  res.json({ success: true, users, appeals: (db.appeals || []) });
+}));
+
+/* Admin: unregister (deactivate) a user account */
+app.post('/api/auth/unregister', ah(async (req, res) => {
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const name = normalizeName(req.body.name);
+  if (!name) return res.status(400).json({ success: false, error: 'Missing user name.' });
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const u = findUser(d.users, name);
+    if (u) {
+      u.status = 'unregistered';
+      await saveDb(d);
+    }
+  });
+  res.json({ success: true });
+}));
+
+/* Admin: approve / re-register a user account (activate again) */
+app.post('/api/auth/approve', ah(async (req, res) => {
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const name = normalizeName(req.body.name);
+  if (!name) return res.status(400).json({ success: false, error: 'Missing user name.' });
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const u = findUser(d.users, name);
+    if (u) {
+      u.status = 'active';
+      d.appeals = (d.appeals || []).filter((a) => String(a.name).toLowerCase() !== String(name).toLowerCase());
+      await saveDb(d);
+    }
+  });
+  res.json({ success: true });
+}));
+
+/* User: appeal after being unregistered */
+app.post('/api/auth/appeal', ah(async (req, res) => {
+  const name = normalizeName(req.body.name);
+  const text = String(req.body.text || '').trim().slice(0, 500);
+  if (!name) return res.status(400).json({ success: false, error: 'Missing your name.' });
+  if (!text) return res.status(400).json({ success: false, error: 'Please write a short appeal message.' });
+
+  const db = await getDb();
+  const user = findUser(db.users, name);
+  if (!user) return res.status(404).json({ success: false, error: 'Account not found.' });
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    d.appeals = d.appeals || [];
+    const exists = d.appeals.some((a) => String(a.name).toLowerCase() === String(name).toLowerCase() && a.status === 'pending');
+    if (!exists) {
+      d.appeals.unshift({ id: makeId(), name, text, timestamp: Date.now(), status: 'pending' });
+    }
+    await saveDb(d);
+  });
+  res.json({ success: true });
+}));
 
 /* ------------------------------------------------------------------ */
 /* Professional upload — file upload (used with XHR progress)          */
