@@ -16,17 +16,31 @@
   <!-- Register / Login modal -->
   <div id="name-modal" class="modal-overlay">
     <div class="modal-card">
-      <h2 id="auth-title">Welcome to Azim's Space</h2>
-      <p id="auth-subtitle">Create an account to unlock uploading, chatting and sending requests.</p>
 
-      <input type="text" id="auth-name" placeholder="Enter your name" autocomplete="off">
-      <input type="password" id="auth-password" placeholder="Enter your password" autocomplete="off">
-      <input type="password" id="auth-confirm" placeholder="Confirm password" style="display:none;" autocomplete="off">
+      <!-- Step 1: choose Login or Register -->
+      <div id="auth-choice">
+        <h2>Welcome to Azim's Space</h2>
+        <p>Choose an option to unlock uploading, chatting and sending requests.</p>
+        <button id="auth-btn-register" class="btn-primary" style="margin-top:8px;">Register</button>
+        <button id="auth-btn-login" class="btn-secondary" style="margin-top:8px;">Login</button>
+      </div>
 
-      <p id="auth-error" class="admin-modal-error" style="display:none;"></p>
+      <!-- Step 2: auth form -->
+      <div id="auth-form" style="display:none;">
+        <h2 id="auth-title">Welcome to Azim's Space</h2>
+        <p id="auth-subtitle">Create an account to unlock uploading, chatting and sending requests.</p>
 
-      <button id="auth-submit" class="btn-primary" style="margin-top:8px;">Register</button>
-      <p id="auth-toggle" class="auth-toggle"><span id="auth-toggle-label">Already have an account?</span> <a href="javascript:void(0)" id="auth-toggle-link">Login</a></p>
+        <input type="text" id="auth-name" placeholder="Enter your name" autocomplete="off">
+        <input type="password" id="auth-password" placeholder="Enter your password" autocomplete="off">
+        <input type="password" id="auth-confirm" placeholder="Confirm password" style="display:none;" autocomplete="off">
+
+        <p id="auth-error" class="admin-modal-error" style="display:none;"></p>
+
+        <button id="auth-submit" class="btn-primary" style="margin-top:8px;">Register</button>
+        <p id="auth-toggle" class="auth-toggle"><span id="auth-toggle-label">Already have an account?</span> <a href="javascript:void(0)" id="auth-toggle-link">Login</a></p>
+        <p class="auth-back"><a href="javascript:void(0)" id="auth-back-link">← Choose Log in / Register</a></p>
+      </div>
+
     </div>
   </div>
 

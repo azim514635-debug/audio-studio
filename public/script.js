@@ -108,6 +108,11 @@ const authToggleLink = $('auth-toggle-link');
 const authTitleEl = $('auth-title');
 const authSubtitleEl = $('auth-subtitle');
 const authErrorEl = $('auth-error');
+const authChoiceEl = $('auth-choice');
+const authFormEl = $('auth-form');
+const authBtnRegister = $('auth-btn-register');
+const authBtnLogin = $('auth-btn-login');
+const authBackLink = $('auth-back-link');
 const avatarInitials = $('avatar-initials');
 const navItems = document.querySelectorAll('.menu-link');
 const pages = document.querySelectorAll('.page');
@@ -152,13 +157,23 @@ function checkUserSession() {
     modalOverlay.classList.add('hidden');
   } else {
     modalOverlay.classList.remove('hidden');
-    setAuthMode('register');
+    showAuthChoice();
   }
   renderAvatar();
 }
 
+function showAuthChoice() {
+  authChoiceEl.style.display = 'block';
+  authFormEl.style.display = 'none';
+  authErrorEl.style.display = 'none';
+}
+
 function setAuthMode(mode) {
   authMode = mode;
+  if (authChoiceEl && authFormEl) {
+    authChoiceEl.style.display = 'none';
+    authFormEl.style.display = 'block';
+  }
   const isRegister = mode === 'register';
   authSubmitBtn.textContent = isRegister ? 'Register' : 'Login';
   authConfirmInput.style.display = isRegister ? 'block' : 'none';
@@ -239,6 +254,15 @@ authNameInput.addEventListener('keydown', handleAuthEnter);
 authPassInput.addEventListener('keydown', handleAuthEnter);
 authConfirmInput.addEventListener('keydown', handleAuthEnter);
 
+authBtnRegister.addEventListener('click', () => setAuthMode('register'));
+authBtnLogin.addEventListener('click', () => setAuthMode('login'));
+authBackLink.addEventListener('click', () => {
+  authNameInput.value = '';
+  authPassInput.value = '';
+  authConfirmInput.value = '';
+  showAuthChoice();
+});
+
 const menuLogoutBtn = $('menu-logout');
 if (menuLogoutBtn) menuLogoutBtn.addEventListener('click', () => {
   closeMenu();
@@ -269,10 +293,10 @@ function logoutUser() {
   localStorage.removeItem(ADMIN_SECRET_KEY);
   isBossUnlocked = false;
   isAdminUnlocked = false;
-  setAuthMode('register');
   authNameInput.value = '';
   authPassInput.value = '';
   authConfirmInput.value = '';
+  showAuthChoice();
   modalOverlay.classList.remove('hidden');
   renderAvatar();
   location.reload();
