@@ -1,5 +1,104 @@
 const $ = (id) => document.getElementById(id);
 
+/* ------------------------------------------------------------------ */
+/* Themed alert / confirm popups (replace native alert/confirm)        */
+/* ------------------------------------------------------------------ */
+function showAlert(msg, title, icon) {
+  return new Promise((resolve) => {
+    const overlay = $('app-alert');
+    if (!overlay) { window.alert(msg); resolve(); return; }
+    const msgEl = $('app-alert-msg');
+    const titleEl = $('app-alert-title');
+    const iconEl = $('app-alert-icon');
+    if (msgEl) msgEl.textContent = msg;
+    if (titleEl && title) titleEl.textContent = title;
+    if (iconEl && icon) iconEl.textContent = icon;
+    overlay.classList.remove('hidden');
+    const okBtn = $('app-alert-ok');
+    const done = () => {
+      overlay.classList.add('hidden');
+      okBtn.removeEventListener('click', done);
+      overlay.removeEventListener('click', outside);
+      resolve();
+    };
+    const outside = (e) => { if (e.target === overlay) done(); };
+    okBtn.addEventListener('click', done);
+    overlay.addEventListener('click', outside);
+  });
+}
+
+function showConfirm(msg, title, icon) {
+  return new Promise((resolve) => {
+    const overlay = $('app-confirm');
+    if (!overlay) { resolve(window.confirm(msg)); return; }
+    const msgEl = $('app-confirm-msg');
+    const titleEl = $('app-confirm-title');
+    const iconEl = $('app-confirm-icon');
+    if (msgEl) msgEl.textContent = msg;
+    if (titleEl && title) titleEl.textContent = title;
+    if (iconEl && icon) iconEl.textContent = icon;
+    overlay.classList.remove('hidden');
+    const finalize = (val) => {
+      overlay.classList.add('hidden');
+      resolve(val);
+    };
+    const okBtn = $('app-confirm-ok');
+    const cancelBtn = $('app-confirm-cancel');
+    const onOk = () => { cleanup(); finalize(true); };
+    const onCancel = () => { cleanup(); finalize(false); };
+    const outside = (e) => { if (e.target === overlay) { cleanup(); finalize(false); } };
+    const cleanup = () => {
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', outside);
+    };
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.addEventListener('click', outside);
+  });
+}
+
+function showPrompt(msg, defVal, title, icon) {
+  return new Promise((resolve) => {
+    const overlay = $('app-prompt');
+    if (!overlay) { resolve(window.prompt(msg, defVal)); return; }
+    const input = $('app-prompt-input');
+    if (input) { input.value = defVal != null ? String(defVal) : ''; }
+    const msgEl = $('app-prompt-msg');
+    const titleEl = $('app-prompt-title');
+    const iconEl = $('app-prompt-icon');
+    if (msgEl) msgEl.textContent = msg || '';
+    if (titleEl && title) titleEl.textContent = title;
+    if (iconEl && icon) iconEl.textContent = icon;
+    if (!msgEl) {
+      const lbl = document.createElement('p');
+      lbl.textContent = msg || '';
+      overlay.querySelector('.modal-card').insertBefore(lbl, input);
+      lbl.id = 'app-prompt-msg';
+    }
+    overlay.classList.remove('hidden');
+    const finalize = (val) => { overlay.classList.add('hidden'); resolve(val); };
+    const okBtn = $('app-prompt-ok');
+    const cancelBtn = $('app-prompt-cancel');
+    const onOk = () => { cleanup(); finalize(input ? input.value : null); };
+    const onCancel = () => { cleanup(); finalize(null); };
+    const outside = (e) => { if (e.target === overlay) { cleanup(); finalize(null); } };
+    const onEnter = (e) => { if (e.key === 'Enter') onOk(); };
+    const cleanup = () => {
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', outside);
+      input.removeEventListener('keydown', onEnter);
+    };
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.addEventListener('click', outside);
+    input.addEventListener('keydown', onEnter);
+    setTimeout(() => input.focus(), 30);
+  });
+}
+
+/* Convenience: native alert gets a themed "Notice" dialog */
 const modalOverlay = $('name-modal');
 const modalNameInput = $('modal-name-input');
 const modalSaveBtn = $('modal-save-btn');
@@ -44,7 +143,7 @@ function checkUserSession() {
 
 modalSaveBtn.addEventListener('click', () => {
   const name = modalNameInput.value.trim();
-  if (!name) return alert('Please enter your name to proceed.');
+  if (!name) return showAlert('Please enter your name to proceed.');
   currentUser = name;
   localStorage.setItem('visitorName', name);
   modalOverlay.classList.add('hidden');
@@ -481,19 +580,19 @@ async function fetchGlobalLinks() {
 }
 
 window.viewInfo = function (type, title, uploader) {
-  alert(`File Details:\n- Type: ${type}\n- Title: ${title}\n- Uploaded By: ${uploader}`);
+  showAlert(`File Details:\n- Type: ${type}\n- Title: ${title}\n- Uploaded By: ${uploader}`);
 };
 
 window.deleteItem = async function (type, id) {
   type = type === 'track' ? 'song' : type;
-  if (!confirm('Are you sure you want to delete this file?')) return;
+  if (!(await showConfirm('Are you sure you want to delete this file?'))) return;
   const res = await fetch(`/api/media/${type}/${id}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ uploader: currentUser, adminSecret })
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) { alert(data.error || 'Delete failed.'); return; }
+  if (!res.ok) { showAlert(data.error || 'Delete failed.'); return; }
   loadAdminDashboard();
   fetchGlobalTracks();
   fetchGlobalMovies();
@@ -502,7 +601,7 @@ window.deleteItem = async function (type, id) {
 
 window.renameItem = async function (type, id, oldTitle) {
   type = type === 'track' ? 'song' : type;
-  const newTitle = prompt('Enter new title:', oldTitle);
+  const newTitle = await showPrompt('Enter new title', oldTitle, 'Rename File', '✏️');
   if (!newTitle || newTitle.trim() === '') return;
   const res = await fetch(`/api/media/${type}/${id}`, {
     method: 'PUT',
@@ -510,7 +609,7 @@ window.renameItem = async function (type, id, oldTitle) {
     body: JSON.stringify({ newTitle: newTitle.trim(), uploader: currentUser, adminSecret })
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) { alert(data.error || 'Rename failed.'); return; }
+  if (!res.ok) { showAlert(data.error || 'Rename failed.'); return; }
   loadAdminDashboard();
   fetchGlobalTracks();
   fetchGlobalMovies();
@@ -599,7 +698,7 @@ async function loadRequests() {
 }
 
 $('clear-requests-btn').addEventListener('click', async () => {
-  if (confirm('Clear all stored requests?')) {
+  if (await showConfirm('Clear all stored requests?')) {
     localStorage.removeItem('azim_user_requests');
     try {
       await fetch('/api/requests/clear', {
@@ -615,12 +714,12 @@ $('clear-requests-btn').addEventListener('click', async () => {
 $('send-request-btn').addEventListener('click', async () => {
   if (!requireName()) return;
   const text = $('request-text').value.trim();
-  if (!text) return alert('Please type a message first.');
+  if (!text) return showAlert('Please type a message first.');
   const requests = JSON.parse(localStorage.getItem('azim_user_requests') || '[]');
   requests.unshift({ user: currentUser, text, date: new Date().toLocaleString() });
   localStorage.setItem('azim_user_requests', JSON.stringify(requests));
   $('request-text').value = '';
-  alert('Request submitted! Azim will see it in the Admin Panel.');
+  showAlert('Request submitted! Azim will see it in the Admin Panel.');
   try {
     await fetch('/api/contact', {
       method: 'POST',
@@ -860,7 +959,7 @@ async function startLinkItemUpload() {
   if (!requireName()) return;
   const title = $('link-item-title').value.trim();
   const url = $('link-item-url').value.trim();
-  if (!url) { alert('Please enter the download URL.'); return; }
+  if (!url) { showAlert('Please enter the download URL.'); return; }
 
   const key = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
   queueItems.push({ key, name: title || url, kindLabel: 'Link', status: 'uploading', progress: 50, progressText: 'Adding link…' });
@@ -967,8 +1066,8 @@ $('start-upload-btn').addEventListener('click', () => {
 
 async function startDeviceUpload() {
   if (!requireName()) return;
-  if (selectedMediaFiles.length === 0) { alert('Please choose at least one audio/video file.'); return; }
-  if (uploading) { alert('An upload is already in progress. Please wait.'); return; }
+  if (selectedMediaFiles.length === 0) { showAlert('Please choose at least one audio/video file.'); return; }
+  if (uploading) { showAlert('An upload is already in progress. Please wait.'); return; }
 
   const baseTitle = $('media-title').value.trim();
   const thumbValue = getThumbnailUrlValue();
@@ -1069,7 +1168,7 @@ function addHistoryItem(item, type) {
 async function startLinkUpload() {
   if (!requireName()) return;
   const mediaUrl = $('media-url').value.trim();
-  if (!mediaUrl) { alert('Please enter the direct media URL.'); return; }
+  if (!mediaUrl) { showAlert('Please enter the direct media URL.'); return; }
 
   if (!isAdminUnlocked) {
     const ok = await ensureAdmin();
@@ -1136,10 +1235,6 @@ async function loadMessages({ force } = {}) {
     const data = await res.json();
     const messages = data.messages || [];
     if (!force && messages.length && lastMessageId === messages[messages.length - 1].id) return;
-
-    if (!force && messages.length && lastMessageId && messages[messages.length - 1].id !== lastMessageId) {
-      fireChatNotification(messages[messages.length - 1]);
-    }
 
     const container = $('chat-messages');
     const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
@@ -1212,10 +1307,10 @@ async function sendMessage() {
       input.style.height = 'auto';
       await loadMessages({ force: true });
     } else {
-      alert(data.error || 'Failed to send message.');
+      showAlert(data.error || 'Failed to send message.');
     }
   } catch (e) {
-    alert('Network error while sending: ' + e.message);
+    showAlert('Network error while sending: ' + e.message);
   }
 }
 
@@ -1234,7 +1329,7 @@ $('chat-input').addEventListener('input', () => {
 
 $('clear-chat-btn').addEventListener('click', async () => {
   if (!isAdminUnlocked) return;
-  if (!confirm('Clear ALL chat messages?')) return;
+  if (!(await showConfirm('Clear ALL chat messages?'))) return;
   const res = await fetch('/api/messages/clear', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1245,7 +1340,7 @@ $('clear-chat-btn').addEventListener('click', async () => {
     lastMessageId = '';
     loadMessages({ force: true });
   } else {
-    alert(data.error || 'Clear failed.');
+    showAlert(data.error || 'Clear failed.');
   }
 });
 
@@ -1317,6 +1412,7 @@ async function initMessaging() {
       maybePromptForNotifications();
     }
     setupForegroundListener();
+    updateNotifFab();
   } catch (e) {
     setNotifStatus('Firebase messaging not configured. Add your FCM keys on the server.', 'unsupported');
   }
@@ -1333,7 +1429,7 @@ function maybePromptForNotifications() {
 }
 
 async function enableNotifications() {
-  if (!notificationsSupported()) { alert('Notifications are not supported in this browser or connection.'); return; }
+  if (!notificationsSupported()) { showAlert('Notifications are not supported in this browser or connection.'); return; }
   const perm = await Notification.requestPermission();
   if (perm === 'granted') {
     localStorage.removeItem(NOTIF_DISMISS_KEY);
@@ -1342,6 +1438,7 @@ async function enableNotifications() {
     notificationsEnabled = true;
     localStorage.setItem(NOTIF_ENABLED_KEY, '1');
     updateNotifButton();
+    updateNotifFab();
     await registerServiceWorker();
     await getAndStoreToken();
     setupForegroundListener();
@@ -1399,6 +1496,7 @@ async function disableNotifications() {
   notificationsEnabled = false;
   localStorage.setItem(NOTIF_ENABLED_KEY, '0');
   setNotifStatus('Notifications disabled. You can re-enable anytime.', 'off');
+  updateNotifFab();
 }
 
 function updateNotifButton() {
@@ -1411,6 +1509,35 @@ function updateNotifButton() {
     btn.textContent = 'Enable Notifications';
     btn.className = 'btn-primary btn-lg';
   }
+}
+
+/* Floating notification circle — reflects state and hides when enabled */
+function updateNotifFab() {
+  const fab = $('notif-fab');
+  const circle = $('notif-circle-btn');
+  if (!fab || !circle) return;
+  if (notificationsEnabled) {
+    circle.classList.add('enabled');
+    fab.classList.add('hide');   // hide once notifications are enabled
+  } else {
+    circle.classList.remove('enabled');
+    fab.classList.remove('hide');
+  }
+}
+
+/* Centered popup announcing enable/disable */
+let notifPopupTimer = null;
+function showNotifPopup(text, success) {
+  const popup = $('notif-popup');
+  if (!popup) return;
+  const textEl = $('notif-popup-text');
+  const iconEl = $('notif-popup-icon');
+  if (textEl) textEl.textContent = text;
+  if (iconEl) iconEl.textContent = success ? '🔔' : '🔕';
+  popup.classList.remove('success', 'error', 'hidden');
+  popup.classList.add(success ? 'success' : 'error');
+  clearTimeout(notifPopupTimer);
+  notifPopupTimer = setTimeout(() => popup.classList.add('hidden'), 2600);
 }
 
 function setNotifStatus(text, state) {
@@ -1431,6 +1558,25 @@ if ($('enable-notif-btn')) {
       await disableNotifications();
     } else {
       await enableNotifications();
+    }
+  });
+}
+
+/* Floating circle toggles notifications: tap to enable, re-tap to disable */
+if ($('notif-circle-btn')) {
+  $('notif-circle-btn').addEventListener('click', async () => {
+    if (notificationsEnabled) {
+      await disableNotifications();
+      showNotifPopup('Notifications disabled', false);
+      updateNotifFab();
+    } else {
+      const ok = await enableNotifications();
+      if (ok) {
+        showNotifPopup('Notification enabled', true);
+        updateNotifFab();
+      } else {
+        showNotifPopup('Could not enable notifications', false);
+      }
     }
   });
 }
@@ -1483,10 +1629,10 @@ function navigatePageName(p) {
 
 /* Admin / Boss: send an announcement to all users */
 $('send-notif-btn').addEventListener('click', async () => {
-  if (!isAdminUnlocked && !isBossUnlocked) { alert('Admin access required to send notifications.'); return; }
+  if (!isAdminUnlocked && !isBossUnlocked) { showAlert('Admin access required to send notifications.'); return; }
   const title = $('notif-title').value.trim();
   const body = $('notif-body').value.trim();
-  if (!title && !body) { alert('Please enter a title or message.'); return; }
+  if (!title && !body) { showAlert('Please enter a title or message.'); return; }
   try {
     const res = await fetch('/api/notify/announce', {
       method: 'POST',
@@ -1503,43 +1649,8 @@ $('send-notif-btn').addEventListener('click', async () => {
   }
 });
 
-async function sendChatNotification(user, text) {
-  try {
-    await fetch('/api/notify/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user, text })
-    });
-  } catch (e) { /* non-blocking */ }
-}
-
-let chatNotifCooldown = 0;
-let lastChatNotifText = '';
-
-async function fireChatNotification(message) {
-  const chatPage = $('page-chat');
-  const chatActive = chatPage && chatPage.classList.contains('active') && document.hasFocus();
-  if (chatActive) return;
-  const now = Date.now();
-  if (now - chatNotifCooldown < 10000) return;
-  if (message && message.text === lastChatNotifText) return;
-  chatNotifCooldown = now;
-  lastChatNotifText = message ? message.text : '';
-
-  await sendChatNotification(message.user || 'Someone', message.text || '');
-
-  if (Notification && Notification.permission === 'granted') {
-    navigator.serviceWorker.ready.then((reg) => {
-      reg.showNotification((message.user || 'Someone') + ' messaged in chat', {
-        body: message ? message.text : 'Open the chat to see what’s new.',
-        icon: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoQRdoz6Usc2PKiqexO_C5hT0EHm4G85lNGn-dpHeHzg&s=10',
-        tag: 'azim-chat-' + now,
-        renotify: false,
-        data: { url: '/?page=chat' }
-      });
-    }).catch(() => { /* ignore */ });
-  }
-}
+// Chat push notifications are now sent by the server for every chat message,
+// so all users (except the sender) get notified automatically.
 
 /* ------------------------------------------------------------------ */
 /* "Seen by" tracking                                                  */

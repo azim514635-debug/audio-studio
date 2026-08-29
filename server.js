@@ -551,6 +551,15 @@ app.post('/api/messages', ah(async (req, res) => {
     await saveDb(db);
     return newMessage;
   });
+
+  // Notify all users (except the sender) that a new chat message arrived.
+  sendToAllDevices(
+    '@' + user + ' messaged in chat',
+    String(text).slice(0, 200),
+    { url: '/?page=chat', type: 'chat' },
+    user
+  ).catch(() => { /* non-blocking */ });
+
   res.json({ success: true, message });
 }));
 

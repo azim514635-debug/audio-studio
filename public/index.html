@@ -63,12 +63,63 @@
     </div>
   </div>
 
+  <!-- Floating circular notification button (bottom-left) -->
+  <div id="notif-fab" class="notif-fab">
+    <button type="button" id="notif-circle-btn" class="admin-circle notif-circle" title="Notifications" aria-label="Notifications">
+      🔔
+    </button>
+    <span class="admin-fab-label notif-fab-label" id="notif-fab-label">Tap to enable notification / tap to disable</span>
+  </div>
   <!-- Floating circular admin button (bottom-right) -->
   <div id="admin-fab" class="admin-fab">
     <button type="button" id="admin-circle-btn" class="admin-circle" title="Admin Panel" aria-label="Admin Panel">
       🔒
     </button>
     <span class="admin-fab-label" data-admin-text>Admin Panel</span>
+  </div>
+
+  <!-- Notification enable/disable popup -->
+  <div id="notif-popup" class="notif-popup hidden">
+    <span class="notif-popup-icon" id="notif-popup-icon">🔔</span>
+    <span id="notif-popup-text">Notifications enabled</span>
+  </div>
+
+  <!-- Themed alert popup -->
+  <div id="app-alert" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="app-alert-icon" id="app-alert-icon">ℹ️</div>
+      <h2 id="app-alert-title">Notice</h2>
+      <p id="app-alert-msg"></p>
+      <div class="admin-modal-btns">
+        <button type="button" class="btn-primary" id="app-alert-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Themed confirm popup -->
+  <div id="app-confirm" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="app-alert-icon" id="app-confirm-icon">❓</div>
+      <h2 id="app-confirm-title">Please Confirm</h2>
+      <p id="app-confirm-msg"></p>
+      <div class="admin-modal-btns">
+        <button type="button" class="btn-secondary" id="app-confirm-cancel">Cancel</button>
+        <button type="button" class="btn-danger" id="app-confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Themed prompt popup -->
+  <div id="app-prompt" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="app-alert-icon" id="app-prompt-icon">✏️</div>
+      <h2 id="app-prompt-title">Enter a value</h2>
+      <input type="text" id="app-prompt-input" autocomplete="off">
+      <div class="admin-modal-btns">
+        <button type="button" class="btn-secondary" id="app-prompt-cancel">Cancel</button>
+        <button type="button" class="btn-primary" id="app-prompt-ok">OK</button>
+      </div>
+    </div>
   </div>
 
   <div class="app-container">
@@ -93,7 +144,6 @@
             <button type="button" class="menu-link" data-page="links">🔗 Links</button>
             <button type="button" class="menu-link" data-page="upload">⬆️ Upload Media</button>
             <button type="button" class="menu-link" data-page="chat">💬 Chat <span class="menu-count" id="menu-message-count"></span></button>
-            <button type="button" class="menu-link" data-page="notifications">🔔 Notifications</button>
             <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
           </nav>
         </div>
@@ -348,6 +398,17 @@
           </div>
           <div id="requests-box" class="requests-box"></div>
         </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 data-admin-text>Admin/Boss — Send Notification</h3>
+          </div>
+          <label class="field-label" for="notif-title">Title</label>
+          <input type="text" id="notif-title" placeholder="e.g. New song added!">
+          <label class="field-label" for="notif-body">Message</label>
+          <textarea id="notif-body" placeholder="e.g. Check out the latest uploads in the library."></textarea>
+          <button type="button" class="btn-primary" id="send-notif-btn">Send to All Users</button>
+          <p class="field-hint" id="notif-send-result"></p>
+        </div>
       </section>
 
       <!-- Notifications -->
@@ -368,21 +429,17 @@
             <button type="button" class="btn-primary btn-lg" id="enable-notif-btn">Enable Notifications</button>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header">
-            <h3 data-admin-text>Admin — Send Notification</h3>
-          </div>
-          <label class="field-label" for="notif-title">Title</label>
-          <input type="text" id="notif-title" placeholder="e.g. New song added!">
-          <label class="field-label" for="notif-body">Message</label>
-          <textarea id="notif-body" placeholder="e.g. Check out the latest uploads in the library."></textarea>
-          <button type="button" class="btn-primary" id="send-notif-btn">Send to All Users</button>
-          <p class="field-hint" id="notif-send-result"></p>
-        </div>
       </section>
 
       <footer>
-        <p>Created &amp; Maintained with ❤️ by <strong>Azim</strong></p>
+        <div class="instagram-box">
+          <a href="https://www.instagram.com/_am_i_stranger_?igsi=MXJ6cXA0eW94a2ZvYQ==" target="_blank" rel="noopener" class="instagram-link">
+            <img class="instagram-logo" src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/1024px-Instagram_icon.png" alt="Instagram">
+            <span>See Azim on Instagram</span>
+          </a>
+        </div>
+        <p>This website is created</p>
+        <p class="footer-author">By <strong>Azim</strong></p>
       </footer>
     </main>
   </div>
