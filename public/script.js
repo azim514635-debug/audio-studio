@@ -551,9 +551,7 @@ async function showPage(targetPage) {
   $('page-' + targetPage).classList.add('active');
 
   if (targetPage === 'admin') loadAdminDashboard();
-  if (targetPage === 'library') fetchGlobalTracks();
-  if (targetPage === 'movies') fetchGlobalMovies();
-  if (targetPage === 'links') fetchGlobalLinks();
+  if (targetPage === 'library') { fetchGlobalTracks(); fetchGlobalMovies(); fetchGlobalLinks(); }
   if (targetPage === 'chat') { scrollChatToBottom(); }
   if (targetPage === 'notifications') initMessaging();
 }
@@ -718,7 +716,7 @@ async function fetchGlobalTracks() {
               <button onclick="deleteItem('song', '${t.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
-        ${(isAdminUnlocked || isBossUnlocked) ? seenHtml(t) : ''}
+        ${seenHtml(t)}
         <audio controls src="${escapeHtml(t.audioUrl || t.songUrl)}" style="width: 100%;" onplay="markSeen('song', '${t.id}')"></audio>
       </div>
     </li>`).join('');
@@ -752,7 +750,7 @@ async function fetchGlobalMovies() {
               <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
-        ${(isAdminUnlocked || isBossUnlocked) ? seenHtml(m) : ''}
+        ${seenHtml(m)}
         <video controls src="${escapeHtml(m.movieUrl)}" style="width: 100%; max-height: 280px; border-radius: 6px;" onplay="markSeen('movie', '${m.id}')"></video>
       </div>
     </li>`).join('');
@@ -789,7 +787,7 @@ async function fetchGlobalLinks() {
               <button onclick="deleteItem('link', '${l.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
-        ${(isAdminUnlocked || isBossUnlocked) ? seenHtml(l) : ''}
+        ${seenHtml(l)}
         <a class="btn-primary download-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${l.id}')">⬇ Click here to download</a>
       </div>
     </li>`).join('');
@@ -1602,7 +1600,7 @@ async function loadMessages({ force } = {}) {
         lastDay = dk;
       }
       const own = m.user === chatName;
-      const eyes = (isAdminUnlocked || isBossUnlocked) ? seenHtml(m) : '';
+      const eyes = seenHtml(m);
       html += `
         <div class="msg-row ${own ? 'own' : ''}">
           <div class="msg-avatar">${escapeHtml((m.user || '?').charAt(0))}</div>
@@ -2007,8 +2005,13 @@ async function markSeen(type, id) {
 
 function seenHtml(item) {
   if (!item || !Array.isArray(item.seen) || item.seen.length === 0) return '';
+  const count = item.seen.length;
   const names = item.seen.map((s) => escapeHtml(s.name)).join(', ');
-  return `<div class="seen-by" title="Seen by: ${names}">👁 Seen by ${escapeHtml(names)}</div>`;
+  return `
+    <div class="seen-wrap">
+      <button type="button" class="seen-btn" onclick="this.parentElement.classList.toggle('open')">👁 ${count} view${count === 1 ? '' : 's'}</button>
+      <div class="seen-names">Seen by: ${names}</div>
+    </div>`;
 }
 
 /* ------------------------------------------------------------------ */

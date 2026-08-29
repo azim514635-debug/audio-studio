@@ -758,18 +758,43 @@ audio {
 .notif-prompt-text { flex: 1; display: flex; flex-direction: column; font-size: 0.8rem; color: var(--text-muted); }
 .notif-prompt-text strong { color: #fff; margin-bottom: 2px; }
 
-/* "Seen by" eyes */
-.seen-by {
-  font-size: 0.68rem;
-  color: var(--text-dim);
+/* "Seen by" views button */
+.seen-wrap {
   margin-top: 6px;
   text-align: right;
-  cursor: default;
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 4px;
 }
+.seen-btn {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+.seen-btn:hover {
+  color: #a5b4fc;
+  border-color: #a5b4fc;
+}
+.seen-names {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  display: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 4px 8px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.seen-wrap.open .seen-names { display: block; }
 
 /* =========================== FOOTER ============================= */
 footer {

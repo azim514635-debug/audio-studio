@@ -176,9 +176,7 @@
           </button>
           <nav id="menu-panel" class="menu-panel" aria-label="Main navigation">
             <button type="button" class="menu-link" data-page="home">🏠 Home</button>
-            <button type="button" class="menu-link" data-page="library">🎵 Songs</button>
-            <button type="button" class="menu-link" data-page="movies">🎬 Movies</button>
-            <button type="button" class="menu-link" data-page="links">🔗 Links</button>
+            <button type="button" class="menu-link" data-page="library">📚 Library</button>
             <button type="button" class="menu-link" data-page="upload">⬆️ Upload Media</button>
             <button type="button" class="menu-link" data-page="chat">💬 Chat <span class="menu-count" id="menu-message-count"></span></button>
             <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
@@ -200,19 +198,9 @@
         </div>
         <div class="dashboard-grid">
           <button class="dash-card" data-page="library">
-            <span class="dash-icon">🎵</span>
-            <span class="dash-label">Songs</span>
-            <span class="dash-desc">Listen to community tracks</span>
-          </button>
-          <button class="dash-card" data-page="movies">
-            <span class="dash-icon">🎬</span>
-            <span class="dash-label">Movies</span>
-            <span class="dash-desc">Watch shared videos</span>
-          </button>
-          <button class="dash-card" data-page="links">
-            <span class="dash-icon">🔗</span>
-            <span class="dash-label">Links</span>
-            <span class="dash-desc">Download shared files</span>
+            <span class="dash-icon">📚</span>
+            <span class="dash-label">Library</span>
+            <span class="dash-desc">Songs, movies & links</span>
           </button>
           <button class="dash-card" data-page="upload">
             <span class="dash-icon">⬆️</span>
@@ -232,35 +220,25 @@
         </div>
       </section>
 
-      <!-- Songs Library -->
+      <!-- Combined Library (Songs / Movies / Links) -->
       <section id="page-library" class="page">
-        <div class="header-card">
-          <h1>🎵 Music Library</h1>
-          <p>Listen to songs uploaded by the community.</p>
+        <div class="header-card" style="background: linear-gradient(135deg, #6366f1, #a855f7);">
+          <h1>📚 Library</h1>
+          <p>All songs, movies and links in one place.</p>
         </div>
+
         <div class="card">
+          <div class="card-header"><h3>🎵 Songs</h3></div>
           <ul id="track-list" class="track-list"></ul>
         </div>
-      </section>
 
-      <!-- Movies Library -->
-      <section id="page-movies" class="page">
-        <div class="header-card">
-          <h1>🎬 Movie Library</h1>
-          <p>Watch movies shared by the community.</p>
-        </div>
-        <div class="card">
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header"><h3>🎬 Movies</h3></div>
           <ul id="movie-list" class="track-list"></ul>
         </div>
-      </section>
 
-      <!-- Links Library -->
-      <section id="page-links" class="page">
-        <div class="header-card" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
-          <h1>🔗 Links Library</h1>
-          <p>Downloadable links shared by the community. Click to download.</p>
-        </div>
-        <div class="card">
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header"><h3>🔗 Links</h3></div>
           <ul id="link-list" class="track-list"></ul>
         </div>
       </section>
