@@ -428,9 +428,9 @@ async function ensureBossUnlock() {
           modal.classList.add('hidden');
           removeHandlers();
           applyBossLabeling();
-          fetchGlobalTracks();
-          fetchGlobalMovies();
-          fetchGlobalLinks();
+fetchLibrary();
+        fetchLibrary();
+        fetchLibrary();
           resolve(true);
         } else {
           errEl.style.display = 'block';
@@ -512,9 +512,9 @@ async function ensureAdmin() {
           modal.classList.add('hidden');
           removeHandlers();
           applyBossLabeling();
-          fetchGlobalTracks();
-          fetchGlobalMovies();
-          fetchGlobalLinks();
+fetchLibrary();
+        fetchLibrary();
+        fetchLibrary();
           resolve(true);
         } else {
           errEl.style.display = 'block';
@@ -551,7 +551,7 @@ async function showPage(targetPage) {
   $('page-' + targetPage).classList.add('active');
 
   if (targetPage === 'admin') loadAdminDashboard();
-  if (targetPage === 'library') { fetchGlobalTracks(); fetchGlobalMovies(); fetchGlobalLinks(); }
+  if (targetPage === 'library') { fetchLibrary(); }
   if (targetPage === 'chat') { scrollChatToBottom(); }
   if (targetPage === 'notifications') initMessaging();
 }
@@ -702,106 +702,74 @@ function formatSize(bytes) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Songs / Movies libraries                                            */
-/* ------------------------------------------------------------------ */
-async function fetchGlobalTracks() {
-  const trackList = $('track-list');
-  if (!trackList) return;
-  const res = await fetch('/api/tracks');
-  const tracks = await res.json();
-
-  if (!tracks || tracks.length === 0) {
-    trackList.innerHTML = '<li style="color:#94a3b8;">No songs uploaded yet.</li>';
-    return;
-  }
-  trackList.innerHTML = tracks.map((t) => `
-    <li class="track-item">
-      ${t.thumbnailUrl
-        ? `<img class="track-thumb square" src="${escapeHtml(t.thumbnailUrl)}" alt="">`
-        : `<div class="track-thumb-placeholder">🎵</div>`}
-      <div class="track-body">
-        <div class="track-title-row">
-          <div>
-            <div class="track-title">🎵 ${escapeHtml(t.title)}</div>
-            <div class="track-by">By: ${escapeHtml(t.uploader)}</div>
-          </div>
-          ${isAdminUnlocked || isBossUnlocked ? `
-            <div class="track-actions">
-              <button onclick="viewInfo('Song', '${jsAttr(t.title)}', '${jsAttr(t.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
-              <button onclick="renameItem('song', '${t.id}', '${jsAttr(t.title)}')" class="btn-primary">Rename</button>
-              <button onclick="deleteItem('song', '${t.id}')" class="btn-danger">Delete</button>
-            </div>` : ''}
-        </div>
-        ${seenHtml(t)}
-        <audio controls src="${escapeHtml(t.audioUrl || t.songUrl)}" style="width: 100%;" onplay="markSeen('song', '${t.id}')"></audio>
-      </div>
-    </li>`).join('');
-}
-
-async function fetchGlobalMovies() {
-  const movieList = $('movie-list');
-  if (!movieList) return;
-  const res = await fetch('/api/movies');
-  const movies = await res.json();
-
-  if (!movies || movies.length === 0) {
-    movieList.innerHTML = '<li style="color:#94a3b8;">No movies uploaded yet.</li>';
-    return;
-  }
-  movieList.innerHTML = movies.map((m) => `
-    <li class="track-item">
-      ${m.thumbnailUrl
-        ? `<img class="track-thumb" src="${escapeHtml(m.thumbnailUrl)}" alt="">`
-        : `<div class="track-thumb-placeholder">🎬</div>`}
-      <div class="track-body">
-        <div class="track-title-row">
-          <div>
-            <div class="track-title">🎬 ${escapeHtml(m.title)}</div>
-            <div class="track-by">By: ${escapeHtml(m.uploader)}</div>
-          </div>
-          ${isAdminUnlocked || isBossUnlocked ? `
-            <div class="track-actions">
-              <button onclick="viewInfo('Movie', '${jsAttr(m.title)}', '${jsAttr(m.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
-              <button onclick="renameItem('movie', '${m.id}', '${jsAttr(m.title)}')" class="btn-primary">Rename</button>
-              <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger">Delete</button>
-            </div>` : ''}
-        </div>
-        ${seenHtml(m)}
-        <video controls src="${escapeHtml(m.movieUrl)}" style="width: 100%; max-height: 280px; border-radius: 6px;" onplay="markSeen('movie', '${m.id}')"></video>
-      </div>
-    </li>`).join('');
-}
-
-async function fetchGlobalLinks() {
-  const linkList = $('link-list');
-  if (!linkList) return;
+/* Combined Library (Songs + Movies + Links, mixed, newest first) */
+async function fetchLibrary() {
+  const list = $('library-list');
+  if (!list) return;
+  const [tracksRes, moviesRes, linksRes] = await Promise.all([
+    fetch('/api/tracks'),
+    fetch('/api/movies'),
+    fetch('/api/links')
+  ]);
+  const tracks = await tracksRes.json();
+  const movies = await moviesRes.json();
   let links = [];
-  try {
-    const res = await fetch('/api/links');
-    links = await res.json();
-  } catch (e) { /* ignore */ }
+  try { links = await linksRes.json(); } catch (e) {}
 
-  if (!links || links.length === 0) {
-    linkList.innerHTML = '<li style="color:#94a3b8;">No links yet. Add one from the Upload page.</li>';
+  const items = [
+    ...(tracks || []).map(t => ({ ...t, kind: 'song', url: t.audioUrl || t.songUrl })),
+    ...(movies || []).map(m => ({ ...m, kind: 'movie', url: m.movieUrl })),
+    ...(links || []).map(l => ({ ...l, kind: 'link', url: l.url }))
+  ].sort((a, b) => {
+    const ta = Date.parse(a.createdAt || '') || 0;
+    const tb = Date.parse(b.createdAt || '') || 0;
+    return tb - ta;
+  });
+
+  if (!items.length) {
+    list.innerHTML = '<li style="color:#94a3b8;">No media uploaded yet.</li>';
     return;
   }
-  linkList.innerHTML = links.map((l) => `
-    <li class="track-item">
-      ${l.thumbnailUrl
-        ? `<img class="track-thumb" src="${escapeHtml(l.thumbnailUrl)}" alt="">`
-        : `<div class="track-thumb-placeholder">🔗</div>`}
-      <div class="track-body">
-        <div class="track-title-row">
-          <div>
-            <div class="track-title">🔗 ${escapeHtml(l.title)}</div>
-            <div class="track-by">Shared by: ${escapeHtml(l.uploader)}</div>
+
+  list.innerHTML = items.map((it) => {
+    const isVideo = it.kind === 'movie';
+    const isLink = it.kind === 'link';
+    const thumb = it.thumbnailUrl
+      ? `<img class="track-thumb ${isLink ? '' : 'square'}" src="${escapeHtml(it.thumbnailUrl)}" alt="">`
+      : `<div class="track-thumb-placeholder">${isVideo ? '🎬' : isLink ? '🔗' : '🎵'}</div>`;
+    const icon = isVideo ? '🎬' : isLink ? '🔗' : '🎵';
+    const typeLabel = isVideo ? 'Video' : isLink ? 'Link' : 'Song';
+    const actions = (isAdminUnlocked || isBossUnlocked) ? `
+      <div class="track-actions">
+        <button onclick="viewInfo('${typeLabel}', '${jsAttr(it.title)}', '${jsAttr(it.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
+        <button onclick="renameItem('${it.kind === 'song' ? 'song' : it.kind}', '${it.id}', '${jsAttr(it.title)}')" class="btn-primary">Rename</button>
+        <button onclick="deleteItem('${it.kind === 'song' ? 'song' : it.kind}', '${it.id}')" class="btn-danger">Delete</button>
+      </div>` : '';
+    const player = isVideo
+      ? `<video controls src="${escapeHtml(it.url)}" style="width: 100%; max-height: 280px; border-radius: 6px;" onplay="markSeen('movie', '${it.id}')"></video>`
+      : isLink
+        ? `<a class="btn-primary download-btn" href="${escapeHtml(it.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${it.id}')">⬇ Click here to download</a>`
+        : `<audio controls src="${escapeHtml(it.url)}" style="width: 100%;" onplay="markSeen('song', '${it.id}')"></audio>`;
+    return `
+      <li class="track-item">
+        ${thumb}
+        <div class="track-body">
+          <div class="track-title-row">
+            <div>
+              <div class="track-title">${icon} ${escapeHtml(it.title)}</div>
+              <div class="track-by">By: ${escapeHtml(it.uploader)}</div>
+            </div>
+            ${actions}
           </div>
-          ${isAdminUnlocked || isBossUnlocked ? `
-            <div class="track-actions">
-              <button onclick="viewInfo('Link', '${jsAttr(l.title)}', '${jsAttr(l.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
-              <button onclick="renameItem('link', '${l.id}', '${jsAttr(l.title)}')" class="btn-primary">Rename</button>
-              <button onclick="deleteItem('link', '${l.id}')" class="btn-danger">Delete</button>
-            </div>` : ''}
+          ${seenHtml(it)}
+          ${player}
+        </div>
+      </li>`;
+  }).join('');
+}
+
+/* Admin dashboard + requests                                          */
+/* ------------------------------------------------------------------ */
         </div>
         ${seenHtml(l)}
         <a class="btn-primary download-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${l.id}')">⬇ Click here to download</a>
@@ -2055,9 +2023,9 @@ updateKeyboardState();
 /* Init                                                                */
 /* ------------------------------------------------------------------ */
 checkUserSession();
-fetchGlobalTracks();
-fetchGlobalMovies();
-fetchGlobalLinks();
+fetchLibrary();
+  fetchLibrary();
+  fetchLibrary();
 loadMessages({ force: true });
 updateQueueTitle();
 initMessaging();

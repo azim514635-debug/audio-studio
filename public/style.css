@@ -1211,3 +1211,24 @@ body.hacker-theme .instagram-link img,
 body.hacker-theme .footer-author strong { color: #00ff41; }
 body.hacker-theme ::-webkit-scrollbar-thumb { background: #00ff41; }
 body.hacker-theme ::-webkit-scrollbar-thumb:hover { background: #5cff8a; }
+
+/* Hacker theme video background */
+body.hacker-theme .hacker-video-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  overflow: hidden;
+}
+body.hacker-theme .hacker-video-bg iframe {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 100vw;
+  height: 100vh;
+  transform: translateX(-50%) translateY(-50%);
+  pointer-events: none;
+}
+body.hacker-theme ::-webkit-scrollbar-thumb:hover { background: #5cff8a; }

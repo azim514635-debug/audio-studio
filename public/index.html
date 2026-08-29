@@ -13,6 +13,11 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- YouTube video loop background (hacker theme) -->
+  <div id="hacker-video-bg" class="hacker-video-bg">
+    <iframe id="hacker-youtube-iframe" src="https://www.youtube.com/embed/yHaFiWVwPNY?loop=1&playlist=yHaFiWVwPNY&controls=0&showinfo=0&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+  </div>
+
   <!-- Register / Login modal -->
   <div id="name-modal" class="modal-overlay">
     <div class="modal-card">
@@ -225,22 +230,11 @@
       <section id="page-library" class="page">
         <div class="header-card" style="background: linear-gradient(135deg, #6366f1, #a855f7);">
           <h1>📚 Library</h1>
-          <p>All songs, movies and links in one place.</p>
+          <p>All songs, movies and links in one place, newest first.</p>
         </div>
 
         <div class="card">
-          <div class="card-header"><h3>🎵 Songs</h3></div>
-          <ul id="track-list" class="track-list"></ul>
-        </div>
-
-        <div class="card" style="margin-top:20px;">
-          <div class="card-header"><h3>🎬 Movies</h3></div>
-          <ul id="movie-list" class="track-list"></ul>
-        </div>
-
-        <div class="card" style="margin-top:20px;">
-          <div class="card-header"><h3>🔗 Links</h3></div>
-          <ul id="link-list" class="track-list"></ul>
+          <ul id="library-list" class="track-list"></ul>
         </div>
       </section>
 
