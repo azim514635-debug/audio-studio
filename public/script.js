@@ -118,11 +118,18 @@ let authMode = 'register'; // 'register' | 'login'
 let isAdminUnlocked = false;
 let adminSecret = '';
 const BOSS_KEY = 'azim_boss_unlocked';
+const ADMIN_SECRET_KEY = 'azim_admin_secret';
 let isBossUnlocked = localStorage.getItem(BOSS_KEY) === '1';
 
 function isBossName() {
   const n = (currentUser || '').trim().toLowerCase();
   return n === 'azim';
+}
+
+// Restore the stored admin secret so server-protected admin calls still work
+// right after a page refresh (when boss unlock is already persisted).
+if (isBossUnlocked) {
+  adminSecret = localStorage.getItem(ADMIN_SECRET_KEY) || '';
 }
 
 function roleLabel() {
@@ -259,6 +266,7 @@ function logoutUser() {
   localStorage.removeItem('visitorName');
   localStorage.removeItem('visitorToken');
   localStorage.removeItem(BOSS_KEY);
+  localStorage.removeItem(ADMIN_SECRET_KEY);
   isBossUnlocked = false;
   isAdminUnlocked = false;
   setAuthMode('register');
@@ -316,6 +324,7 @@ async function ensureBossUnlock() {
           isBossUnlocked = true;
           isAdminUnlocked = true;
           localStorage.setItem(BOSS_KEY, '1');
+          localStorage.setItem(ADMIN_SECRET_KEY, password);
           adminSecret = password;
           const circle = $('admin-circle-btn');
           if (circle) { circle.textContent = '🔓'; circle.classList.add('unlocked'); }
@@ -399,6 +408,7 @@ async function ensureAdmin() {
         const data = await res.json();
         if (data.success) {
           isAdminUnlocked = true;
+          localStorage.setItem(ADMIN_SECRET_KEY, password);
           adminSecret = password;
           $('clear-chat-btn').style.display = 'inline-block';
           const circle = $('admin-circle-btn');
@@ -475,7 +485,15 @@ async function navigateTo(targetPage, navEl) {
 /* Browser / phone back button — return to Home instead of leaving the site */
 async function routeTo(target) {
   if (target && target !== 'home' && $('page-' + target)) {
-    if (target === 'admin' && !(await ensureAdmin())) return;
+    if (target === 'admin') {
+      // Require a valid login first, then admin/boss unlock — never show the
+      // admin modal over the login modal.
+      if (!currentUser) {
+        history.replaceState({ page: 'home' }, '', location.pathname);
+        return;
+      }
+      if (!(await ensureAdmin())) return;
+    }
     showPage(target);
     closeMenu();
   }
@@ -1805,4 +1823,10 @@ fetchGlobalLinks();
 loadMessages({ force: true });
 updateQueueTitle();
 initMessaging();
-if (isBossName() && (isBossUnlocked || isAdminUnlocked)) applyBossLabeling();
+if (isBossName() && (isBossUnlocked || isAdminUnlocked)) {
+  applyBossLabeling();
+  const circle = $('admin-circle-btn');
+  if (circle) { circle.textContent = '🔓'; circle.classList.add('unlocked'); }
+  const clearBtn = $('clear-chat-btn');
+  if (clearBtn) clearBtn.style.display = 'inline-block';
+}
