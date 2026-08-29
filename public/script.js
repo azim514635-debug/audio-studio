@@ -655,6 +655,22 @@ document.querySelector('.brand').addEventListener('click', () => {
   navigateTo('home', null);
 });
 
+/* Theme toggle (hacker theme, persisted in localStorage) */
+const themeToggleBtn = $('theme-toggle');
+function applyTheme() {
+  const on = localStorage.getItem('azimStudioTheme') === 'hacker';
+  document.body.classList.toggle('hacker-theme', on);
+  if (themeToggleBtn) themeToggleBtn.textContent = on ? '🎨' : '🖥️';
+}
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('hacker-theme');
+    localStorage.setItem('azimStudioTheme', on ? 'hacker' : '');
+    themeToggleBtn.textContent = on ? '🎨' : '🖥️';
+  });
+  applyTheme();
+}
+
 /* ------------------------------------------------------------------ */
 /* HTML helpers                                                        */
 /* ------------------------------------------------------------------ */
