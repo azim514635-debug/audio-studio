@@ -5,6 +5,10 @@ const streamifier = require('streamifier');
 const fs = require('fs');
 const path = require('path');
 const admin = require('firebase-admin');
+// firebase-admin v12+ removed the classic admin.messaging()/admin.database()
+// namespaces — the modular getters must be imported explicitly.
+const { getMessaging: fbGetMessaging } = require('firebase-admin/messaging');
+const { getDatabase: fbGetDatabase } = require('firebase-admin/database');
 
 if (fs.existsSync(path.join(__dirname, '.env'))) {
   for (const line of fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split('\n')) {
@@ -22,6 +26,7 @@ const DB_URL = process.env.DB_URL;
 
 let useFirebase = false;
 let dbRef = null;
+let firebaseAppRef = null;
 let memoryDb = { songs: [], movies: [], links: [], messages: [] }; // fallback when not configured
 
 function resolveServiceAccount() {
@@ -30,8 +35,10 @@ function resolveServiceAccount() {
   }
   const pathList = [process.env.FIREBASE_SERVICE_ACCOUNT_PATH, process.env.GOOGLE_APPLICATION_CREDENTIALS];
   for (const p of pathList) {
-    if (p && fs.existsSync(p)) {
-      return JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (!p) continue;
+    const abs = path.isAbsolute(p) ? p : path.join(__dirname, p);
+    if (fs.existsSync(abs)) {
+      return JSON.parse(fs.readFileSync(abs, 'utf8'));
     }
   }
   return null;
@@ -63,10 +70,17 @@ function initFirebase() {
   }
   try {
     const firebaseApp = admin.initializeApp({ credential: admin.cert(serviceAccount), databaseURL: DB_URL });
+    firebaseAppRef = firebaseApp;
     dbRef = require('firebase-admin/firestore').getFirestore(firebaseApp)
       .collection('studio').doc('data');
     useFirebase = true;
     console.log('[Firebase] Connected to Firestore (persistent cloud storage).');
+    try {
+      fbGetMessaging(firebaseApp);
+      console.log('[Firebase] Cloud Messaging is available — push notifications enabled.');
+    } catch (e) {
+      console.warn('[Firebase] Cloud Messaging unavailable:', e.message);
+    }
   } catch (e) {
     console.error('[Firebase] Failed to initialize:', e.message);
     console.warn('[Firebase] Running WITHOUT persistence. Check the error above and your Firebase configuration.');
@@ -103,6 +117,26 @@ async function saveDb(data) {
   } else {
     memoryDb = { songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [] };
   }
+  const size = Buffer.byteLength(JSON.stringify(data) || '[]', 'utf8');
+  if (size > 700 * 1024) {
+    console.warn(`[DB] WARNING: stored data is now ~${(size / 1024).toFixed(0)} KB — Cloud Firestore documents are limited to 1 MiB. Consider deleting old items.`);
+  }
+}
+
+/* Serializes read-modify-write cycles. Because the whole store lives in one
+   Firestore doc, two concurrent get->save sequences can overwrite each
+   other's changes; the lock re-reads inside the critical section. */
+let dbWriteLock = Promise.resolve();
+async function withDbWrite(work) {
+  const prev = dbWriteLock;
+  let release;
+  dbWriteLock = new Promise((r) => (release = r));
+  await prev;
+  try {
+    return await work();
+  } finally {
+    release();
+  }
 }
 
 const app = express();
@@ -112,6 +146,16 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET || "azim123";
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
+
+/* Express 4 does not catch rejections from async handlers on its own:
+   wrap every async route so errors produce a clean error response instead of
+   leaving requests hanging / crashing the process. */
+const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+const isAdminReq = (req) => {
+  const supplied = (req.headers && req.headers['x-admin-secret']) || (req.body && req.body.adminSecret);
+  return supplied === ADMIN_SECRET;
+};
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2048 * 1024 * 1024 } });
 
@@ -154,21 +198,21 @@ const uploadToCloudinary = (file, resourceType, cb) => {
 /* ------------------------------------------------------------------ */
 /* Public data / library                                               */
 /* ------------------------------------------------------------------ */
-app.get('/api/data', async (req, res) => {
+app.get('/api/data', ah(async (req, res) => {
   res.json(await getDb());
-});
+}));
 
-app.get('/api/tracks', async (req, res) => {
+app.get('/api/tracks', ah(async (req, res) => {
   res.json((await getDb()).songs);
-});
+}));
 
-app.get('/api/movies', async (req, res) => {
+app.get('/api/movies', ah(async (req, res) => {
   res.json((await getDb()).movies);
-});
+}));
 
-app.get('/api/links', async (req, res) => {
+app.get('/api/links', ah(async (req, res) => {
   res.json((await getDb()).links);
-});
+}));
 
 /* ------------------------------------------------------------------ */
 /* Admin verification                                                  */
@@ -191,7 +235,7 @@ app.post(
     { name: 'mediaFile', maxCount: 1 },
     { name: 'thumbnailFile', maxCount: 1 }
   ]),
-  async (req, res) => {
+  ah(async (req, res) => {
     const type = isMediaType(req.body.type) && (req.body.type === 'movie' || req.body.type === 'movies') ? 'movie' : 'song';
     const mediaFile = req.files && req.files.mediaFile && req.files.mediaFile[0];
     if (!mediaFile) return res.status(400).json({ success: false, error: 'No media file received.' });
@@ -204,23 +248,26 @@ app.post(
         if (thumbErr) return res.status(500).json({ success: false, error: 'Cloudinary upload failed: ' + thumbErr.message });
 
         try {
-          const db = await getDb();
-          const item = {
-            id: makeId(),
-            title: String(req.body.title || mediaFile.originalname || 'Untitled').trim(),
-            uploader: String(req.body.uploader || 'Anonymous').trim(),
-            thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
-            createdAt: new Date().toISOString()
-          };
+          const item = await withDbWrite(async () => {
+            const db = await getDb();
+            const newItem = {
+              id: makeId(),
+              title: String(req.body.title || mediaFile.originalname || 'Untitled').trim(),
+              uploader: String(req.body.uploader || 'Anonymous').trim(),
+              thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
+              createdAt: new Date().toISOString()
+            };
 
-          if (type === 'movie') {
-            item.movieUrl = mediaUrl;
-            db.movies.unshift(item);
-          } else {
-            item.songUrl = mediaUrl;
-            db.songs.unshift(item);
-          }
-          await saveDb(db);
+            if (type === 'movie') {
+              newItem.movieUrl = mediaUrl;
+              db.movies.unshift(newItem);
+            } else {
+              newItem.songUrl = mediaUrl;
+              db.songs.unshift(newItem);
+            }
+            await saveDb(db);
+            return newItem;
+          });
           sendUploadNotification(type, item.title, item.uploader);
           res.json({ success: true, type, item });
         } catch (e) {
@@ -228,7 +275,7 @@ app.post(
         }
       });
     });
-  }
+  })
 );
 
 /* Legacy single-file upload routes (kept for compatibility) */
@@ -238,7 +285,7 @@ app.post(
     { name: 'mediaFile', maxCount: 1 },
     { name: 'thumbnailFile', maxCount: 1 }
   ]),
-  async (req, res) => {
+  ah(async (req, res) => {
     const mediaFile = req.files && req.files.mediaFile && req.files.mediaFile[0];
     if (!mediaFile) return res.status(400).send('No file uploaded.');
 
@@ -250,24 +297,26 @@ app.post(
         if (thumbErr) return res.status(500).send('Cloudinary upload failed: ' + thumbErr.message);
 
         try {
-          const db = await getDb();
-          const item = {
-            id: makeId(),
-            title: String(req.body.title || mediaFile.originalname).trim(),
-            uploader: String(req.body.uploader || 'Anonymous').trim(),
-            songUrl: mediaUrl,
-            thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
-            createdAt: new Date().toISOString()
-          };
-          db.songs.unshift(item);
-          await saveDb(db);
+          await withDbWrite(async () => {
+            const db = await getDb();
+            const item = {
+              id: makeId(),
+              title: String(req.body.title || mediaFile.originalname).trim(),
+              uploader: String(req.body.uploader || 'Anonymous').trim(),
+              songUrl: mediaUrl,
+              thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
+              createdAt: new Date().toISOString()
+            };
+            db.songs.unshift(item);
+            await saveDb(db);
+          });
           res.send('Song uploaded successfully!');
         } catch (e) {
           res.status(500).send(e.message || 'Failed to save.');
         }
       });
     });
-  }
+  })
 );
 
 app.post(
@@ -276,7 +325,7 @@ app.post(
     { name: 'mediaFile', maxCount: 1 },
     { name: 'thumbnailFile', maxCount: 1 }
   ]),
-  async (req, res) => {
+  ah(async (req, res) => {
     const mediaFile = req.files && req.files.mediaFile && req.files.mediaFile[0];
     if (!mediaFile) return res.status(400).send('No file uploaded.');
 
@@ -288,32 +337,34 @@ app.post(
         if (thumbErr) return res.status(500).send('Cloudinary upload failed: ' + thumbErr.message);
 
         try {
-          const db = await getDb();
-          const item = {
-            id: makeId(),
-            title: String(req.body.title || mediaFile.originalname).trim(),
-            uploader: String(req.body.uploader || 'Anonymous').trim(),
-            movieUrl: mediaUrl,
-            thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
-            createdAt: new Date().toISOString()
-          };
-          db.movies.unshift(item);
-          await saveDb(db);
+          await withDbWrite(async () => {
+            const db = await getDb();
+            const item = {
+              id: makeId(),
+              title: String(req.body.title || mediaFile.originalname).trim(),
+              uploader: String(req.body.uploader || 'Anonymous').trim(),
+              movieUrl: mediaUrl,
+              thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
+              createdAt: new Date().toISOString()
+            };
+            db.movies.unshift(item);
+            await saveDb(db);
+          });
           res.send('Movie uploaded successfully!');
         } catch (e) {
           res.status(500).send(e.message || 'Failed to save.');
         }
       });
     });
-  }
+  })
 );
 
 /* ------------------------------------------------------------------ */
 /* Link upload — admin only, optional thumbnail file                   */
 /* ------------------------------------------------------------------ */
-app.post('/api/upload/link', upload.single('thumbnailFile'), async (req, res) => {
-  const { title, uploader, mediaUrl, thumbnailUrl, type, adminSecret } = req.body;
-  if (adminSecret !== ADMIN_SECRET) return res.status(401).json({ success: false, error: 'Unauthorized' });
+app.post('/api/upload/link', upload.single('thumbnailFile'), ah(async (req, res) => {
+  const { title, uploader, mediaUrl, thumbnailUrl, type } = req.body;
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   if (!mediaUrl) return res.status(400).json({ success: false, error: 'Missing media URL.' });
 
   const item = {
@@ -325,15 +376,17 @@ app.post('/api/upload/link', upload.single('thumbnailFile'), async (req, res) =>
 
   const finish = async () => {
     try {
-      const db = await getDb();
-      if (type === 'movie' || type === 'movies') {
-        item.movieUrl = mediaUrl;
-        db.movies.unshift(item);
-      } else {
-        item.songUrl = mediaUrl;
-        db.songs.unshift(item);
-      }
-      await saveDb(db);
+      await withDbWrite(async () => {
+        const db = await getDb();
+        if (type === 'movie' || type === 'movies') {
+          item.movieUrl = mediaUrl;
+          db.movies.unshift(item);
+        } else {
+          item.songUrl = mediaUrl;
+          db.songs.unshift(item);
+        }
+        await saveDb(db);
+      });
       res.json({ success: true, type: type === 'movie' || type === 'movies' ? 'movie' : 'song', item });
     } catch (e) {
       res.status(500).json({ success: false, error: e.message || 'Failed to save.' });
@@ -350,12 +403,12 @@ app.post('/api/upload/link', upload.single('thumbnailFile'), async (req, res) =>
     item.thumbnailUrl = thumbnailUrl || '';
     await finish();
   }
-});
+}));
 
 /* ------------------------------------------------------------------ */
 /* Links library upload — title, URL, optional thumbnail (file/URL)   */
 /* ------------------------------------------------------------------ */
-app.post('/api/upload/link-item', upload.single('thumbnailFile'), async (req, res) => {
+app.post('/api/upload/link-item', upload.single('thumbnailFile'), ah(async (req, res) => {
   const { title, url, uploader, thumbnailUrl } = req.body;
   if (!url) return res.status(400).json({ success: false, error: 'Missing download URL.' });
 
@@ -371,9 +424,11 @@ app.post('/api/upload/link-item', upload.single('thumbnailFile'), async (req, re
 
   const finish = async () => {
     try {
-      const db = await getDb();
-      db.links.unshift(item);
-      await saveDb(db);
+      await withDbWrite(async () => {
+        const db = await getDb();
+        db.links.unshift(item);
+        await saveDb(db);
+      });
       res.json({ success: true, type: 'link', item });
     } catch (e) {
       res.status(500).json({ success: false, error: e.message || 'Failed to save.' });
@@ -389,7 +444,7 @@ app.post('/api/upload/link-item', upload.single('thumbnailFile'), async (req, re
   } else {
     await finish();
   }
-});
+}));
 
 /* ------------------------------------------------------------------ */
 /* Media management (rename / delete)                                  */
@@ -397,163 +452,189 @@ app.post('/api/upload/link-item', upload.single('thumbnailFile'), async (req, re
 const canManage = (item, uploader, adminSecret) =>
   adminSecret === ADMIN_SECRET || (item && item.uploader === uploader);
 
-app.put('/api/media/:type/:id', async (req, res) => {
+app.put('/api/media/:type/:id', ah(async (req, res) => {
   const { type, id } = req.params;
   if (!isMediaType(type)) return res.status(400).json({ success: false, error: 'Invalid type.' });
 
   const { newTitle, uploader, adminSecret } = req.body;
-  const db = await getDb();
-  const list = mediaList(type, db);
-  const item = list.find((i) => i.id === id);
-  if (!item) return res.status(404).json({ success: false, error: 'Not found.' });
-  if (!canManage(item, uploader, adminSecret)) return res.status(403).json({ success: false, error: 'Unauthorized' });
+  const result = await withDbWrite(async () => {
+    const db = await getDb();
+    const list = mediaList(type, db);
+    const item = list.find((i) => i.id === id);
+    if (!item) return { status: 404, body: { success: false, error: 'Not found.' } };
+    if (!canManage(item, uploader, adminSecret)) return { status: 403, body: { success: false, error: 'Unauthorized' } };
+    item.title = String(newTitle || item.title).trim();
+    await saveDb(db);
+    return { status: 200, body: { success: true, item } };
+  });
+  res.status(result.status).json(result.body);
+}));
 
-  item.title = String(newTitle || item.title).trim();
-  await saveDb(db);
-  res.json({ success: true, item });
-});
-
-app.delete('/api/media/:type/:id', async (req, res) => {
+app.delete('/api/media/:type/:id', ah(async (req, res) => {
   const { type, id } = req.params;
   if (!isMediaType(type)) return res.status(400).json({ success: false, error: 'Invalid type.' });
 
   const { uploader, adminSecret } = req.body || {};
-  const db = await getDb();
-  const list = mediaList(type, db);
-  const item = list.find((i) => i.id === id);
-  if (!item) return res.status(404).json({ success: false, error: 'Not found.' });
-  if (!canManage(item, uploader, adminSecret)) return res.status(403).json({ success: false, error: 'Unauthorized' });
+  const result = await withDbWrite(async () => {
+    const db = await getDb();
+    const list = mediaList(type, db);
+    const item = list.find((i) => i.id === id);
+    if (!item) return { status: 404, body: { success: false, error: 'Not found.' } };
+    if (!canManage(item, uploader, adminSecret)) return { status: 403, body: { success: false, error: 'Unauthorized' } };
 
-  const idx = list.indexOf(item);
-  list.splice(idx, 1);
-  await saveDb(db);
-  await destroyCloudinaryMedia(item);
+    const idx = list.indexOf(item);
+    list.splice(idx, 1);
+    await saveDb(db);
+    return { status: 200, body: { success: true, item } };
+  });
+  if (result.status !== 200) return res.status(result.status).json(result.body);
+  if (result.body.item) await destroyCloudinaryMedia(result.body.item);
   res.json({ success: true });
-});
+}));
 
 /* Legacy JSON rename/delete routes (kept for compatibility) */
-app.post('/api/rename', async (req, res) => {
+app.post('/api/rename', ah(async (req, res) => {
   const { type, id, newTitle, uploader, adminSecret } = req.body;
-  const db = await getDb();
-  const list = mediaList(type, db);
-  const item = list.find((i) => i.id === id);
-  if (!item) return res.status(404).send('Not found');
-  if (!canManage(item, uploader, adminSecret)) return res.status(403).send('Unauthorized');
-  item.title = String(newTitle || item.title).trim();
-  await saveDb(db);
-  res.sendStatus(200);
-});
+  const result = await withDbWrite(async () => {
+    const db = await getDb();
+    const list = mediaList(type, db);
+    const item = list.find((i) => i.id === id);
+    if (!item) return res.sendStatus(404);
+    if (!canManage(item, uploader, adminSecret)) return res.sendStatus(403);
+    item.title = String(newTitle || item.title).trim();
+    await saveDb(db);
+    return res.sendStatus(200);
+  });
+  return result;
+}));
 
-app.post('/api/delete', async (req, res) => {
+app.post('/api/delete', ah(async (req, res) => {
   const { type, id, uploader, adminSecret } = req.body;
-  const db = await getDb();
-  const list = mediaList(type, db);
-  const item = list.find((i) => i.id === id);
-  if (!item) return res.sendStatus(404);
-  if (!canManage(item, uploader, adminSecret)) return res.sendStatus(403);
-  list.splice(list.indexOf(item), 1);
-  await saveDb(db);
-  await destroyCloudinaryMedia(item);
-  res.sendStatus(200);
-});
+  let item = null;
+  const result = await withDbWrite(async () => {
+    const db = await getDb();
+    const list = mediaList(type, db);
+    item = list.find((i) => i.id === id);
+    if (!item) return res.sendStatus(404);
+    if (!canManage(item, uploader, adminSecret)) return res.sendStatus(403);
+    list.splice(list.indexOf(item), 1);
+    await saveDb(db);
+    return res.sendStatus(200);
+  });
+  if (item && result.statusCode === 200) await destroyCloudinaryMedia(item);
+  return result;
+}));
 
 /* ------------------------------------------------------------------ */
 /* Community chat                                                      */
 /* ------------------------------------------------------------------ */
-app.get('/api/messages', async (req, res) => {
+app.get('/api/messages', ah(async (req, res) => {
   res.json({ messages: (await getDb()).messages });
-});
+}));
 
-app.post('/api/messages', async (req, res) => {
+app.post('/api/messages', ah(async (req, res) => {
   const user = String(req.body.user || 'Anonymous').trim();
   const text = String(req.body.text || '').trim();
   if (!text) return res.status(400).json({ success: false, error: 'Message cannot be empty.' });
   if (text.length > 2000) return res.status(400).json({ success: false, error: 'Message is too long.' });
 
-  const db = await getDb();
-  const message = {
-    id: makeId(),
-    user,
-    text,
-    timestamp: Date.now()
-  };
-  db.messages.push(message);
-  if (db.messages.length > 500) db.messages = db.messages.slice(-500);
-  await saveDb(db);
+  const message = await withDbWrite(async () => {
+    const db = await getDb();
+    const newMessage = {
+      id: makeId(),
+      user,
+      text,
+      timestamp: Date.now()
+    };
+    db.messages.push(newMessage);
+    if (db.messages.length > 500) db.messages = db.messages.slice(-500);
+    await saveDb(db);
+    return newMessage;
+  });
   res.json({ success: true, message });
-});
+}));
 
-app.post('/api/messages/clear', async (req, res) => {
-  const { adminSecret } = req.body;
-  if (adminSecret !== ADMIN_SECRET) return res.status(401).json({ success: false, error: 'Unauthorized' });
+app.post('/api/messages/clear', ah(async (req, res) => {
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
-  const db = await getDb();
-  db.messages = [];
-  await saveDb(db);
+  await withDbWrite(async () => {
+    const db = await getDb();
+    db.messages = [];
+    await saveDb(db);
+  });
   res.json({ success: true });
-});
+}));
 
 /* ------------------------------------------------------------------ */
 /* Contact requests (stored server-side, notifies the boss)            */
 /* ------------------------------------------------------------------ */
-app.post('/api/contact', async (req, res) => {
+app.post('/api/contact', ah(async (req, res) => {
   const user = String(req.body.user || 'Anonymous').trim();
   const text = String(req.body.text || '').trim();
   if (!text) return res.status(400).json({ success: false, error: 'Message cannot be empty.' });
 
-  const db = await getDb();
-  db.requests = db.requests || [];
-  const request = { id: makeId(), user, text, createdAt: new Date().toISOString(), timestamp: Date.now() };
-  db.requests.unshift(request);
-  if (db.requests.length > 500) db.requests = db.requests.slice(0, 500);
-  await saveDb(db);
+  const request = await withDbWrite(async () => {
+    const db = await getDb();
+    db.requests = db.requests || [];
+    const newRequest = { id: makeId(), user, text, createdAt: new Date().toISOString(), timestamp: Date.now() };
+    db.requests.unshift(newRequest);
+    if (db.requests.length > 500) db.requests = db.requests.slice(0, 500);
+    await saveDb(db);
+    return newRequest;
+  });
 
   sendToNamedDevices('azim', '📩 Contact message from ' + user, text.slice(0, 200), { url: '/?page=admin', type: 'contact' })
     .catch(() => { /* ignore */ });
 
   res.json({ success: true, request });
-});
+}));
 
-app.get('/api/requests', async (req, res) => {
+app.get('/api/requests', ah(async (req, res) => {
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const db = await getDb();
   res.json({ requests: db.requests || [] });
-});
+}));
 
-app.post('/api/requests/clear', async (req, res) => {
-  const { adminSecret } = req.body;
-  if (adminSecret !== ADMIN_SECRET) return res.status(401).json({ success: false, error: 'Unauthorized' });
-  const db = await getDb();
-  db.requests = [];
-  await saveDb(db);
+app.post('/api/requests/clear', ah(async (req, res) => {
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  await withDbWrite(async () => {
+    const db = await getDb();
+    db.requests = [];
+    await saveDb(db);
+  });
   res.json({ success: true });
-});
+}));
 
 /* ------------------------------------------------------------------ */
 /* "Seen by" tracking for messages and library media                   */
 /* ------------------------------------------------------------------ */
-app.post('/api/seen', async (req, res) => {
+app.post('/api/seen', ah(async (req, res) => {
   const { type, id, name } = req.body;
   if (!type || !id || !name) return res.status(400).json({ success: false, error: 'Missing fields.' });
-  const db = await getDb();
 
-  let list = null;
-  if (type === 'message' || type === 'messages') list = db.messages;
-  else if (type === 'song' || type === 'songs') list = db.songs;
-  else if (type === 'movie' || type === 'movies') list = db.movies;
-  else if (type === 'link' || type === 'links') list = db.links;
-  else return res.status(400).json({ success: false, error: 'Invalid type.' });
+  const result = await withDbWrite(async () => {
+    const db = await getDb();
 
-  const item = list.find((i) => i.id === id);
-  if (!item) return res.status(404).json({ success: false, error: 'Not found.' });
+    let list = null;
+    if (type === 'message' || type === 'messages') list = db.messages;
+    else if (type === 'song' || type === 'songs') list = db.songs;
+    else if (type === 'movie' || type === 'movies') list = db.movies;
+    else if (type === 'link' || type === 'links') list = db.links;
+    else return { status: 400, body: { success: false, error: 'Invalid type.' } };
 
-  item.seen = item.seen || [];
-  const n = String(name);
-  if (!item.seen.some((s) => String(s.name).toLowerCase() === n.toLowerCase())) {
-    item.seen.push({ name: n, at: Date.now() });
-  }
-  await saveDb(db);
-  res.json({ success: true, seen: item.seen });
-});
+    const item = list.find((i) => i.id === id);
+    if (!item) return { status: 404, body: { success: false, error: 'Not found.' } };
+
+    item.seen = item.seen || [];
+    const n = String(name);
+    if (!item.seen.some((s) => String(s.name).toLowerCase() === n.toLowerCase())) {
+      item.seen.push({ name: n, at: Date.now() });
+    }
+    await saveDb(db);
+    return { status: 200, body: { success: true, seen: item.seen } };
+  });
+  res.status(result.status).json(result.body);
+}));
 
 /* ------------------------------------------------------------------ */
 /* Firebase Cloud Messaging (FCM) — push notifications                 */
@@ -579,9 +660,9 @@ app.get('/api/notify/config', (req, res) => {
 });
 
 function getMessaging() {
-  if (!useFirebase) return null;
+  if (!useFirebase || !firebaseAppRef) return null;
   try {
-    return admin.messaging();
+    return fbGetMessaging(firebaseAppRef);
   } catch (e) {
     return null;
   }
@@ -589,8 +670,9 @@ function getMessaging() {
 
 /* ---- FCM device token storage (Firebase Realtime Database) ---- */
 function getRtdb() {
+  if (!firebaseAppRef) return null;
   try {
-    return admin.database();
+    return fbGetDatabase(firebaseAppRef);
   } catch (e) {
     return null;
   }
@@ -627,11 +709,13 @@ async function saveToken(token, name) {
       return true;
     } catch (e) { /* fall through */ }
   }
-  const db = await getDb();
-  db.notifTokens = db.notifTokens || [];
-  if (!db.notifTokens.some((t) => t.token === token)) db.notifTokens.push(entry);
-  await saveDb(db);
-  return true;
+  return withDbWrite(async () => {
+    const db = await getDb();
+    db.notifTokens = db.notifTokens || [];
+    if (!db.notifTokens.some((t) => t.token === token)) db.notifTokens.push(entry);
+    await saveDb(db);
+    return true;
+  });
 }
 
 async function removeToken(token) {
@@ -642,9 +726,11 @@ async function removeToken(token) {
       return;
     } catch (e) { /* fall through */ }
   }
-  const db = await getDb();
-  db.notifTokens = (db.notifTokens || []).filter((t) => t.token !== token);
-  await saveDb(db);
+  return withDbWrite(async () => {
+    const db = await getDb();
+    db.notifTokens = (db.notifTokens || []).filter((t) => t.token !== token);
+    await saveDb(db);
+  });
 }
 
 async function removeInvalidTokens(invalidTokens) {
@@ -750,16 +836,17 @@ app.post('/api/notify/unregister', async (req, res) => {
 });
 
 /* Broadcast an announcement (admin / website updates) */
-app.post('/api/notify/announce', async (req, res) => {
-  const { title, body, adminSecret } = req.body;
-  if (adminSecret !== ADMIN_SECRET) return res.status(401).json({ success: false, error: 'Unauthorized' });
+app.post('/api/notify/announce', ah(async (req, res) => {
+  const { title, body } = req.body;
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   if (!title && !body) return res.status(400).json({ success: false, error: 'Title or body required.' });
   const result = await sendToAllDevices(title || 'Announcement', body || '', { url: '/' });
   res.json({ success: true, ...result });
-});
+}));
 
 /* A new song/movie/link was uploaded -> notify everyone except the uploader */
-app.post('/api/notify/upload', async (req, res) => {
+app.post('/api/notify/upload', ah(async (req, res) => {
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const { type, title, uploader } = req.body;
   const kind = type === 'movie' ? 'Movie' : (type === 'link' ? 'Link' : 'Song');
   const result = await sendToAllDevices(
@@ -769,13 +856,22 @@ app.post('/api/notify/upload', async (req, res) => {
     uploader
   );
   res.json({ success: true, ...result });
-});
+}));
 
 /* New chat message -> notify all chat participants except the sender */
-app.post('/api/notify/chat', async (req, res) => {
+app.post('/api/notify/chat', ah(async (req, res) => {
   const user = String(req.body.user || 'Someone').trim();
   const text = String(req.body.text || '').trim().slice(0, 200);
   if (!text) return res.status(400).json({ success: false, error: 'Missing message text.' });
+
+  // Only broadcast push notifications for messages that genuinely exist in
+  // the chat history, so a random visitor can't spam every device.
+  const db = await getDb();
+  const recent = (db.messages || []).slice(-10);
+  const matched = recent.some(
+    (m) => String(m.user).trim() === user && String(m.text).trim().slice(0, 200) === text
+  );
+  if (!matched) return res.status(400).json({ success: false, error: 'No matching message to notify about.' });
 
   const result = await sendToAllDevices(
     '@' + user + ' messaged in chat',
@@ -784,27 +880,26 @@ app.post('/api/notify/chat', async (req, res) => {
     user
   );
   res.json({ success: true, sent: result.sent, failed: result.failed });
-});
+}));
 
 /* Contact/form message -> notify admin/boss person only */
-app.post('/api/notify/contact', async (req, res) => {
+app.post('/api/notify/contact', ah(async (req, res) => {
   const user = String(req.body.user || 'Someone').trim();
   const text = String(req.body.text || '').trim().slice(0, 2000);
   if (!text) return res.status(400).json({ success: false, error: 'Missing message text.' });
 
   const result = await sendToNamedDevices('azim', '📩 Contact message from ' + user, text, { url: '/?page=admin', type: 'contact' });
   res.json({ success: true, sent: result.sent, failed: result.failed });
-});
+}));
 
-/* Public upload notification (used by client as a reliable broadcast) */
-app.post('/api/notify/send', async (req, res) => {
-  const { title, body, adminSecret, data, public: isPublic } = req.body;
-  const authorized = isPublic === true || adminSecret === ADMIN_SECRET;
-  if (!authorized) return res.status(401).json({ success: false, error: 'Unauthorized' });
+/* Upload notification broadcast — admin only (previously open to any visitor) */
+app.post('/api/notify/send', ah(async (req, res) => {
+  const { title, body, data } = req.body;
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   if (!title && !body) return res.status(400).json({ success: false, error: 'Title or body required.' });
   const result = await sendToAllDevices(title || 'Notification', body || '', data || {});
   res.json({ success: true, ...result });
-});
+}));
 
 /* ------------------------------------------------------------------ */
 /* Error handling for multer                                           */

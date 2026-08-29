@@ -10,7 +10,6 @@ const pages = document.querySelectorAll('.page');
 let currentUser = localStorage.getItem('visitorName') || '';
 let isAdminUnlocked = false;
 let adminSecret = '';
-let isAdminChecking = false;
 const BOSS_KEY = 'azim_boss_unlocked';
 let isBossUnlocked = localStorage.getItem(BOSS_KEY) === '1';
 
@@ -170,7 +169,6 @@ function applyBossLabeling() {
 
 async function ensureAdmin() {
   if (isAdminUnlocked || isBossUnlocked) return true;
-  if (isAdminChecking) return isAdminUnlocked;
   if (isBossName()) {
     const unlocked = await ensureBossUnlock();
     if (unlocked) { isAdminUnlocked = true; applyBossLabeling(); return true; }
@@ -274,22 +272,29 @@ async function navigateTo(targetPage, navEl) {
 }
 
 /* Browser / phone back button — return to Home instead of leaving the site */
+async function routeTo(target) {
+  if (target && target !== 'home' && $('page-' + target)) {
+    if (target === 'admin' && !(await ensureAdmin())) return;
+    showPage(target);
+    closeMenu();
+  }
+}
+
 window.addEventListener('popstate', () => {
   const params = new URLSearchParams(location.search);
   const target = params.get('page') || 'home';
-  showPage(target);
-  closeMenu();
+  routeTo(target);
 });
 
 /* On initial load, honor an existing page param in the URL */
 (function restoreInitialPage() {
   const params = new URLSearchParams(location.search);
-  const target = params.get('page');
-  if (target && target !== 'home' && $('page-' + target)) {
-    showPage(target);
-  } else {
+  const target = params.get('page') || 'home';
+  if (target === 'home' || !$('page-' + target)) {
     history.replaceState({ page: 'home' }, '', location.pathname);
+    return;
   }
+  routeTo(target);
 })();
 
 navItems.forEach((item) => {
@@ -349,6 +354,17 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Escape a value for use inside a single-quoted JS string literal within an
+// HTML attribute (e.g. onclick="...('${jsAttr(x)}')"). Must survive HTML
+// decoding FIRST (entities), then JS string escaping.
+function jsAttr(value) {
+  return escapeHtml(String(value == null ? '' : value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n'));
+}
+
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -382,8 +398,8 @@ async function fetchGlobalTracks() {
           </div>
           ${isAdminUnlocked || isBossUnlocked ? `
             <div class="track-actions">
-              <button onclick="viewInfo('Song', '${escapeHtml(t.title).replace(/'/g, "\\'")}', '${escapeHtml(t.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
-              <button onclick="renameItem('song', '${t.id}', '${escapeHtml(t.title).replace(/'/g, "\\'")}')" class="btn-primary">Rename</button>
+              <button onclick="viewInfo('Song', '${jsAttr(t.title)}', '${jsAttr(t.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
+              <button onclick="renameItem('song', '${t.id}', '${jsAttr(t.title)}')" class="btn-primary">Rename</button>
               <button onclick="deleteItem('song', '${t.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
@@ -416,8 +432,8 @@ async function fetchGlobalMovies() {
           </div>
           ${isAdminUnlocked || isBossUnlocked ? `
             <div class="track-actions">
-              <button onclick="viewInfo('Movie', '${escapeHtml(m.title).replace(/'/g, "\\'")}', '${escapeHtml(m.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
-              <button onclick="renameItem('movie', '${m.id}', '${escapeHtml(m.title).replace(/'/g, "\\'")}')" class="btn-primary">Rename</button>
+              <button onclick="viewInfo('Movie', '${jsAttr(m.title)}', '${jsAttr(m.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
+              <button onclick="renameItem('movie', '${m.id}', '${jsAttr(m.title)}')" class="btn-primary">Rename</button>
               <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
@@ -453,8 +469,8 @@ async function fetchGlobalLinks() {
           </div>
           ${isAdminUnlocked || isBossUnlocked ? `
             <div class="track-actions">
-              <button onclick="viewInfo('Link', '${escapeHtml(l.title).replace(/'/g, "\\'")}', '${escapeHtml(l.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
-              <button onclick="renameItem('link', '${l.id}', '${escapeHtml(l.title).replace(/'/g, "\\'")}')" class="btn-primary">Rename</button>
+              <button onclick="viewInfo('Link', '${jsAttr(l.title)}', '${jsAttr(l.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
+              <button onclick="renameItem('link', '${l.id}', '${jsAttr(l.title)}')" class="btn-primary">Rename</button>
               <button onclick="deleteItem('link', '${l.id}')" class="btn-danger">Delete</button>
             </div>` : ''}
         </div>
@@ -481,6 +497,7 @@ window.deleteItem = async function (type, id) {
   loadAdminDashboard();
   fetchGlobalTracks();
   fetchGlobalMovies();
+  fetchGlobalLinks();
 };
 
 window.renameItem = async function (type, id, oldTitle) {
@@ -514,12 +531,12 @@ async function loadAdminDashboard() {
   let html = '<h4>Songs</h4>';
   if (tracks.length === 0) html += '<p style="color:#94a3b8; font-size:0.9rem;">No songs.</p>';
   tracks.forEach((t) => {
-    const safeTitle = escapeHtml(t.title).replace(/'/g, "\\'");
+    const safeTitle = jsAttr(t.title);
     html += `
       <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
         <span style="color:#fff;">🎵 ${escapeHtml(t.title)} <span style="font-size:0.72rem; color:#94a3b8;">— ${escapeHtml(t.uploader)}</span></span>
         <div style="display:flex; gap:6px;">
-          <button onclick="viewInfo('Song', '${safeTitle}', '${escapeHtml(t.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Info</button>
+          <button onclick="viewInfo('Song', '${safeTitle}', '${jsAttr(t.uploader)}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Info</button>
           <button onclick="renameItem('song', '${t.id}', '${safeTitle}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
           <button onclick="deleteItem('song', '${t.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
         </div>
@@ -529,12 +546,12 @@ async function loadAdminDashboard() {
   html += '<h4 style="margin-top:15px;">Movies</h4>';
   if (movies.length === 0) html += '<p style="color:#94a3b8; font-size:0.9rem;">No movies.</p>';
   movies.forEach((m) => {
-    const safeTitle = escapeHtml(m.title).replace(/'/g, "\\'");
+    const safeTitle = jsAttr(m.title);
     html += `
       <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
         <span style="color:#fff;">🎬 ${escapeHtml(m.title)} <span style="font-size:0.72rem; color:#94a3b8;">— ${escapeHtml(m.uploader)}</span></span>
         <div style="display:flex; gap:6px;">
-          <button onclick="viewInfo('Movie', '${safeTitle}', '${escapeHtml(m.uploader).replace(/'/g, "\\'")}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Info</button>
+          <button onclick="viewInfo('Movie', '${safeTitle}', '${jsAttr(m.uploader)}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Info</button>
           <button onclick="renameItem('movie', '${m.id}', '${safeTitle}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
           <button onclick="deleteItem('movie', '${m.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
         </div>
@@ -544,12 +561,12 @@ async function loadAdminDashboard() {
   html += '<h4 style="margin-top:15px;">Links</h4>';
   if (links.length === 0) html += '<p style="color:#94a3b8; font-size:0.9rem;">No links.</p>';
   links.forEach((l) => {
-    const safeTitle = escapeHtml(l.title).replace(/'/g, "\\'");
+    const safeTitle = jsAttr(l.title);
     html += `
       <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
         <span style="color:#fff;">🔗 ${escapeHtml(l.title)} <span style="font-size:0.72rem; color:#94a3b8;">— ${escapeHtml(l.uploader)}</span></span>
         <div style="display:flex; gap:6px;">
-          <button onclick="window.open('${escapeHtml(l.url)}','_blank')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Open</button>
+          <button onclick="window.open('${jsAttr(l.url)}','_blank')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Open</button>
           <button onclick="renameItem('link', '${l.id}', '${safeTitle}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
           <button onclick="deleteItem('link', '${l.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
         </div>
@@ -563,7 +580,7 @@ async function loadRequests() {
   const requestsBox = $('requests-box');
   let requests = [];
   try {
-    const res = await fetch('/api/requests');
+    const res = await fetch('/api/requests', { headers: { 'x-admin-secret': adminSecret || '' } });
     const data = await res.json();
     requests = data.requests || requests;
   } catch (e) {
