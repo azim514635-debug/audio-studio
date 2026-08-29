@@ -167,10 +167,6 @@
         <h3>⬆️ Professional Media Upload</h3>
         <p style="font-size:12px; color:#94a3b8; margin-top:0;">Uploading as: <strong id="displayUploader" style="color:#38bdf8;"></strong></p>
 
-        <div class="segmented" id="media-type-seg">
-          <button type="button" class="seg-btn active" data-kind="audio">🎵 Audio</button>
-          <button type="button" class="seg-btn" data-kind="video">🎬 Video</button>
-        </div>
         <div class="segmented" id="source-seg">
           <button type="button" class="seg-btn active" data-source="device">📁 From Device</button>
           <button type="button" class="seg-btn" data-source="link">🔗 From Link</button>
@@ -181,7 +177,7 @@
         <p class="field-hint" id="titleHint">When uploading multiple files they are named <strong>"Name 1", "Name 2"…</strong></p>
 
         <div id="devicePane">
-          <input type="file" id="mediaFile" multiple hidden>
+          <input type="file" id="mediaFile" accept="audio/*,video/*" multiple hidden>
           <div id="dropZone">
             <div class="drop-icon">⬆️</div>
             <p><strong>Drop audio/video files here</strong></p>
@@ -220,7 +216,7 @@
 
       <div class="admin-section">
         <h3 style="color:#38bdf8; display:flex; justify-content:space-between; align-items:center;">
-          <span id="queueTitle">Audio Upload Queue</span>
+          <span id="queueTitle">Media Upload Queue</span>
           <span id="queueStatus" style="font-size:12px; color:#22c55e; font-weight:600;">Ready</span>
         </h3>
         <div id="uploadQueue">
@@ -271,13 +267,22 @@
     let adminSecret = '';
     let isAdminUnlocked = false;
 
-    let mediaKind = 'audio';
     let sourceMode = 'device';
     let thumbMode = 'url';
     let filesList = [];
     let thumbFile = null;
     let isUploading = false;
     let queueItems = [];
+
+    // Detect whether an uploaded media file is audio or video from its name.
+    const fileIsVideo = (name) => {
+      const ext = String(name || '').split(/[?#]/)[0].split('.').pop().toLowerCase();
+      return ['mp4','mkv','mov','avi','webm','flv','wmv','m4v','3gp','3g2','mpg','mpeg','m2ts','mts','ts','vob','ogv','f4v','mxf','rm','rmvb','asf'].includes(ext);
+    };
+    const isQueueVideo = (q) => {
+      if (q.data) return !!(q.data.movieUrl);
+      return !!(q.fileName && fileIsVideo(q.fileName));
+    };
 
     if (currentUser) {
       document.getElementById('welcome-modal').style.display = 'none';
@@ -399,12 +404,6 @@
         });
       });
     }
-    bindSeg('media-type-seg', d => {
-      mediaKind = d.kind;
-      document.getElementById('mediaFile').accept = mediaKind === 'video' ? 'video/*' : 'audio/*';
-      document.getElementById('queueTitle').innerText = (mediaKind === 'video' ? 'Video' : 'Audio') + ' Upload Queue';
-      updateStartBtn();
-    });
     bindSeg('source-seg', d => {
       sourceMode = d.source;
       document.getElementById('devicePane').style.display = sourceMode === 'device' ? 'block' : 'none';
@@ -453,7 +452,7 @@
       const box = document.getElementById('selectedFiles');
       box.innerHTML = filesList.map((f, i) => `
         <div class="selected-file">
-          <span>${mediaKind === 'video' ? '🎬' : '🎵'}</span>
+          <span>${fileIsVideo(f.name) ? '🎬' : '🎵'}</span>
           <span class="sf-name">${escapeHtml(f.name)}</span>
           <span class="sf-size">${formatSize(f.size)}</span>
           <button type="button" class="sf-remove" data-i="${i}">✕</button>
@@ -524,7 +523,7 @@
           meta = '<span>' + escapeHtml(q.error || 'Failed') + '</span>';
         }
         el.innerHTML =
-          '<div class="qi-top"><span class="qi-name">' + (mediaKind === 'video' ? '🎬' : '🎵') + ' ' + escapeHtml(q.name) + '</span>' +
+          '<div class="qi-top"><span class="qi-name">' + (isQueueVideo(q) ? '🎬' : '🎵') + ' ' + escapeHtml(q.name) + '</span>' +
           '<span class="qi-state ' + stateCls + '">' + stateText + '</span></div>' +
           '<div class="progress-track"><div class="progress-fill" style="width:' + q.progress + '%"></div></div>' +
           '<div class="qi-meta">' + meta + '</div>';
@@ -556,7 +555,6 @@
       const baseTitle = document.getElementById('uploadTitle').value.trim();
       const thumbUrl = getThumbUrl();
       const files = filesList.slice();
-      const type = mediaKind === 'video' ? 'movie' : 'song';
       isUploading = true;
 
       for (let i = 0; i < files.length; i++) {
@@ -565,7 +563,7 @@
         if (files.length === 1) title = baseTitle || file.name.replace(/\.[^.]+$/, '') || 'Untitled';
         else if (baseTitle) title = baseTitle + ' ' + (i + 1);
         else title = file.name.replace(/\.[^.]+$/, '') || 'Untitled';
-        await uploadOne(file, title, type, thumbUrl);
+        await uploadOne(file, title, fileIsVideo(file.name) ? 'movie' : 'song', thumbUrl);
       }
 
       isUploading = false;
@@ -580,12 +578,11 @@
     function uploadOne(file, title, type, thumbnailUrl) {
       return new Promise(resolve => {
         const key = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-        queueItems.push({ key, name: title, status: 'waiting', progress: 0, error: '' });
+        queueItems.push({ key, name: title, fileName: file.name, status: 'waiting', progress: 0, error: '' });
         renderQueue();
 
         const fd = new FormData();
         fd.append('mediaFile', file);
-        fd.append('type', type);
         fd.append('title', title);
         fd.append('uploader', getUploader());
         if (thumbnailUrl) fd.append('thumbnailUrl', thumbnailUrl);
@@ -605,7 +602,7 @@
           try { data = JSON.parse(xhr.responseText); } catch (e) { data = { error: xhr.responseText }; }
           if (xhr.status >= 200 && xhr.status < 300 && data.success) {
             setQueueProgress(key, 100, { status: 'done', data: data.item });
-            addHistory(data.item, type);
+            addHistory(data.item, data.type || type);
           } else {
             setQueueProgress(key, 100, { status: 'error', error: data.error || ('Upload failed (' + xhr.status + ')') });
           }
@@ -641,12 +638,12 @@
 
       const title = document.getElementById('uploadTitle').value.trim() || 'Untitled';
       const thumbUrl = getThumbUrl();
+      const linkKind = fileIsVideo(mediaUrl) ? 'movie' : 'song';
       const key = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-      queueItems.push({ key, name: title, status: 'uploading', progress: 50, progressText: 'Adding link…' });
+      queueItems.push({ key, name: title, fileName: mediaUrl, status: 'uploading', progress: 50, progressText: 'Adding link…' });
       renderQueue();
 
       const fd = new FormData();
-      fd.append('type', mediaKind === 'video' ? 'movie' : 'song');
       fd.append('title', title);
       fd.append('uploader', getUploader());
       fd.append('mediaUrl', mediaUrl);
@@ -659,7 +656,7 @@
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
           setQueueProgress(key, 100, { status: 'done', data: data.item });
-          addHistory(data.item, mediaKind === 'video' ? 'movie' : 'song');
+          addHistory(data.item, data.type || linkKind);
         } else {
           setQueueProgress(key, 100, { status: 'error', error: data.error || ('Link upload failed (' + res.status + ')') });
         }

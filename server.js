@@ -167,18 +167,26 @@ const makeId = () => Date.now().toString(36) + Math.random().toString(36).slice(
 
 /* ---- User registration / login (server-side accounts) ---- */
 const crypto = require('crypto');
+// Passwords are case-insensitive: "Secret" and "secret" are the same.
+const passwordKey = (password) => String(password || '').toLowerCase();
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  const hash = crypto.scryptSync(passwordKey(password), salt, 64).toString('hex');
   return salt + ':' + hash;
 }
 function verifyPassword(password, stored) {
   if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
   const [salt, hash] = stored.split(':');
-  const test = crypto.scryptSync(String(password), salt, 64).toString('hex');
-  const a = Buffer.from(hash, 'hex');
-  const b = Buffer.from(test, 'hex');
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  // Try the case-insensitive key first; fall back to the original input so
+  // accounts created before case-insensitive passwords still work.
+  const candidates = [passwordKey(password), String(password || '')];
+  for (const c of candidates) {
+    const test = crypto.scryptSync(c, salt, 64).toString('hex');
+    const a = Buffer.from(hash, 'hex');
+    const b = Buffer.from(test, 'hex');
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+  }
+  return false;
 }
 const normalizeName = (name) => String(name || '').trim().slice(0, 40);
 const findUser = (users, name) => users.find((u) => String(u.name).toLowerCase() === String(name).toLowerCase());
@@ -189,6 +197,15 @@ const mediaList = (type, db) => {
   return (type === 'movie' || type === 'movies' ? db.movies : db.songs);
 };
 const isMediaType = (type) => type === 'song' || type === 'songs' || type === 'movie' || type === 'movies' || type === 'link' || type === 'links';
+
+/* Media is classified from the uploaded file's extension, not the submitted
+   content-type field. */
+const VIDEO_EXTS = new Set(['mp4','mkv','mov','avi','webm','flv','wmv','m4v','3gp','3g2','mpg','mpeg','m2ts','mts','ts','vob','ogv','f4v','mxf','rm','rmvb','asf']);
+const mediaTypeFromName = (name) => {
+  const clean = String(name || '').split(/[?#]/)[0];
+  const ext = clean.split('.').pop().toLowerCase();
+  return VIDEO_EXTS.has(ext) ? 'movie' : 'song';
+};
 
 const cloudinaryPublicId = (url) => {
   if (!url || typeof url !== 'string' || !url.includes('res.cloudinary.com')) return null;
@@ -425,9 +442,9 @@ app.post(
     { name: 'thumbnailFile', maxCount: 1 }
   ]),
   ah(async (req, res) => {
-    const type = isMediaType(req.body.type) && (req.body.type === 'movie' || req.body.type === 'movies') ? 'movie' : 'song';
     const mediaFile = req.files && req.files.mediaFile && req.files.mediaFile[0];
     if (!mediaFile) return res.status(400).json({ success: false, error: 'No media file received.' });
+    const type = mediaTypeFromName(mediaFile.originalname);
 
     const thumbnailFile = req.files && req.files.thumbnailFile && req.files.thumbnailFile[0];
     uploadToCloudinary(mediaFile, 'video', async (mediaErr, mediaUrl) => {
@@ -488,18 +505,24 @@ app.post(
         try {
           await withDbWrite(async () => {
             const db = await getDb();
+            const type = mediaTypeFromName(mediaFile.originalname);
             const item = {
               id: makeId(),
               title: String(req.body.title || mediaFile.originalname).trim(),
               uploader: String(req.body.uploader || 'Anonymous').trim(),
-              songUrl: mediaUrl,
               thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
               createdAt: new Date().toISOString()
             };
-            db.songs.unshift(item);
+            if (type === 'movie') {
+              item.movieUrl = mediaUrl;
+              db.movies.unshift(item);
+            } else {
+              item.songUrl = mediaUrl;
+              db.songs.unshift(item);
+            }
             await saveDb(db);
           });
-          res.send('Song uploaded successfully!');
+          res.send('Media uploaded successfully!');
         } catch (e) {
           res.status(500).send(e.message || 'Failed to save.');
         }
@@ -528,18 +551,24 @@ app.post(
         try {
           await withDbWrite(async () => {
             const db = await getDb();
+            const type = mediaTypeFromName(mediaFile.originalname);
             const item = {
               id: makeId(),
               title: String(req.body.title || mediaFile.originalname).trim(),
               uploader: String(req.body.uploader || 'Anonymous').trim(),
-              movieUrl: mediaUrl,
               thumbnailUrl: thumbUrl || (req.body.thumbnailUrl || ''),
               createdAt: new Date().toISOString()
             };
-            db.movies.unshift(item);
+            if (type === 'movie') {
+              item.movieUrl = mediaUrl;
+              db.movies.unshift(item);
+            } else {
+              item.songUrl = mediaUrl;
+              db.songs.unshift(item);
+            }
             await saveDb(db);
           });
-          res.send('Movie uploaded successfully!');
+          res.send('Media uploaded successfully!');
         } catch (e) {
           res.status(500).send(e.message || 'Failed to save.');
         }
@@ -552,9 +581,10 @@ app.post(
 /* Link upload — admin only, optional thumbnail file                   */
 /* ------------------------------------------------------------------ */
 app.post('/api/upload/link', upload.single('thumbnailFile'), ah(async (req, res) => {
-  const { title, uploader, mediaUrl, thumbnailUrl, type } = req.body;
+  const { title, uploader, mediaUrl, thumbnailUrl } = req.body;
   if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   if (!mediaUrl) return res.status(400).json({ success: false, error: 'Missing media URL.' });
+  const type = mediaTypeFromName(mediaUrl);
 
   const item = {
     id: makeId(),
@@ -576,7 +606,7 @@ app.post('/api/upload/link', upload.single('thumbnailFile'), ah(async (req, res)
         }
         await saveDb(db);
       });
-      res.json({ success: true, type: type === 'movie' || type === 'movies' ? 'movie' : 'song', item });
+      res.json({ success: true, type, item });
     } catch (e) {
       res.status(500).json({ success: false, error: e.message || 'Failed to save.' });
     }
