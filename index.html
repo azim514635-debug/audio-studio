@@ -114,6 +114,77 @@
     .footer span { color: #ef4444; }
     .footer strong { color: #a855f7; }
 
+    /* Theme toggle */
+    .main-title { position: relative; }
+    .theme-toggle { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 50%; background: #131b2e; border: 1px solid #334155; color: #38bdf8; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .theme-toggle:hover { background: #1e293b; }
+
+    /* ---- Hacker theme ---- */
+    body.hacker-theme {
+      font-family: "Courier New", Consolas, "Monaco", monospace;
+      background: #020804;
+      color: #00ff41;
+      text-shadow: 0 0 6px rgba(0,255,65,0.5);
+    }
+    body.hacker-theme * { border-radius: 0 !important; }
+    body.hacker-theme .main-title,
+    body.hacker-theme .section-title,
+    body.hacker-theme .hero-card h1,
+    body.hacker-theme .modal-box h2,
+    body.hacker-theme .admin-section h3,
+    body.hacker-theme .chat-user,
+    body.hacker-theme .card h3,
+    body.hacker-theme .qi-name { color: #00ff41; }
+    body.hacker-theme .menu-list,
+    body.hacker-theme .admin-section,
+    body.hacker-theme .card,
+    body.hacker-theme .queue-item,
+    body.hacker-theme .chat-panel,
+    body.hacker-theme .modal-box,
+    body.hacker-theme .selected-file,
+    body.hacker-theme .msg-bubble,
+    body.hacker-theme .progress-track,
+    body.hacker-theme .theme-toggle { background: #04140a; border-color: #00ff41; box-shadow: 0 0 8px rgba(0,255,65,0.3); }
+    body.hacker-theme .hero-card { background: #04140a; border: 1px solid #00ff41; box-shadow: 0 0 12px rgba(0,255,65,0.5); }
+    body.hacker-theme .hero-card h1,
+    body.hacker-theme .hero-card p { color: #00ff41; }
+    body.hacker-theme .menu-item { color: #3d9c5c; }
+    body.hacker-theme .menu-item:hover,
+    body.hacker-theme .menu-item.active { background: #00ff41; color: #020804; text-shadow: none; }
+    body.hacker-theme .card p,
+    body.hacker-theme label,
+    body.hacker-theme .qi-meta,
+    body.hacker-theme .qi-meta a,
+    body.hacker-theme .field-hint,
+    body.hacker-theme .empty-hint,
+    body.hacker-theme .chat-stats,
+    body.hacker-theme .chat-day-divider,
+    body.hacker-theme .msg-time,
+    body.hacker-theme .sf-size,
+    body.hacker-theme .modal-box p { color: #3d9c5c; }
+    body.hacker-theme button { background: #00ff41; color: #020804; text-shadow: none; font-family: inherit; }
+    body.hacker-theme button:hover { background: #5cff8a; }
+    body.hacker-theme .btn-secondary,
+    body.hacker-theme .seg-btn,
+    body.hacker-theme .theme-toggle { background: transparent; color: #00ff41; border: 1px solid #00ff41; }
+    body.hacker-theme .seg-btn.active,
+    body.hacker-theme .theme-toggle { background: #00ff41; color: #020804; }
+    body.hacker-theme .btn-danger,
+    body.hacker-theme .card-actions button.del,
+    body.hacker-theme .sf-remove { background: #ff3b30; color: #020804; }
+    body.hacker-theme input, body.hacker-theme select, body.hacker-theme textarea { background: #020804; color: #00ff41; border: 1px solid #00ff41; font-family: inherit; text-shadow: none; }
+    body.hacker-theme input::placeholder, body.hacker-theme textarea::placeholder { color: #2d6b43; }
+    body.hacker-theme .msg-avatar { background: #00ff41; color: #020804; }
+    body.hacker-theme .msg-row.own .msg-avatar { background: #ffb000; color: #020804; }
+    body.hacker-theme .msg-row.own .msg-bubble { background: rgba(0,255,65,0.15); border-color: #00ff41; }
+    body.hacker-theme .msg-type-indicator,
+    body.hacker-theme .chat-toolbar { border-color: #00ff41; }
+    body.hacker-theme .progress-fill { background: linear-gradient(90deg,#00ff41,#5cff8a); }
+    body.hacker-theme #welcome-modal { background: rgba(2,8,4,0.95); }
+    body.hacker-theme .theme-toggle { color: #00ff41; }
+    body.hacker-theme .footer { color: #2d6b43; }
+    body.hacker-theme ::-webkit-scrollbar-thumb { background: #00ff41; }
+
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
   </style>
@@ -131,7 +202,10 @@
   </div>
 
   <div class="container">
-    <div class="main-title">Azim's Studio Pro</div>
+    <div class="main-title">
+      Azim's Studio Pro
+      <button type="button" id="themeToggle" class="theme-toggle" title="Toggle hacker theme">🖥️</button>
+    </div>
 
     <div class="menu-list">
       <div class="menu-item active" onclick="switchTab('library-tab', this)">🎵 Library</div>
@@ -759,6 +833,19 @@
     setInterval(() => loadMessages(false), 3500);
 
     /* ------- Init ------- */
+    /* Theme toggle (hacker theme saves to localStorage) */
+    function applyTheme() {
+      const on = localStorage.getItem('azimStudioTheme') === 'hacker';
+      document.body.classList.toggle('hacker-theme', on);
+      document.getElementById('themeToggle').textContent = on ? '🎨' : '🖥️';
+    }
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const on = document.body.classList.toggle('hacker-theme');
+      localStorage.setItem('azimStudioTheme', on ? 'hacker' : '');
+      document.getElementById('themeToggle').textContent = on ? '🎨' : '🖥️';
+    });
+    applyTheme();
+
     loadLibrary();
     loadMessages(true);
   </script>
