@@ -135,6 +135,7 @@ function isBossName() {
 // right after a page refresh (when boss unlock is already persisted).
 if (isBossUnlocked) {
   adminSecret = localStorage.getItem(ADMIN_SECRET_KEY) || '';
+  isAdminUnlocked = true;
 }
 
 function roleLabel() {
@@ -1699,7 +1700,7 @@ $('chat-input').addEventListener('input', () => {
 });
 
 $('clear-chat-btn').addEventListener('click', async () => {
-  if (!isAdminUnlocked) return;
+  if (!isAdminUnlocked && !isBossUnlocked) return;
   if (!(await showConfirm('Clear ALL chat messages?'))) return;
   const res = await fetch('/api/messages/clear', {
     method: 'POST',
