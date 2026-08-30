@@ -120,10 +120,9 @@ const pages = document.querySelectorAll('.page');
 let currentUser = localStorage.getItem('visitorName') || '';
 let authToken = localStorage.getItem('visitorToken') || '';
 let authMode = 'register'; // 'register' | 'login'
-let isAdminUnlocked = false;
-let adminSecret = '';
+let bossSecret = '';
 const BOSS_KEY = 'azim_boss_unlocked';
-const ADMIN_SECRET_KEY = 'azim_admin_secret';
+const BOSS_SECRET_KEY = 'azim_boss_secret';
 let isBossUnlocked = localStorage.getItem(BOSS_KEY) === '1';
 
 function isBossName() {
@@ -131,15 +130,15 @@ function isBossName() {
   return n === 'azim';
 }
 
-// Restore the stored admin secret so server-protected admin calls still work
+// Restore the stored boss secret so server-protected boss calls still work
 // right after a page refresh (when boss unlock is already persisted).
 if (isBossUnlocked) {
-  adminSecret = localStorage.getItem(ADMIN_SECRET_KEY) || '';
-  isAdminUnlocked = true;
+  bossSecret = localStorage.getItem(BOSS_SECRET_KEY) || '';
+  isBossUnlocked = true;
 }
 
 function roleLabel() {
-  return isBossName() ? 'Boss' : 'Admin';
+  return 'Boss';
 }
 
 /* ------------------------------------------------------------------ */
@@ -316,6 +315,47 @@ async function submitAuth() {
   if (!name) return showAuthError('Please enter your name.');
   if (!password) return showAuthError('Please enter your password.');
 
+  // Boss login: name "azim" (any case) + the Boss pass = Boss, no user account.
+  if (name.toLowerCase() === 'azim') {
+    try {
+      authSubmitBtn.disabled = true;
+      authSubmitBtn.textContent = 'Please wait…';
+      const res = await fetch('/api/verify-boss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bossSecret: password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        currentUser = name;
+        authToken = '';
+        localStorage.setItem('visitorName', currentUser);
+        localStorage.removeItem('visitorToken');
+        isBossUnlocked = true;
+        localStorage.setItem(BOSS_KEY, '1');
+        localStorage.setItem(BOSS_SECRET_KEY, password);
+        bossSecret = password;
+        modalOverlay.classList.add('hidden');
+        renderAvatar();
+        const circle = $('boss-circle-btn');
+        if (circle) { circle.textContent = '🔓'; circle.classList.add('unlocked'); }
+        applyBossLabeling();
+        fetchLibrary();
+        navigateTo('boss', null);
+      } else {
+        authPassInput.value = '';
+        showAuthError('Incorrect Boss pass. Please try again.');
+      }
+      return;
+    } catch (e) {
+      showAuthError('Network error: ' + e.message);
+      return;
+    } finally {
+      authSubmitBtn.disabled = false;
+      setAuthMode(authMode);
+    }
+  }
+
   if (authMode === 'register') {
     if (String(password).length < 4) return showAuthError('Password must be at least 4 characters.');
     if (password !== confirm) return showAuthError('Passwords do not match.');
@@ -338,12 +378,6 @@ async function submitAuth() {
       localStorage.setItem('visitorToken', authToken);
       modalOverlay.classList.add('hidden');
       renderAvatar();
-      if (isBossName()) {
-        greetBoss();
-      } else if (isBossUnlocked) {
-        isBossUnlocked = false; isAdminUnlocked = false;
-        localStorage.removeItem(BOSS_KEY);
-      }
     } else if (res.status === 401) {
       authPassInput.value = '';
       await showAlert(data.error || 'Incorrect password. Please try again.', 'Login Failed', '⚠️');
@@ -408,9 +442,8 @@ function logoutUser() {
   localStorage.removeItem('visitorName');
   localStorage.removeItem('visitorToken');
   localStorage.removeItem(BOSS_KEY);
-  localStorage.removeItem(ADMIN_SECRET_KEY);
+  localStorage.removeItem(BOSS_SECRET_KEY);
   isBossUnlocked = false;
-  isAdminUnlocked = false;
   authNameInput.value = '';
   authPassInput.value = '';
   authConfirmInput.value = '';
@@ -424,7 +457,7 @@ async function greetBoss() {
   const promptEl = $('boss-modal-prompt');
   const headingEl = $('boss-modal-heading');
   if (headingEl) headingEl.textContent = '👑 Welcome Boss, ' + currentUser + '!';
-  if (promptEl) promptEl.textContent = 'To confirm you are the Boss, please enter the pass to unlock the Boss/Admin panel.';
+  if (promptEl) promptEl.textContent = 'To confirm you are the Boss, please enter the pass to unlock the Boss panel.';
   const unlocked = await ensureBossUnlock();
   if (unlocked) {
     applyBossLabeling();
@@ -432,10 +465,10 @@ async function greetBoss() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Navigation + admin/boss gate (server-verified)                      */
+/* Navigation + boss gate (server-verified)                      */
 /* ------------------------------------------------------------------ */
 async function ensureBossUnlock() {
-  if (isBossUnlocked || isAdminUnlocked) return true;
+  if (isBossUnlocked) return true;
   if (!isBossName()) return true;
 
   return new Promise((resolve) => {
@@ -456,27 +489,24 @@ async function ensureBossUnlock() {
       const password = input.value.trim();
       if (!password) return;
       try {
-        const res = await fetch('/api/verify-admin', {
+        const res = await fetch('/api/verify-boss', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminSecret: password })
+          body: JSON.stringify({ bossSecret: password })
         });
         const data = await res.json();
         if (data.success) {
           isBossUnlocked = true;
-          isAdminUnlocked = true;
           localStorage.setItem(BOSS_KEY, '1');
-          localStorage.setItem(ADMIN_SECRET_KEY, password);
-          adminSecret = password;
-          const circle = $('admin-circle-btn');
+          localStorage.setItem(BOSS_SECRET_KEY, password);
+          bossSecret = password;
+          const circle = $('boss-circle-btn');
           if (circle) { circle.textContent = '🔓'; circle.classList.add('unlocked'); }
           $('clear-chat-btn').style.display = 'inline-block';
           modal.classList.add('hidden');
           removeHandlers();
           applyBossLabeling();
-fetchLibrary();
-        fetchLibrary();
-        fetchLibrary();
+          fetchLibrary();
           resolve(true);
         } else {
           errEl.style.display = 'block';
@@ -506,87 +536,27 @@ fetchLibrary();
 }
 
 function applyBossLabeling() {
-  const label = roleLabel();
-  document.querySelectorAll('[data-admin-text]').forEach((el) => {
-    el.textContent = el.textContent.replace(/^Admin/, label);
+  document.querySelectorAll('[data-boss-text]').forEach((el) => {
+    el.textContent = el.textContent.replace(/^Admin/, 'Boss');
   });
-  // Relabel visible "Admin" strings only for the boss
-  const circle = $('admin-circle-btn');
-  if (circle) circle.title = (isBossName() ? 'Boss' : 'Admin') + ' Panel';
-  const fabLabel = document.querySelector('#admin-fab .admin-fab-label');
-  if (fabLabel) fabLabel.textContent = (isBossName() ? 'Boss' : 'Admin') + ' Panel';
-  const heading = $('boss-admin-heading');
-  if (heading) heading.textContent = '🔒 ' + (isBossName() ? 'Boss' : 'Admin') + ' Dashboard';
+  // Relabel visible "Boss" strings only for the boss
+  const circle = $('boss-circle-btn');
+  if (circle) circle.title = 'Boss Panel';
+  const fabLabel = document.querySelector('#boss-fab .boss-fab-label');
+  if (fabLabel) fabLabel.textContent = 'Boss Panel';
+  const heading = $('boss-heading');
+  if (heading) heading.textContent = '🔒 Boss Dashboard';
 }
 
-async function ensureAdmin() {
-  if (isAdminUnlocked || isBossUnlocked) return true;
-  if (isBossName()) {
-    const unlocked = await ensureBossUnlock();
-    if (unlocked) { isAdminUnlocked = true; applyBossLabeling(); return true; }
+async function ensureBossAccess() {
+  if (isBossUnlocked) return true;
+  if (!isBossName()) {
+    showAlert('This area is for the Boss only.', 'Boss Only', '👑');
     return false;
   }
-
-  return new Promise((resolve) => {
-    const modal = $('admin-modal');
-    const input = $('admin-modal-input');
-    const errEl = $('admin-modal-error');
-    errEl.style.display = 'none';
-    input.value = '';
-    modal.classList.remove('hidden');
-    setTimeout(() => input.focus(), 50);
-
-    const close = () => { modal.classList.add('hidden'); removeHandlers(); resolve(false); };
-
-    const attempt = async () => {
-      const password = input.value.trim();
-      if (!password) return;
-      try {
-        const res = await fetch('/api/verify-admin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminSecret: password })
-        });
-        const data = await res.json();
-        if (data.success) {
-          isAdminUnlocked = true;
-          localStorage.setItem(ADMIN_SECRET_KEY, password);
-          adminSecret = password;
-          $('clear-chat-btn').style.display = 'inline-block';
-          const circle = $('admin-circle-btn');
-          if (circle) { circle.textContent = '🔓'; circle.classList.add('unlocked'); }
-          modal.classList.add('hidden');
-          removeHandlers();
-          applyBossLabeling();
-fetchLibrary();
-        fetchLibrary();
-        fetchLibrary();
-          resolve(true);
-        } else {
-          errEl.style.display = 'block';
-        }
-      } catch (e) {
-        errEl.style.display = 'block';
-      }
-    };
-
-    const okHandler = () => attempt();
-    const cancelHandler = () => close();
-    const keyHandler = (e) => {
-      if (e.key === 'Enter') attempt();
-      if (e.key === 'Escape') close();
-    };
-
-    function removeHandlers() {
-      $('admin-modal-ok').removeEventListener('click', okHandler);
-      $('admin-modal-cancel').removeEventListener('click', cancelHandler);
-      modal.removeEventListener('keydown', keyHandler);
-    }
-
-    $('admin-modal-ok').addEventListener('click', okHandler);
-    $('admin-modal-cancel').addEventListener('click', cancelHandler);
-    modal.addEventListener('keydown', keyHandler);
-  });
+  const unlocked = await ensureBossUnlock();
+  if (unlocked) applyBossLabeling();
+  return unlocked;
 }
 
 async function showPage(targetPage) {
@@ -599,7 +569,7 @@ async function showPage(targetPage) {
   });
   $('page-' + targetPage).classList.add('active');
 
-  if (targetPage === 'admin') loadAdminDashboard();
+  if (targetPage === 'boss') loadBossDashboard();
   if (targetPage === 'library') { fetchLibrary(); }
   if (targetPage === 'chat') { scrollChatToBottom(); }
   if (targetPage === 'notifications') initMessaging();
@@ -609,8 +579,8 @@ async function navigateTo(targetPage, navEl) {
   if ((targetPage === 'upload' || targetPage === 'request') && !requireName()) return;
   if (targetPage === 'chat' && !requireName()) return;
 
-  if (targetPage === 'admin') {
-    const ok = await ensureAdmin();
+  if (targetPage === 'boss') {
+    const ok = await ensureBossAccess();
     if (!ok) return;
   }
 
@@ -628,14 +598,14 @@ async function navigateTo(targetPage, navEl) {
 /* Browser / phone back button — return to Updates instead of leaving the site */
 async function routeTo(target) {
   if (target && target !== 'library' && $('page-' + target)) {
-    if (target === 'admin') {
-      // Require a valid login first, then admin/boss unlock — never show the
-      // admin modal over the login modal.
+    if (target === 'boss') {
+      // Require a valid login first, then boss unlock — never show the
+      // boss modal over the login modal.
       if (!currentUser) {
         history.replaceState({ page: 'library' }, '', location.pathname);
         return;
       }
-      if (!(await ensureAdmin())) return;
+      if (!(await ensureBossAccess())) return;
     }
     showPage(target);
     closeMenu();
@@ -703,9 +673,9 @@ document.addEventListener('click', (e) => {
   if (!panel.contains(e.target) && !toggle.contains(e.target)) closeMenu();
 });
 
-$('admin-circle-btn').addEventListener('click', (e) => {
+$('boss-circle-btn').addEventListener('click', (e) => {
   e.stopPropagation();
-  navigateTo('admin', null);
+  navigateTo('boss', null);
 });
 
 document.querySelector('.brand').addEventListener('click', () => {
@@ -782,7 +752,7 @@ async function fetchLibrary() {
       : `<div class="track-thumb-placeholder">${isVideo ? '🎬' : isLink ? '🔗' : '🎵'}</div>`;
     const icon = isVideo ? '🎬' : isLink ? '🔗' : '🎵';
     const typeLabel = isVideo ? 'Video' : isLink ? 'Link' : 'Song';
-    const actions = (isAdminUnlocked || isBossUnlocked) ? `
+    const actions = (isBossUnlocked) ? `
       <div class="track-actions">
         <button onclick="viewInfo('${typeLabel}', '${jsAttr(it.title)}', '${jsAttr(it.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
         <button onclick="renameItem('${it.kind === 'song' ? 'song' : it.kind}', '${it.id}', '${jsAttr(it.title)}')" class="btn-primary">Rename</button>
@@ -811,7 +781,7 @@ async function fetchLibrary() {
   }).join('');
 }
 
-/* Admin dashboard + requests                                          */
+/* Boss dashboard + requests                                          */
 /* ------------------------------------------------------------------ */
 window.viewInfo = function (type, title, uploader) {
   showAlert(`File Details:\n- Type: ${type}\n- Title: ${title}\n- Uploaded By: ${uploader}`);
@@ -823,11 +793,11 @@ window.deleteItem = async function (type, id) {
   const res = await fetch(`/api/media/${type}/${id}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ uploader: currentUser, adminSecret })
+    body: JSON.stringify({ uploader: currentUser, bossSecret })
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) { showAlert(data.error || 'Delete failed.'); return; }
-  loadAdminDashboard();
+  loadBossDashboard();
   fetchGlobalTracks();
   fetchGlobalMovies();
   fetchGlobalLinks();
@@ -840,23 +810,23 @@ window.renameItem = async function (type, id, oldTitle) {
   const res = await fetch(`/api/media/${type}/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newTitle: newTitle.trim(), uploader: currentUser, adminSecret })
+    body: JSON.stringify({ newTitle: newTitle.trim(), uploader: currentUser, bossSecret })
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) { showAlert(data.error || 'Rename failed.'); return; }
-  loadAdminDashboard();
+  loadBossDashboard();
   fetchGlobalTracks();
   fetchGlobalMovies();
 };
 
 /* ------------------------------------------------------------------ */
-/* Admin dashboard + requests                                          */
+/* Boss dashboard + requests                                          */
 /* ------------------------------------------------------------------ */
-async function loadAdminDashboard() {
+async function loadBossDashboard() {
   loadRequests();
   loadAccounts();
   loadAppeals();
-  const box = $('admin-media-box');
+  const box = $('boss-media-box');
 
   const [tracksRes, moviesRes, linksRes] = await Promise.all([fetch('/api/tracks'), fetch('/api/movies'), fetch('/api/links')]);
   const tracks = await tracksRes.json();
@@ -915,7 +885,7 @@ async function loadRequests() {
   const requestsBox = $('requests-box');
   let requests = [];
   try {
-    const res = await fetch('/api/requests', { headers: { 'x-admin-secret': adminSecret || '' } });
+    const res = await fetch('/api/requests', { headers: { 'x-boss-secret': bossSecret || '' } });
     const data = await res.json();
     requests = data.requests || requests;
   } catch (e) {
@@ -940,7 +910,7 @@ $('clear-requests-btn').addEventListener('click', async () => {
       await fetch('/api/requests/clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminSecret })
+        body: JSON.stringify({ bossSecret })
       });
     } catch (e) { /* non-blocking */ }
     loadRequests();
@@ -952,7 +922,7 @@ async function loadAccounts() {
   if (!box) return;
   let users = [];
   try {
-    const res = await fetch('/api/auth/admin', { headers: { 'x-admin-secret': adminSecret || '' } });
+    const res = await fetch('/api/auth/boss', { headers: { 'x-boss-secret': bossSecret || '' } });
     const data = await res.json();
     users = data.users || [];
   } catch (e) { /* ignore */ }
@@ -995,7 +965,7 @@ async function loadAppeals() {
   if (!box) return;
   let appeals = [];
   try {
-    const res = await fetch('/api/auth/admin', { headers: { 'x-admin-secret': adminSecret || '' } });
+    const res = await fetch('/api/auth/boss', { headers: { 'x-boss-secret': bossSecret || '' } });
     const data = await res.json();
     appeals = data.appeals || [];
   } catch (e) { /* ignore */ }
@@ -1027,7 +997,7 @@ window.disableAccount = async function (name, permanent) {
   try {
     const res = await fetch('/api/auth/disable', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret || '' },
+      headers: { 'Content-Type': 'application/json', 'x-boss-secret': bossSecret || '' },
       body: JSON.stringify({ name, permanent })
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); await showAlert(d.error || 'Failed.'); return; }
@@ -1044,7 +1014,7 @@ window.approveAccount = async function (name) {
   try {
     const res = await fetch('/api/auth/approve', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret || '' },
+      headers: { 'Content-Type': 'application/json', 'x-boss-secret': bossSecret || '' },
       body: JSON.stringify({ name })
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); await showAlert(d.error || 'Failed.'); return; }
@@ -1055,12 +1025,12 @@ window.approveAccount = async function (name) {
 };
 
 $('clear-permanent-accounts-btn').addEventListener('click', async () => {
-  if (!isAdminUnlocked && !isBossUnlocked) { showAlert('Admin access required.'); return; }
+  if (!isBossUnlocked && !isBossUnlocked) { showAlert('Boss access required.'); return; }
   if (!await showConfirm('Remove ALL permanently disabled accounts from the system? This cannot be undone.', 'Clear Permanently Deleted')) return;
   try {
     const res = await fetch('/api/auth/clear-permanent', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret || '' }
+      headers: { 'Content-Type': 'application/json', 'x-boss-secret': bossSecret || '' }
     });
     const data = await res.json();
     if (!res.ok) { await showAlert(data.error || 'Failed.'); return; }
@@ -1077,7 +1047,7 @@ $('send-request-btn').addEventListener('click', async () => {
   requests.unshift({ user: currentUser, text, date: new Date().toLocaleString([], { hour12: true }) });
   localStorage.setItem('azim_user_requests', JSON.stringify(requests));
   $('request-text').value = '';
-  showAlert('Request submitted! Azim will see it in the Admin Panel.');
+  showAlert('Request submitted! Azim will see it in the Boss Panel.');
   try {
     await fetch('/api/contact', {
       method: 'POST',
@@ -1542,8 +1512,8 @@ async function startLinkUpload() {
   const mediaUrl = $('media-url').value.trim();
   if (!mediaUrl) { showAlert('Please enter the direct media URL.'); return; }
 
-  if (!isAdminUnlocked) {
-    const ok = await ensureAdmin();
+  if (!isBossUnlocked) {
+    const ok = await ensureBossAccess();
     if (!ok) return;
   }
   const title = $('media-title').value.trim() || 'Untitled';
@@ -1560,7 +1530,7 @@ async function startLinkUpload() {
   formData.append('mediaUrl', mediaUrl);
   if (thumbUrl) formData.append('thumbnailUrl', thumbUrl);
   if (currentThumbSource === 'file' && selectedThumbFile) formData.append('thumbnailFile', selectedThumbFile);
-  formData.append('adminSecret', adminSecret);
+  formData.append('bossSecret', bossSecret);
 
   try {
     const res = await fetch('/api/upload/link', { method: 'POST', body: formData });
@@ -1700,12 +1670,12 @@ $('chat-input').addEventListener('input', () => {
 });
 
 $('clear-chat-btn').addEventListener('click', async () => {
-  if (!isAdminUnlocked && !isBossUnlocked) return;
+  if (!isBossUnlocked && !isBossUnlocked) return;
   if (!(await showConfirm('Clear ALL chat messages?'))) return;
   const res = await fetch('/api/messages/clear', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ adminSecret })
+    body: JSON.stringify({ bossSecret })
   });
   const data = await res.json();
   if (data.success) {
@@ -1992,16 +1962,16 @@ function openNotificationUrl(url) {
 function navigatePageName(p) {
   if (p === 'library' || p === 'movies' || p === 'links') return p;
   if (p === 'chat') return 'chat';
-  if (p === 'admin') return 'admin';
+  if (p === 'boss') return 'boss';
   if (p === 'notifications') return 'notifications';
   if (p === 'request') return 'request';
   if (p === 'upload') return 'upload';
   return 'library';
 }
 
-/* Admin / Boss: send an announcement to all users */
+/* Boss: send an announcement to all users */
 $('send-notif-btn').addEventListener('click', async () => {
-  if (!isAdminUnlocked && !isBossUnlocked) { showAlert('Admin access required to send notifications.'); return; }
+  if (!isBossUnlocked && !isBossUnlocked) { showAlert('Boss access required to send notifications.'); return; }
   const title = $('notif-title').value.trim();
   const body = $('notif-body').value.trim();
   if (!title && !body) { showAlert('Please enter a title or message.'); return; }
@@ -2009,7 +1979,7 @@ $('send-notif-btn').addEventListener('click', async () => {
     const res = await fetch('/api/notify/announce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, body, adminSecret })
+      body: JSON.stringify({ title, body, bossSecret })
     });
     const data = await res.json();
     $('notif-send-result').textContent = data.success
@@ -2080,9 +2050,9 @@ fetchLibrary();
 loadMessages({ force: true });
 updateQueueTitle();
 initMessaging();
-if (isBossName() && (isBossUnlocked || isAdminUnlocked)) {
+if (isBossName() && (isBossUnlocked)) {
   applyBossLabeling();
-  const circle = $('admin-circle-btn');
+  const circle = $('boss-circle-btn');
   if (circle) { circle.textContent = '🔓'; circle.classList.add('unlocked'); }
   const clearBtn = $('clear-chat-btn');
   if (clearBtn) clearBtn.style.display = 'inline-block';

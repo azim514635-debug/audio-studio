@@ -56,7 +56,7 @@
         <input type="password" id="auth-password" placeholder="Enter your password" autocomplete="off">
         <input type="password" id="auth-confirm" placeholder="Confirm password" style="display:none;" autocomplete="off">
 
-        <p id="auth-error" class="admin-modal-error" style="display:none;"></p>
+        <p id="auth-error" class="boss-modal-error" style="display:none;"></p>
 
         <button id="auth-submit" class="btn-primary" style="margin-top:8px;">Register</button>
         <p id="auth-toggle" class="auth-toggle"><span id="auth-toggle-label">Already have an account?</span> <a href="javascript:void(0)" id="auth-toggle-link">Login</a></p>
@@ -72,24 +72,10 @@
       <h2>✏️ Change Name</h2>
       <p>Enter the new name to show on your avatar.</p>
       <input type="text" id="change-name-input" placeholder="Enter your name" autocomplete="off" maxlength="24">
-      <div class="admin-modal-btns">
+      <div class="boss-modal-btns">
         <button id="change-name-cancel" class="btn-secondary">Cancel</button>
         <button id="change-name-save" class="btn-primary">Save</button>
       </div>
-    </div>
-  </div>
-
-  <!-- Admin password modal (matches app style) -->
-  <div id="admin-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <h2>🔒 Admin Access</h2>
-      <p>Enter the admin password to unlock management tools.</p>
-      <input type="password" id="admin-modal-input" placeholder="Admin password..." autocomplete="off">
-      <div class="admin-modal-btns">
-        <button id="admin-modal-cancel" class="btn-secondary">Cancel</button>
-        <button id="admin-modal-ok" class="btn-primary">Unlock</button>
-      </div>
-      <p id="admin-modal-error" class="admin-modal-error" style="display:none;">Incorrect password. Try again.</p>
     </div>
   </div>
 
@@ -99,11 +85,11 @@
       <h2 id="boss-modal-heading">👑 Boss Access</h2>
       <p id="boss-modal-prompt">Enter your pass to declare you are the Boss.</p>
       <input type="password" id="boss-modal-input" placeholder="Boss pass..." autocomplete="off">
-      <div class="admin-modal-btns">
+      <div class="boss-modal-btns">
         <button id="boss-modal-cancel" class="btn-secondary">Cancel</button>
         <button id="boss-modal-ok" class="btn-primary">I'm the Boss</button>
       </div>
-      <p id="boss-modal-error" class="admin-modal-error" style="display:none;">Incorrect pass. Try again.</p>
+      <p id="boss-modal-error" class="boss-modal-error" style="display:none;">Incorrect pass. Try again.</p>
     </div>
   </div>
 
@@ -122,17 +108,17 @@
 
   <!-- Floating circular notification button (bottom-left) -->
   <div id="notif-fab" class="notif-fab">
-    <button type="button" id="notif-circle-btn" class="admin-circle notif-circle" title="Notifications" aria-label="Notifications">
+    <button type="button" id="notif-circle-btn" class="boss-circle notif-circle" title="Notifications" aria-label="Notifications">
       🔔
     </button>
-    <span class="admin-fab-label notif-fab-label" id="notif-fab-label">Notifications</span>
+    <span class="boss-fab-label notif-fab-label" id="notif-fab-label">Notifications</span>
   </div>
-  <!-- Floating circular admin button (bottom-right) -->
-  <div id="admin-fab" class="admin-fab">
-    <button type="button" id="admin-circle-btn" class="admin-circle" title="Admin Panel" aria-label="Admin Panel">
+  <!-- Floating circular boss button (bottom-right) -->
+  <div id="boss-fab" class="boss-fab">
+    <button type="button" id="boss-circle-btn" class="boss-circle" title="Boss Panel" aria-label="Boss Panel">
       🔒
     </button>
-    <span class="admin-fab-label" data-admin-text>Admin Panel</span>
+    <span class="boss-fab-label" data-boss-text>Boss Panel</span>
   </div>
 
   <!-- Notification enable/disable popup -->
@@ -147,7 +133,7 @@
       <div class="app-alert-icon" id="app-alert-icon">ℹ️</div>
       <h2 id="app-alert-title">Notice</h2>
       <p id="app-alert-msg"></p>
-      <div class="admin-modal-btns">
+      <div class="boss-modal-btns">
         <button type="button" class="btn-primary" id="app-alert-ok">OK</button>
       </div>
     </div>
@@ -159,7 +145,7 @@
       <div class="app-alert-icon" id="app-confirm-icon">❓</div>
       <h2 id="app-confirm-title">Please Confirm</h2>
       <p id="app-confirm-msg"></p>
-      <div class="admin-modal-btns">
+      <div class="boss-modal-btns">
         <button type="button" class="btn-secondary" id="app-confirm-cancel">Cancel</button>
         <button type="button" class="btn-danger" id="app-confirm-ok">Confirm</button>
       </div>
@@ -172,7 +158,7 @@
       <div class="app-alert-icon" id="app-prompt-icon">✏️</div>
       <h2 id="app-prompt-title">Enter a value</h2>
       <input type="text" id="app-prompt-input" autocomplete="off">
-      <div class="admin-modal-btns">
+      <div class="boss-modal-btns">
         <button type="button" class="btn-secondary" id="app-prompt-cancel">Cancel</button>
         <button type="button" class="btn-primary" id="app-prompt-ok">OK</button>
       </div>
@@ -186,8 +172,8 @@
       <h2>Account Disabled</h2>
       <p>Your account <strong id="appeal-account-name"></strong> has been disabled by the boss. If you think this is a mistake, click the button below to appeal and get it re-enabled.</p>
       <textarea id="appeal-text" rows="3" placeholder="Write a short appeal message..." autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);resize:vertical;"></textarea>
-      <p id="appeal-error" class="admin-modal-error" style="display:none;"></p>
-      <div class="admin-modal-btns">
+      <p id="appeal-error" class="boss-modal-error" style="display:none;"></p>
+      <div class="boss-modal-btns">
         <button type="button" class="btn-secondary" id="appeal-cancel">Close</button>
         <button type="button" class="btn-primary" id="appeal-submit">Submit Appeal</button>
       </div>
@@ -294,7 +280,7 @@
             <div id="link-pane" style="display:none;">
               <label class="field-label" for="media-url">Direct Media URL <span class="req">*</span></label>
               <input type="url" id="media-url" placeholder="https://example.com/track.mp3">
-              <p class="field-hint">Link-only uploads require admin access.</p>
+              <p class="field-hint">Link-only uploads require Boss access.</p>
             </div>
 
             <!-- LINK ITEM (Links library) pane -->
@@ -434,17 +420,17 @@
         </div>
       </section>
 
-      <!-- Admin Dashboard -->
-      <section id="page-admin" class="page">
+      <!-- Boss Dashboard -->
+      <section id="page-boss" class="page">
         <div class="header-card" style="background: linear-gradient(135deg, #111827, #374151);">
-          <h1 id="boss-admin-heading">🔒 Admin Dashboard</h1>
+          <h1 id="boss-heading">🔒 Boss Dashboard</h1>
           <p>Manage uploaded media and review user requests.</p>
         </div>
         <div class="card" style="margin-bottom: 20px;">
           <div class="card-header">
             <h3>Manage Uploaded Media (Rename / Delete)</h3>
           </div>
-          <div id="admin-media-box"></div>
+          <div id="boss-media-box"></div>
         </div>
         <div class="card">
           <div class="card-header">
@@ -455,7 +441,7 @@
         </div>
         <div class="card" style="margin-top:20px;">
           <div class="card-header">
-            <h3 data-admin-text>Registered Accounts</h3>
+            <h3 data-boss-text>Registered Accounts</h3>
             <button id="clear-permanent-accounts-btn" class="btn-danger btn-sm" title="Remove permanently disabled accounts">🗑 Clear Permanently Deleted</button>
           </div>
           <p class="field-hint">Manage registered user accounts. You can disable an account (they can appeal) or disable it permanently (cannot be reversed).</p>
@@ -463,14 +449,14 @@
         </div>
         <div class="card" style="margin-top:20px;">
           <div class="card-header">
-            <h3 data-admin-text>User Appeals</h3>
+            <h3 data-boss-text>User Appeals</h3>
           </div>
           <p class="field-hint">Appeals from users whose accounts were disabled. Review and approve to re-enable them.</p>
           <div id="appeals-box" class="requests-box"></div>
         </div>
         <div class="card" style="margin-top:20px;">
           <div class="card-header">
-            <h3 data-admin-text>Admin — Send Notification</h3>
+            <h3 data-boss-text>Boss — Send Notification</h3>
           </div>
           <label class="field-label" for="notif-title">Title</label>
           <input type="text" id="notif-title" placeholder="e.g. New song added!">

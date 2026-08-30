@@ -145,7 +145,7 @@ async function withDbWrite(work) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_SECRET = process.env.ADMIN_SECRET || "azim123";
+const BOSS_SECRET = process.env.BOSS_SECRET || process.env.ADMIN_SECRET || "azim123";
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -156,9 +156,9 @@ app.use(express.static('public'));
    leaving requests hanging / crashing the process. */
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-const isAdminReq = (req) => {
-  const supplied = (req.headers && req.headers['x-admin-secret']) || (req.body && req.body.adminSecret);
-  return supplied === ADMIN_SECRET;
+const isBossReq = (req) => {
+  const supplied = (req.headers && req.headers['x-boss-secret']) || (req.body && req.body.bossSecret);
+  return supplied === BOSS_SECRET;
 };
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2048 * 1024 * 1024 } });
@@ -256,11 +256,11 @@ app.get('/api/links', ah(async (req, res) => {
 }));
 
 /* ------------------------------------------------------------------ */
-/* Admin verification                                                  */
+/* Boss verification                                                   */
 /* ------------------------------------------------------------------ */
-app.post('/api/verify-admin', (req, res) => {
-  const { adminSecret } = req.body;
-  if (adminSecret === ADMIN_SECRET) {
+app.post('/api/verify-boss', (req, res) => {
+  const { bossSecret } = req.body;
+  if (bossSecret === BOSS_SECRET) {
     res.json({ success: true });
   } else {
     res.status(401).json({ success: false, message: 'Invalid password' });
@@ -277,6 +277,10 @@ app.post('/api/auth/register', ah(async (req, res) => {
   if (!name) return res.status(400).json({ success: false, error: 'Please enter your name.' });
   if (name.length < 2) return res.status(400).json({ success: false, error: 'Name must be at least 2 characters.' });
   if (String(password).length < 4) return res.status(400).json({ success: false, error: 'Password must be at least 4 characters.' });
+
+  if (name.toLowerCase() === 'azim') {
+    return res.status(400).json({ success: false, error: 'Azim is the Boss — sign in with the Boss pass instead of registering a user account.' });
+  }
 
   const db = await getDb();
   const existing = findUser(db.users, name);
@@ -306,6 +310,10 @@ app.post('/api/auth/login', ah(async (req, res) => {
   const name = normalizeName(req.body.name);
   const password = String(req.body.password || '');
   if (!name || !password) return res.status(400).json({ success: false, error: 'Please enter your name and password.' });
+
+  if (name.toLowerCase() === 'azim') {
+    return res.status(400).json({ success: false, error: 'Azim is the Boss — use the Boss login with the Boss pass.' });
+  }
 
   const db = await getDb();
   const user = findUser(db.users, name);
@@ -345,9 +353,9 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ success: true });
 });
 
-/* Admin: list all registered accounts + appeals */
-app.get('/api/auth/admin', ah(async (req, res) => {
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+/* Boss: list all registered accounts + appeals */
+app.get('/api/auth/boss', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const db = await getDb();
   const users = (db.users || []).map((u) => ({
     name: u.name,
@@ -358,10 +366,10 @@ app.get('/api/auth/admin', ah(async (req, res) => {
   res.json({ success: true, users, appeals: (db.appeals || []) });
 }));
 
-/* Admin: disable (temporary) or permanently disable a user account.
+/* Boss: disable (temporary) or permanently disable a user account.
    A permanent disable is irreversible — there is no re-enable path for it. */
 app.post('/api/auth/disable', ah(async (req, res) => {
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const name = normalizeName(req.body.name);
   if (!name) return res.status(400).json({ success: false, error: 'Missing user name.' });
   const permanent = req.body.permanent === true;
@@ -383,11 +391,11 @@ app.post('/api/auth/disable', ah(async (req, res) => {
   res.json({ success: true });
 }));
 
-/* Admin: clear (remove) all permanently disabled accounts from the system.
+/* Boss: clear (remove) all permanently disabled accounts from the system.
    Permanent accounts can never be re-enabled or appealed, so this removes
    them from the registered users list entirely. */
 app.post('/api/auth/clear-permanent', ah(async (req, res) => {
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
   await withDbWrite(async () => {
     const d = await getDb();
@@ -398,10 +406,10 @@ app.post('/api/auth/clear-permanent', ah(async (req, res) => {
   });
 }));
 
-/* Admin: approve (re-enable) a TEMPORARILY disabled account. Permanent
+/* Boss: approve (re-enable) a TEMPORARILY disabled account. Permanent
    disables cannot be reversed. */
 app.post('/api/auth/approve', ah(async (req, res) => {
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const name = normalizeName(req.body.name);
   if (!name) return res.status(400).json({ success: false, error: 'Missing user name.' });
 
@@ -593,18 +601,18 @@ app.post(
 );
 
 /* ------------------------------------------------------------------ */
-/* Link upload — admin only, optional thumbnail file                   */
+/* Link upload — boss only, optional thumbnail file                   */
 /* ------------------------------------------------------------------ */
 app.post('/api/upload/link', upload.single('thumbnailFile'), ah(async (req, res) => {
   const { title, uploader, mediaUrl, thumbnailUrl } = req.body;
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   if (!mediaUrl) return res.status(400).json({ success: false, error: 'Missing media URL.' });
   const type = mediaTypeFromName(mediaUrl);
 
   const item = {
     id: makeId(),
     title: String(title || 'Untitled').trim(),
-    uploader: String(uploader || 'Admin').trim(),
+    uploader: String(uploader || 'Boss').trim(),
     createdAt: new Date().toISOString()
   };
 
@@ -683,20 +691,20 @@ app.post('/api/upload/link-item', upload.single('thumbnailFile'), ah(async (req,
 /* ------------------------------------------------------------------ */
 /* Media management (rename / delete)                                  */
 /* ------------------------------------------------------------------ */
-const canManage = (item, uploader, adminSecret) =>
-  adminSecret === ADMIN_SECRET || (item && item.uploader === uploader);
+const canManage = (item, uploader, bossSecret) =>
+  bossSecret === BOSS_SECRET || (item && item.uploader === uploader);
 
 app.put('/api/media/:type/:id', ah(async (req, res) => {
   const { type, id } = req.params;
   if (!isMediaType(type)) return res.status(400).json({ success: false, error: 'Invalid type.' });
 
-  const { newTitle, uploader, adminSecret } = req.body;
+  const { newTitle, uploader, bossSecret } = req.body;
   const result = await withDbWrite(async () => {
     const db = await getDb();
     const list = mediaList(type, db);
     const item = list.find((i) => i.id === id);
     if (!item) return { status: 404, body: { success: false, error: 'Not found.' } };
-    if (!canManage(item, uploader, adminSecret)) return { status: 403, body: { success: false, error: 'Unauthorized' } };
+    if (!canManage(item, uploader, bossSecret)) return { status: 403, body: { success: false, error: 'Unauthorized' } };
     item.title = String(newTitle || item.title).trim();
     await saveDb(db);
     return { status: 200, body: { success: true, item } };
@@ -708,13 +716,13 @@ app.delete('/api/media/:type/:id', ah(async (req, res) => {
   const { type, id } = req.params;
   if (!isMediaType(type)) return res.status(400).json({ success: false, error: 'Invalid type.' });
 
-  const { uploader, adminSecret } = req.body || {};
+  const { uploader, bossSecret } = req.body || {};
   const result = await withDbWrite(async () => {
     const db = await getDb();
     const list = mediaList(type, db);
     const item = list.find((i) => i.id === id);
     if (!item) return { status: 404, body: { success: false, error: 'Not found.' } };
-    if (!canManage(item, uploader, adminSecret)) return { status: 403, body: { success: false, error: 'Unauthorized' } };
+    if (!canManage(item, uploader, bossSecret)) return { status: 403, body: { success: false, error: 'Unauthorized' } };
 
     const idx = list.indexOf(item);
     list.splice(idx, 1);
@@ -728,13 +736,13 @@ app.delete('/api/media/:type/:id', ah(async (req, res) => {
 
 /* Legacy JSON rename/delete routes (kept for compatibility) */
 app.post('/api/rename', ah(async (req, res) => {
-  const { type, id, newTitle, uploader, adminSecret } = req.body;
+  const { type, id, newTitle, uploader, bossSecret } = req.body;
   const result = await withDbWrite(async () => {
     const db = await getDb();
     const list = mediaList(type, db);
     const item = list.find((i) => i.id === id);
     if (!item) return res.sendStatus(404);
-    if (!canManage(item, uploader, adminSecret)) return res.sendStatus(403);
+    if (!canManage(item, uploader, bossSecret)) return res.sendStatus(403);
     item.title = String(newTitle || item.title).trim();
     await saveDb(db);
     return res.sendStatus(200);
@@ -743,14 +751,14 @@ app.post('/api/rename', ah(async (req, res) => {
 }));
 
 app.post('/api/delete', ah(async (req, res) => {
-  const { type, id, uploader, adminSecret } = req.body;
+  const { type, id, uploader, bossSecret } = req.body;
   let item = null;
   const result = await withDbWrite(async () => {
     const db = await getDb();
     const list = mediaList(type, db);
     item = list.find((i) => i.id === id);
     if (!item) return res.sendStatus(404);
-    if (!canManage(item, uploader, adminSecret)) return res.sendStatus(403);
+    if (!canManage(item, uploader, bossSecret)) return res.sendStatus(403);
     list.splice(list.indexOf(item), 1);
     await saveDb(db);
     return res.sendStatus(200);
@@ -798,7 +806,7 @@ app.post('/api/messages', ah(async (req, res) => {
 }));
 
 app.post('/api/messages/clear', ah(async (req, res) => {
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
   await withDbWrite(async () => {
     const db = await getDb();
@@ -826,20 +834,20 @@ app.post('/api/contact', ah(async (req, res) => {
     return newRequest;
   });
 
-  sendToNamedDevices('azim', '📩 Contact message from ' + user, text.slice(0, 200), { url: '/?page=admin', type: 'contact' })
+  sendToNamedDevices('azim', '📩 Contact message from ' + user, text.slice(0, 200), { url: '/?page=boss', type: 'contact' })
     .catch(() => { /* ignore */ });
 
   res.json({ success: true, request });
 }));
 
 app.get('/api/requests', ah(async (req, res) => {
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const db = await getDb();
   res.json({ requests: db.requests || [] });
 }));
 
 app.post('/api/requests/clear', ah(async (req, res) => {
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   await withDbWrite(async () => {
     const db = await getDb();
     db.requests = [];
@@ -1080,10 +1088,10 @@ app.post('/api/notify/unregister', async (req, res) => {
   }
 });
 
-/* Broadcast an announcement (admin / website updates) */
+/* Broadcast an announcement (boss / website updates) */
 app.post('/api/notify/announce', ah(async (req, res) => {
   const { title, body } = req.body;
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   if (!title && !body) return res.status(400).json({ success: false, error: 'Title or body required.' });
   const result = await sendToAllDevices(title || 'Announcement', body || '', { url: '/' });
   res.json({ success: true, ...result });
@@ -1091,7 +1099,7 @@ app.post('/api/notify/announce', ah(async (req, res) => {
 
 /* A new song/movie/link was uploaded -> notify everyone except the uploader */
 app.post('/api/notify/upload', ah(async (req, res) => {
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const { type, title, uploader } = req.body;
   const kind = type === 'movie' ? 'Video' : (type === 'link' ? 'Link' : 'Song');
   const result = await sendToAllDevices(
@@ -1127,20 +1135,20 @@ app.post('/api/notify/chat', ah(async (req, res) => {
   res.json({ success: true, sent: result.sent, failed: result.failed });
 }));
 
-/* Contact/form message -> notify admin/boss person only */
+/* Contact/form message -> notify boss person only */
 app.post('/api/notify/contact', ah(async (req, res) => {
   const user = String(req.body.user || 'Someone').trim();
   const text = String(req.body.text || '').trim().slice(0, 2000);
   if (!text) return res.status(400).json({ success: false, error: 'Missing message text.' });
 
-  const result = await sendToNamedDevices('azim', '📩 Contact message from ' + user, text, { url: '/?page=admin', type: 'contact' });
+  const result = await sendToNamedDevices('azim', '📩 Contact message from ' + user, text, { url: '/?page=boss', type: 'contact' });
   res.json({ success: true, sent: result.sent, failed: result.failed });
 }));
 
-/* Upload notification broadcast — admin only (previously open to any visitor) */
+/* Upload notification broadcast — boss only (previously open to any visitor) */
 app.post('/api/notify/send', ah(async (req, res) => {
   const { title, body, data } = req.body;
-  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   if (!title && !body) return res.status(400).json({ success: false, error: 'Title or body required.' });
   const result = await sendToAllDevices(title || 'Notification', body || '', data || {});
   res.json({ success: true, ...result });

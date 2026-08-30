@@ -1,5 +1,7 @@
 node_modules/
 public/uploads/*
+uploads/
+__pycache__/
 .env
 firebase-service-account*.json
 *-firebase-adminsdk-*.json
