@@ -123,13 +123,52 @@ body {
   justify-content: center;
   border: 2px solid rgba(255, 255, 255, 0.25);
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
-  cursor: default;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
+.user-avatar:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.55);
+}
+.user-avatar:active { transform: scale(0.95); }
 .avatar-initials {
   font-size: 1.15rem;
   font-weight: 800;
   color: #fff;
   line-height: 1;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.bg-music-toggle {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease, color 0.2s ease;
+}
+.bg-music-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--accent);
+}
+.bg-music-toggle:active { transform: scale(0.94); }
+.bg-music-toggle.playing {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ================= HAMBURGER MENU ================= */
@@ -1266,24 +1305,28 @@ body.samurai-theme ::-webkit-scrollbar-thumb { background: #b8860b; }
 body.samurai-theme ::-webkit-scrollbar-thumb:hover { background: #cd9b1d; }
 
 /* Samurai theme video background - muted */
-body.samurai-theme .samurai-video-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -1;
-  overflow: hidden;
-}
-body.samurai-theme .samurai-video-bg video {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  width: 100vw;
-  height: 100vh;
-  transform: translateX(-50%) translateY(-50%) scale(1.45);
-  object-fit: cover;
-  filter: saturate(1.05) brightness(1);
-  mute: true; /* Volume set to 0 */
-  pointer-events: none;
-}
+ body.samurai-theme .samurai-video-bg {
+   position: fixed;
+   top: 68px;
+   left: 0;
+   right: 0;
+   bottom: 0;
+   z-index: -1;
+   overflow: hidden;
+ }
+ body.samurai-theme .samurai-video-bg video {
+   position: absolute;
+   top: 50%;
+   left: 50%;
+   width: 100%;
+   height: 100%;
+   transform: translateX(-50%) translateY(-50%);
+   object-fit: cover;
+   filter: saturate(1.05) brightness(1);
+   mute: true; /* Volume set to 0 */
+   pointer-events: none;
+ }
+
+ @media (max-width: 480px) {
+   body.samurai-theme .samurai-video-bg { top: 62px; }
+ }

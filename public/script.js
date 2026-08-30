@@ -152,6 +152,51 @@ function renderAvatar() {
   avatarInitials.title = name;
 }
 
+/* ------------------------------------------------------------------ */
+/* Change name on avatar tap                                           */
+/* ------------------------------------------------------------------ */
+function openChangeNamePopup() {
+  const input = $('change-name-input');
+  const errEl = $('change-name-error');
+  if (errEl) errEl.style.display = 'none';
+  if (input) { input.value = currentUser || ''; setTimeout(() => input.focus(), 50); }
+  const modal = $('change-name-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function saveChangedName() {
+  const input = $('change-name-input');
+  const name = (input ? input.value : '').trim();
+  if (!name) {
+    const errEl = $('change-name-error');
+    if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Name cannot be empty.'; }
+    return;
+  }
+  if (name === currentUser) { closeChangeNamePopup(); return; }
+  currentUser = name;
+  localStorage.setItem('visitorName', currentUser);
+  renderAvatar();
+  applyBossLabeling();
+  closeChangeNamePopup();
+  showAlert('Name updated to ' + currentUser, 'Done', '✅');
+}
+
+function closeChangeNamePopup() {
+  const modal = $('change-name-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+(function initChangeName() {
+  const avatar = $('user-avatar');
+  if (avatar) avatar.addEventListener('click', openChangeNamePopup);
+  const save = $('change-name-save');
+  if (save) save.addEventListener('click', saveChangedName);
+  const cancel = $('change-name-cancel');
+  if (cancel) cancel.addEventListener('click', closeChangeNamePopup);
+  const input = $('change-name-input');
+  if (input) input.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveChangedName(); });
+})();
+
 function checkUserSession() {
   if (currentUser && authToken) {
     modalOverlay.classList.add('hidden');
@@ -2033,14 +2078,39 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
   // Background music: play at full (100) volume once the user interacts,
   // because browsers block audio autoplay until a user gesture.
   const bgMusic = $('theme-bg-music');
+  const musicToggle = $('bg-music-toggle');
   if (bgMusic) {
     bgMusic.src = BG_MUSIC_URL;
     bgMusic.volume = 1;
-    const tryPlay = () => {
-      bgMusic.play().catch(() => {});
+
+    const setMusicIcon = () => {
+      if (!musicToggle) return;
+      const playing = !bgMusic.paused && !bgMusic.ended;
+      musicToggle.classList.toggle('playing', playing);
+      musicToggle.classList.toggle('paused', !playing);
+      musicToggle.textContent = playing ? '⏸' : '▶';
+      musicToggle.title = playing ? 'Stop music' : 'Play music';
+      musicToggle.setAttribute('aria-label', playing ? 'Stop music' : 'Play music');
     };
+
+    const tryPlay = () => {
+      bgMusic.play().then(setMusicIcon).catch(() => setMusicIcon());
+    };
+    if (musicToggle) {
+      musicToggle.addEventListener('click', () => {
+        if (bgMusic.paused) {
+          tryPlay();
+        } else {
+          bgMusic.pause();
+          setMusicIcon();
+        }
+      });
+    }
     document.addEventListener('click', tryPlay, { once: true });
     document.addEventListener('keydown', tryPlay, { once: true });
     document.addEventListener('touchstart', tryPlay, { once: true });
+    bgMusic.addEventListener('play', setMusicIcon);
+    bgMusic.addEventListener('pause', setMusicIcon);
+    setMusicIcon();
   }
 })();

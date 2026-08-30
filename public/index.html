@@ -16,7 +16,7 @@
   <!-- Theme video loop background (muted, volume 0, zoomed to hide watermark) -->
   <div id="theme-video-bg" class="samurai-video-bg">
     <video id="theme-bg-video" autoplay loop muted playsinline>
-      <source src="https://res.cloudinary.com/vl7tgkgi/video/upload/v1788079409/theme/vahje9eerdlpy2j9tl93.mp4" type="video/mp4">
+      <source src="https://res.cloudinary.com/vl7tgkgi/video/upload/q_auto:low,w_640/v1788079409/theme/vahje9eerdlpy2j9tl93.mp4" type="video/mp4">
       Your browser does not support the video tag.
     </video>
   </div>
@@ -63,6 +63,19 @@
         <p class="auth-back"><a href="javascript:void(0)" id="auth-back-link">← Choose Log in / Register</a></p>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Change name modal -->
+  <div id="change-name-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2>✏️ Change Name</h2>
+      <p>Enter the new name to show on your avatar.</p>
+      <input type="text" id="change-name-input" placeholder="Enter your name" autocomplete="off" maxlength="24">
+      <div class="admin-modal-btns">
+        <button id="change-name-cancel" class="btn-secondary">Cancel</button>
+        <button id="change-name-save" class="btn-primary">Save</button>
+      </div>
     </div>
   </div>
 
@@ -205,8 +218,11 @@
             <button type="button" class="menu-link menu-logout" id="menu-logout" style="color:#f87171;">🚪 Log out</button>
           </nav>
         </div>
-        <div class="user-avatar" id="user-avatar">
-          <span class="avatar-initials" id="avatar-initials">👤</span>
+        <div class="topbar-actions">
+          <button type="button" id="bg-music-toggle" class="bg-music-toggle paused" title="Play music" aria-label="Play / stop music">▶</button>
+          <div class="user-avatar" id="user-avatar">
+            <span class="avatar-initials" id="avatar-initials">👤</span>
+          </div>
         </div>
       </div>
     </header>
