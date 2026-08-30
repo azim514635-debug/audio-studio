@@ -244,6 +244,50 @@ body {
 }
 .menu-count:empty { display: none; }
 
+/* ============ HORIZONTAL QUICK NAV (Updates + Chat below title) ============ */
+.quick-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+}
+.quick-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: 30px;
+  border: 1px solid var(--border);
+  background: rgba(10, 24, 30, 0.55);
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.quick-nav-btn:hover {
+  background: rgba(34, 211, 238, 0.18);
+  border-color: #22d3ee;
+  transform: translateY(-1px);
+}
+.quick-nav-btn.active {
+  background: rgba(34, 211, 238, 0.35);
+  border-color: #22d3ee;
+  color: #062a33;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+}
+.quick-nav-btn .menu-count {
+  margin-left: 2px;
+  background: #ef4444;
+  color: #fff;
+}
+
 /* ========================= MAIN CONTENT ========================== */
 .main-content {
   max-width: 1200px;
@@ -1201,10 +1245,10 @@ body.keyboard-open .notif-fab {
 
 /* ====================== SAMURAI THEME ======================= */
 body.samurai-theme {
-  --bg-dark: rgba(6, 12, 16, 0.55);
-  --bg-elev: rgba(10, 20, 26, 0.6);
-  --bg-card: rgba(10, 24, 30, 0.45);
-  --bg-input: rgba(4, 10, 14, 0.55);
+  --bg-dark: rgba(6, 12, 16, 0.4);
+  --bg-elev: rgba(10, 20, 26, 0.35);
+  --bg-card: rgba(8, 20, 26, 0.28);
+  --bg-input: rgba(4, 10, 14, 0.35);
   --accent: #22d3ee;
   --accent-hover: #06b6d4;
   --accent-soft: rgba(34, 211, 238, 0.14);
@@ -1229,7 +1273,8 @@ body.samurai-theme .topbar { background: rgba(4, 12, 16, 0.7); }
 body.samurai-theme .card,
 body.samurai-theme .modal-card,
 body.samurai-theme .queue-item,
-body.samurai-theme .msg-bubble {
+body.samurai-theme .msg-bubble,
+body.samurai-theme .menu-panel {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }

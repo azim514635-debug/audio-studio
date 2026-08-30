@@ -593,6 +593,9 @@ async function showPage(targetPage) {
   const match = Array.from(navItems).find((i) => i.getAttribute('data-page') === targetPage);
   navItems.forEach((i) => i.classList.remove('active'));
   if (match) match.classList.add('active');
+  document.querySelectorAll('[data-quicknav]').forEach((b) => {
+    b.classList.toggle('active', b.getAttribute('data-page') === targetPage);
+  });
   $('page-' + targetPage).classList.add('active');
 
   if (targetPage === 'admin') loadAdminDashboard();
@@ -612,8 +615,8 @@ async function navigateTo(targetPage, navEl) {
 
   await showPage(targetPage);
 
-  if (targetPage === 'home') {
-    history.replaceState({ page: 'home' }, '', location.pathname);
+  if (targetPage === 'library') {
+    history.replaceState({ page: 'library' }, '', location.pathname);
   } else {
     history.pushState({ page: targetPage }, '', `?page=${targetPage}`);
   }
@@ -621,14 +624,14 @@ async function navigateTo(targetPage, navEl) {
   closeMenu();
 }
 
-/* Browser / phone back button — return to Home instead of leaving the site */
+/* Browser / phone back button — return to Updates instead of leaving the site */
 async function routeTo(target) {
-  if (target && target !== 'home' && $('page-' + target)) {
+  if (target && target !== 'library' && $('page-' + target)) {
     if (target === 'admin') {
       // Require a valid login first, then admin/boss unlock — never show the
       // admin modal over the login modal.
       if (!currentUser) {
-        history.replaceState({ page: 'home' }, '', location.pathname);
+        history.replaceState({ page: 'library' }, '', location.pathname);
         return;
       }
       if (!(await ensureAdmin())) return;
@@ -640,16 +643,17 @@ async function routeTo(target) {
 
 window.addEventListener('popstate', () => {
   const params = new URLSearchParams(location.search);
-  const target = params.get('page') || 'home';
+  const target = params.get('page') || 'library';
   routeTo(target);
 });
 
 /* On initial load, honor an existing page param in the URL */
 (function restoreInitialPage() {
   const params = new URLSearchParams(location.search);
-  const target = params.get('page') || 'home';
-  if (target === 'home' || !$('page-' + target)) {
-    history.replaceState({ page: 'home' }, '', location.pathname);
+  const target = params.get('page') || 'library';
+  if (target === 'library' || !$('page-' + target)) {
+    history.replaceState({ page: 'library' }, '', location.pathname);
+    showPage('library');
     return;
   }
   routeTo(target);
@@ -659,9 +663,9 @@ navItems.forEach((item) => {
   item.addEventListener('click', () => navigateTo(item.getAttribute('data-page'), item));
 });
 
-document.querySelectorAll('.dash-card').forEach((card) => {
-  card.addEventListener('click', () => {
-    const target = card.getAttribute('data-page');
+document.querySelectorAll('[data-quicknav]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const target = btn.getAttribute('data-page');
     const navMatch = Array.from(navItems).find((i) => i.getAttribute('data-page') === target);
     navigateTo(target, navMatch || null);
   });
@@ -704,7 +708,7 @@ $('admin-circle-btn').addEventListener('click', (e) => {
 });
 
 document.querySelector('.brand').addEventListener('click', () => {
-  navigateTo('home', null);
+  navigateTo('library', null);
 });
 
 // Theme removed - samurai theme applied via CSS
@@ -1048,6 +1052,21 @@ window.approveAccount = async function (name) {
   loadAccounts();
   loadAppeals();
 };
+
+$('clear-permanent-accounts-btn').addEventListener('click', async () => {
+  if (!isAdminUnlocked && !isBossUnlocked) { showAlert('Admin access required.'); return; }
+  if (!await showConfirm('Remove ALL permanently disabled accounts from the system? This cannot be undone.', 'Clear Permanently Deleted')) return;
+  try {
+    const res = await fetch('/api/auth/clear-permanent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret || '' }
+    });
+    const data = await res.json();
+    if (!res.ok) { await showAlert(data.error || 'Failed.'); return; }
+    await showAlert(`Removed ${data.removed || 0} permanently disabled account(s).`, 'Done', '🗑');
+  } catch (e) { await showAlert('Network error.'); return; }
+  loadAccounts();
+});
 
 $('send-request-btn').addEventListener('click', async () => {
   if (!requireName()) return;
@@ -1963,7 +1982,7 @@ function setupForegroundListener() {
 function openNotificationUrl(url) {
   try {
     const params = new URLSearchParams((url.split('?')[1] || ''));
-    const target = params.get('page') || 'home';
+    const target = params.get('page') || 'library';
     if ($('page-' + target)) {
       navigateTo(navigatePageName(target), null);
     }
@@ -1976,7 +1995,7 @@ function navigatePageName(p) {
   if (p === 'notifications') return 'notifications';
   if (p === 'request') return 'request';
   if (p === 'upload') return 'upload';
-  return 'home';
+  return 'library';
 }
 
 /* Admin / Boss: send an announcement to all users */

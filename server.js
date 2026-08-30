@@ -383,6 +383,21 @@ app.post('/api/auth/disable', ah(async (req, res) => {
   res.json({ success: true });
 }));
 
+/* Admin: clear (remove) all permanently disabled accounts from the system.
+   Permanent accounts can never be re-enabled or appealed, so this removes
+   them from the registered users list entirely. */
+app.post('/api/auth/clear-permanent', ah(async (req, res) => {
+  if (!isAdminReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const before = (d.users || []).length;
+    d.users = (d.users || []).filter((u) => u.status !== 'permanent');
+    await saveDb(d);
+    res.json({ success: true, removed: before - d.users.length });
+  });
+}));
+
 /* Admin: approve (re-enable) a TEMPORARILY disabled account. Permanent
    disables cannot be reversed. */
 app.post('/api/auth/approve', ah(async (req, res) => {

@@ -210,10 +210,7 @@
     <span class="menu-bar"></span>
   </button>
   <nav id="menu-panel" class="menu-panel" aria-label="Main navigation">
-    <button type="button" class="menu-link" data-page="home">🏠 Home</button>
-    <button type="button" class="menu-link" data-page="library">📚 Library</button>
     <button type="button" class="menu-link" data-page="upload">⬆️ Upload</button>
-    <button type="button" class="menu-link" data-page="chat">💬 Chat <span class="menu-count" id="menu-message-count"></span></button>
     <div class="menu-divider"></div>
     <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
     <button type="button" class="menu-link menu-logout" id="menu-logout" style="color:#f87171;">🚪 Log out</button>
@@ -226,43 +223,25 @@
           </div>
         </div>
       </div>
+      <!-- Horizontal quick-nav: Updates + Chat, below the title/avatar -->
+      <div class="quick-nav">
+        <button type="button" class="quick-nav-btn" data-page="library" data-quicknav>
+          <span class="quick-nav-icon">📚</span>
+          <span>Updates</span>
+        </button>
+        <button type="button" class="quick-nav-btn" data-page="chat" data-quicknav>
+          <span class="quick-nav-icon">💬</span>
+          <span>Chat</span>
+          <span class="menu-count" id="menu-message-count"></span>
+        </button>
+      </div>
     </header>
 
     <main class="main-content">
-      <!-- Home / Dashboard -->
-      <section id="page-home" class="page active">
-        <div class="header-card" style="background: linear-gradient(135deg, #6366f1, #a855f7);">
-          <h1>Welcome to Azim's Space</h1>
-          <p>Choose a section below to get started.</p>
-        </div>
-        <div class="dashboard-grid">
-          <button class="dash-card" data-page="library">
-            <span class="dash-icon">📚</span>
-            <span class="dash-label">Library</span>
-            <span class="dash-desc">Songs, movies & links</span>
-          </button>
-          <button class="dash-card" data-page="upload">
-            <span class="dash-icon">⬆️</span>
-            <span class="dash-label">Upload Media</span>
-            <span class="dash-desc">Share audio & video</span>
-          </button>
-          <button class="dash-card" data-page="chat">
-            <span class="dash-icon">💬</span>
-            <span class="dash-label">Chat</span>
-            <span class="dash-desc">Talk with everyone</span>
-          </button>
-          <button class="dash-card" data-page="request">
-            <span class="dash-icon">📩</span>
-            <span class="dash-label">Contact Azim</span>
-            <span class="dash-desc">Send a request</span>
-          </button>
-        </div>
-      </section>
-
       <!-- Combined Library (Songs / Movies / Links) -->
       <section id="page-library" class="page">
         <div class="header-card" style="background: linear-gradient(135deg, #6366f1, #a855f7);">
-          <h1>📚 Library</h1>
+          <h1>📚 Updates</h1>
           <p>All songs, movies and links in one place, newest first.</p>
         </div>
 
@@ -477,6 +456,7 @@
         <div class="card" style="margin-top:20px;">
           <div class="card-header">
             <h3 data-admin-text>Registered Accounts</h3>
+            <button id="clear-permanent-accounts-btn" class="btn-danger btn-sm" title="Remove permanently disabled accounts">🗑 Clear Permanently Deleted</button>
           </div>
           <p class="field-hint">Manage registered user accounts. You can disable an account (they can appeal) or disable it permanently (cannot be reversed).</p>
           <div id="accounts-box" class="requests-box"></div>
