@@ -2015,3 +2015,32 @@ if (isBossName() && (isBossUnlocked || isAdminUnlocked)) {
   const clearBtn = $('clear-chat-btn');
   if (clearBtn) clearBtn.style.display = 'inline-block';
 }
+
+/* ------------------------------------------------------------------ */
+/* Background music (100 volume) + ensure background video is muted    */
+/* ------------------------------------------------------------------ */
+const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v1788070583/cydeiop7mkgjyiz9uwpz.m4a';
+
+(function initBgMedia() {
+  // Background video: keep it muted (0 volume) and zoomed to hide watermark.
+  const bgVideo = $('theme-bg-video');
+  if (bgVideo) {
+    bgVideo.muted = true;
+    bgVideo.volume = 0;
+    try { bgVideo.play(); } catch (e) { /* autoplay muted is usually allowed */ }
+  }
+
+  // Background music: play at full (100) volume once the user interacts,
+  // because browsers block audio autoplay until a user gesture.
+  const bgMusic = $('theme-bg-music');
+  if (bgMusic) {
+    bgMusic.src = BG_MUSIC_URL;
+    bgMusic.volume = 1;
+    const tryPlay = () => {
+      bgMusic.play().catch(() => {});
+    };
+    document.addEventListener('click', tryPlay, { once: true });
+    document.addEventListener('keydown', tryPlay, { once: true });
+    document.addEventListener('touchstart', tryPlay, { once: true });
+  }
+})();

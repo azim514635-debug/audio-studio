@@ -13,13 +13,16 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="samurai-theme">
-  <!-- Theme video loop background (muted, volume 0) -->
+  <!-- Theme video loop background (muted, volume 0, zoomed to hide watermark) -->
   <div id="theme-video-bg" class="samurai-video-bg">
-    <video autoplay loop muted playsinline>
-      <source src="" type="video/mp4">
+    <video id="theme-bg-video" autoplay loop muted playsinline>
+      <source src="https://res.cloudinary.com/vl7tgkgi/video/upload/v1788070574/kotp4y6qjhafpxhzuqcl.mp4" type="video/mp4">
       Your browser does not support the video tag.
     </video>
   </div>
+
+  <!-- Background music (100 volume, loops across all pages) -->
+  <audio id="theme-bg-music" loop preload="auto" volume="1"></audio>
 
   <!-- Theme music player -->
   <div id="theme-music-player" class="notif-prompt hidden">
