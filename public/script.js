@@ -667,9 +667,36 @@ document.querySelectorAll('.dash-card').forEach((card) => {
   });
 });
 
-// Menu is now a fixed column below the avatar/button (no hamburger toggle).
-function openMenu() {}
-function closeMenu() {}
+// Hamburger "more" menu: opens the dropdown with all options.
+function openMenu() {
+  const panel = $('menu-panel');
+  const toggle = $('menu-toggle');
+  if (!panel || !toggle) return;
+  panel.classList.add('open');
+  toggle.classList.add('open');
+  toggle.setAttribute('aria-expanded', 'true');
+}
+function closeMenu() {
+  const panel = $('menu-panel');
+  const toggle = $('menu-toggle');
+  if (!panel || !toggle) return;
+  panel.classList.remove('open');
+  toggle.classList.remove('open');
+  toggle.setAttribute('aria-expanded', 'false');
+}
+$('menu-toggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const panel = $('menu-panel');
+  if (!panel) return;
+  if (panel.classList.contains('open')) closeMenu();
+  else openMenu();
+});
+document.addEventListener('click', (e) => {
+  const panel = $('menu-panel');
+  const toggle = $('menu-toggle');
+  if (!panel || !toggle) return;
+  if (!panel.contains(e.target) && !toggle.contains(e.target)) closeMenu();
+});
 
 $('admin-circle-btn').addEventListener('click', (e) => {
   e.stopPropagation();

@@ -203,20 +203,27 @@
           <span class="brand-name">Azim's <em>Space</em></span>
           <span class="badge">PRO</span>
         </div>
-        <div class="topbar-nav-wrap"></div>
+        <div class="topbar-nav-wrap">
+  <button type="button" id="menu-toggle" class="menu-toggle" aria-label="More options" aria-expanded="false">
+    <span class="menu-bar"></span>
+    <span class="menu-bar"></span>
+    <span class="menu-bar"></span>
+  </button>
+  <nav id="menu-panel" class="menu-panel" aria-label="Main navigation">
+    <button type="button" class="menu-link" data-page="home">🏠 Home</button>
+    <button type="button" class="menu-link" data-page="library">📚 Library</button>
+    <button type="button" class="menu-link" data-page="upload">⬆️ Upload</button>
+    <button type="button" class="menu-link" data-page="chat">💬 Chat <span class="menu-count" id="menu-message-count"></span></button>
+    <div class="menu-divider"></div>
+    <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
+    <button type="button" class="menu-link menu-logout" id="menu-logout" style="color:#f87171;">🚪 Log out</button>
+  </nav>
+</div>
         <div class="topbar-actions">
           <button type="button" id="bg-music-toggle" class="bg-music-toggle paused" title="Play music" aria-label="Play / stop music">▶</button>
           <div class="user-avatar" id="user-avatar">
             <span class="avatar-initials" id="avatar-initials">👤</span>
           </div>
-          <nav id="menu-panel" class="menu-panel" aria-label="Main navigation">
-            <button type="button" class="menu-link" data-page="home">🏠 Home</button>
-            <button type="button" class="menu-link" data-page="library">📚 Library</button>
-            <button type="button" class="menu-link" data-page="upload">⬆️ Upload Media</button>
-            <button type="button" class="menu-link" data-page="chat">💬 Chat <span class="menu-count" id="menu-message-count"></span></button>
-            <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
-            <button type="button" class="menu-link menu-logout" id="menu-logout" style="color:#f87171;">🚪 Log out</button>
-          </nav>
         </div>
       </div>
     </header>
@@ -514,16 +521,6 @@
         </div>
       </section>
 
-      <footer>
-        <div class="instagram-box">
-          <a href="https://www.instagram.com/_am_i_stranger_?igsi=MXJ6cXA0eW94a2ZvYQ==" target="_blank" rel="noopener" class="instagram-link">
-            <img class="instagram-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSAfDHLEBApWX-CTjkTIzClXtIv-pFgjTbgHaKrqL-d-vjsHrqh78EW6r1w&s=10" alt="Instagram">
-            <span>See Azim on Instagram</span>
-          </a>
-        </div>
-        <p>This website is created</p>
-        <p class="footer-author">By <strong>Azim</strong></p>
-      </footer>
     </main>
   </div>
 

@@ -172,20 +172,46 @@ body {
   border-color: var(--accent);
 }
 
-/* ================= VERTICAL MENU COLUMN (below avatar/button) ================= */
+/* ================= HAMBURGER "MORE" MENU ================= */
+.menu-toggle {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.menu-toggle:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--accent); }
+.menu-bar { width: 20px; height: 2px; background: #fff; border-radius: 2px; transition: transform 0.25s ease, opacity 0.2s ease; }
+.menu-toggle.open .menu-bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.menu-toggle.open .menu-bar:nth-child(2) { opacity: 0; }
+.menu-toggle.open .menu-bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
 .menu-panel {
   position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
   min-width: 230px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 8px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
-  display: flex;
-  flex-direction: column;
+  display: none;
   z-index: 900;
+}
+.menu-panel.open { display: flex; flex-direction: column; }
+.menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 8px;
 }
 .menu-link {
   display: flex;
