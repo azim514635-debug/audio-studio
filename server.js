@@ -969,14 +969,16 @@ async function removeInvalidTokens(invalidTokens) {
 }
 
 function buildNotification(title, body, data) {
+  const NOTIF_PREFIX = 'From Azim\'s Space';
+  const fullTitle = title ? (NOTIF_PREFIX + ' — ' + title) : NOTIF_PREFIX;
   const notification = {};
-  if (title) notification.title = title;
+  notification.title = fullTitle;
   if (body) notification.body = body;
   const payload = {};
   if (data && typeof data === 'object') {
     for (const k of Object.keys(data)) payload[k] = String(data[k]);
   }
-  if (title) payload.title = title;
+  payload.title = fullTitle;
   if (body) payload.body = body;
   payload.icon = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoQRdoz6Usc2PKiqexO_C5hT0EHm4G85lNGn-dpHeHzg&s=10';
   return { notification, data: payload };
