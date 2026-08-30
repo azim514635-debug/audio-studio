@@ -1283,7 +1283,7 @@ body.samurai-theme .samurai-video-bg video {
   height: 100vh;
   transform: translateX(-50%) translateY(-50%) scale(1.45);
   object-fit: cover;
-  filter: grayscale(100%) brightness(0.4);
+  filter: saturate(1.05) brightness(1);
   mute: true; /* Volume set to 0 */
   pointer-events: none;
 }
