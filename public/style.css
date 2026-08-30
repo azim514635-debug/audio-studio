@@ -143,6 +143,7 @@ body {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  position: relative;
 }
 
 .bg-music-toggle {
@@ -171,42 +172,21 @@ body {
   border-color: var(--accent);
 }
 
-/* ================= HAMBURGER MENU ================= */
-.menu-toggle {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-.menu-toggle:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--accent); }
-.menu-bar { width: 20px; height: 2px; background: #fff; border-radius: 2px; transition: transform 0.25s ease, opacity 0.2s ease; }
-.menu-toggle.open .menu-bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-.menu-toggle.open .menu-bar:nth-child(2) { opacity: 0; }
-.menu-toggle.open .menu-bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
+/* ================= VERTICAL MENU COLUMN (below avatar/button) ================= */
 .menu-panel {
   position: absolute;
-  top: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(100% + 8px);
+  right: 0;
   min-width: 230px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 8px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
-  display: none;
+  display: flex;
+  flex-direction: column;
   z-index: 900;
 }
-.menu-panel.open { display: flex; flex-direction: column; }
 .menu-link {
   display: flex;
   align-items: center;
@@ -1195,31 +1175,31 @@ body.keyboard-open .notif-fab {
 
 /* ====================== SAMURAI THEME ======================= */
 body.samurai-theme {
-  --bg-dark: rgba(10, 10, 10, 0.55);
-  --bg-elev: rgba(18, 18, 18, 0.6);
-  --bg-card: rgba(20, 20, 20, 0.45);
-  --bg-input: rgba(6, 8, 12, 0.55);
-  --accent: #b8860b;
-  --accent-hover: #cd9b1d;
-  --accent-soft: rgba(184, 134, 11, 0.14);
-  --accent-2: #daa520;
+  --bg-dark: rgba(6, 12, 16, 0.55);
+  --bg-elev: rgba(10, 20, 26, 0.6);
+  --bg-card: rgba(10, 24, 30, 0.45);
+  --bg-input: rgba(4, 10, 14, 0.55);
+  --accent: #22d3ee;
+  --accent-hover: #06b6d4;
+  --accent-soft: rgba(34, 211, 238, 0.14);
+  --accent-2: #67e8f9;
   --danger: #b71c1c;
   --danger-hover: #d32f2f;
   --success: #2e7d32;
-  --text-main: #f5f5f5;
-  --text-muted: #c8c8c8;
-  --text-dim: #9a9a9a;
-  --border: rgba(184, 134, 11, 0.3);
+  --text-main: #f2feff;
+  --text-muted: #d0e6ee;
+  --text-dim: #9dbdcc;
+  --border: rgba(34, 211, 238, 0.3);
   --radius: 16px;
   --radius-sm: 10px;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  --grad-brand: linear-gradient(135deg, #b8860b, #ffbf47);
-  --grad-hero: linear-gradient(135deg, #8d6e63, #a78b5e);
+  --grad-brand: linear-gradient(135deg, #22d3ee, #2dd4bf);
+  --grad-hero: linear-gradient(135deg, #0e7490, #22d3ee);
   background:
     var(--bg-dark);
   color: var(--text-main);
 }
-body.samurai-theme .topbar { background: rgba(13, 13, 13, 0.7); }
+body.samurai-theme .topbar { background: rgba(4, 12, 16, 0.7); }
 body.samurai-theme .card,
 body.samurai-theme .modal-card,
 body.samurai-theme .queue-item,
@@ -1230,79 +1210,77 @@ body.samurai-theme .msg-bubble {
 body.samurai-theme .header-card {
   background: var(--grad-hero) !important;
   border: 1px solid var(--border);
-  box-shadow: 0 0 14px rgba(184, 134, 11, 0.35);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.35);
 }
 body.samurai-theme .header-card h1,
-body.samurai-theme .header-card p { color: #fafafa; text-shadow: 0 0 6px rgba(184, 134, 11, 0.6); }
+body.samurai-theme .header-card p { color: #eafcff; text-shadow: 0 0 6px rgba(34, 211, 238, 0.6); }
 body.samurai-theme .brand-name,
 body.samurai-theme .badge,
 body.samurai-theme .menu-link,
-body.samurai-theme .menu-link.active,
-body.samurai-theme .menu-bar { color: #b8860b; }
-body.samurai-theme .menu-bar { background: #b8860b; }
+body.samurai-theme .menu-link.active { color: #22d3ee; }
 body.samurai-theme .menu-link:hover,
-body.samurai-theme .menu-link.active { background: rgba(184, 134, 11, 0.12); color: #cd9b1d; }
-body.samurai-theme .menu-link.active { border-color: #b8860b; }
+body.samurai-theme .menu-link.active { background: rgba(34, 211, 238, 0.12); color: #67e8f9; }
+body.samurai-theme .menu-link.active { border-color: #22d3ee; }
 body.samurai-theme button {
   font-family: inherit;
   text-shadow: none;
 }
-body.samurai-theme button:not(.theme-toggle-btn) { color: #e8d9a8; }
+body.samurai-theme button:not(.theme-toggle-btn) { color: #d7f7ff; }
 body.samurai-theme .btn-primary {
-  background: rgba(15, 15, 15, 0.35);
-  color: #e8d9a8;
-  border: 1px solid rgba(184, 134, 11, 0.55);
-  box-shadow: 0 0 10px rgba(184, 134, 11, 0.25);
+  background: rgba(8, 24, 32, 0.35);
+  color: #d7f7ff;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.25);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
-body.samurai-theme .btn-primary:hover { background: rgba(184, 134, 11, 0.28); color: #f5e7bd; border-color: #b8860b; }
+body.samurai-theme .btn-primary:hover { background: rgba(34, 211, 238, 0.28); color: #eafcff; border-color: #22d3ee; }
 body.samurai-theme .btn-secondary {
   background: transparent;
-  color: #b8860b;
-  border: 1px solid #b8860b;
+  color: #22d3ee;
+  border: 1px solid #22d3ee;
 }
-body.samurai-theme .btn-secondary:hover { background: rgba(184, 134, 11, 0.12); color: #cd9b1d; }
+body.samurai-theme .btn-secondary:hover { background: rgba(34, 211, 238, 0.12); color: #67e8f9; }
 body.samurai-theme .btn-danger { background: rgba(183, 28, 28, 0.45); color: #ffd9d9; border: 1px solid rgba(183, 28, 28, 0.7); }
 body.samurai-theme .btn-danger:hover { background: rgba(211, 47, 47, 0.6); }
-body.samurai-theme .segmented { background: rgba(12, 12, 12, 0.4); border-color: rgba(184, 134, 11, 0.5); }
-body.samurai-theme .seg-btn { color: #a9a9a9; }
-body.samurai-theme .seg-btn:hover { background: rgba(184, 134, 11, 0.12); color: #b8860b; }
-body.samurai-theme .seg-btn.active { background: rgba(184, 134, 11, 0.35); color: #1a1a1a; text-shadow: none; box-shadow: 0 0 10px rgba(184, 134, 11, 0.4); }
-body.samurai-theme .seg-btn.active:hover { background: rgba(205, 155, 29, 0.45); color: #1a1a1a; text-shadow: none; }
+body.samurai-theme .segmented { background: rgba(6, 16, 22, 0.4); border-color: rgba(34, 211, 238, 0.5); }
+body.samurai-theme .seg-btn { color: #a9d5e3; }
+body.samurai-theme .seg-btn:hover { background: rgba(34, 211, 238, 0.12); color: #22d3ee; }
+body.samurai-theme .seg-btn.active { background: rgba(34, 211, 238, 0.35); color: #062a33; text-shadow: none; box-shadow: 0 0 10px rgba(34, 211, 238, 0.4); }
+body.samurai-theme .seg-btn.active:hover { background: rgba(6, 182, 212, 0.45); color: #062a33; text-shadow: none; }
 body.samurai-theme .track-item:hover,
-body.samurai-theme .track-item { border-color: var(--border); background: rgba(184, 134, 11, 0.06); }
+body.samurai-theme .track-item { border-color: var(--border); background: rgba(34, 211, 238, 0.06); }
 body.samurai-theme .track-thumb,
 body.samurai-theme .track-thumb-placeholder,
 body.samurai-theme audio,
-body.samurai-theme video { background: #121212; }
-body.samurai-theme .track-thumb-placeholder { background: linear-gradient(135deg, #1e293b, #2c3e50); }
+body.samurai-theme video { background: #0a151b; }
+body.samurai-theme .track-thumb-placeholder { background: linear-gradient(135deg, #0e2a35, #123a47); }
 body.samurai-theme .track-title,
 body.samurai-theme .card-header h3,
-body.samurai-theme .queue-name { color: #b8860b; }
+body.samurai-theme .queue-name { color: #22d3ee; }
 body.samurai-theme .queue-item,
 body.samurai-theme .msg-bubble,
 body.samurai-theme .channel-item,
-body.samurai-theme .request-item { background: rgba(184, 134, 11, 0.07); border-color: var(--border); }
-body.samurai-theme .msg-avatar { background: #b8860b; color: #1a1a1a; text-shadow: none; }
-body.samurai-theme .msg-row.own .msg-avatar { background: #cd9b1d; color: #1a1a1a; }
-body.samurai-theme .msg-row.own .msg-bubble { background: rgba(184, 134, 11, 0.16); border-color: #b8860b; }
+body.samurai-theme .request-item { background: rgba(34, 211, 238, 0.07); border-color: var(--border); }
+body.samurai-theme .msg-avatar { background: #22d3ee; color: #062a33; text-shadow: none; }
+body.samurai-theme .msg-row.own .msg-avatar { background: #67e8f9; color: #062a33; }
+body.samurai-theme .msg-row.own .msg-bubble { background: rgba(34, 211, 238, 0.16); border-color: #22d3ee; }
 body.samurai-theme .msg-user,
-body.samurai-theme .request-item strong { color: #cd9b1d; }
-body.samurai-theme .msg.row.own .msg-user { color: #b8860b; }
+body.samurai-theme .request-item strong { color: #67e8f9; }
+body.samurai-theme .msg.row.own .msg-user { color: #22d3ee; }
 body.samurai-theme .notif-fab .admin-circle,
-body.samurai-theme .admin-fab .admin-circle { background: rgba(184, 134, 11, 0.15); border-color: #b8860b; color: #b8860b; }
-body.samurai-theme .notif-fab .admin-circle.unlocked { background: #b8860b; color: #1a1a1a; }
-body.samurai-theme #drop-zone { border-color: #b8860b; }
+body.samurai-theme .admin-fab .admin-circle { background: rgba(34, 211, 238, 0.15); border-color: #22d3ee; color: #22d3ee; }
+body.samurai-theme .notif-fab .admin-circle.unlocked { background: #22d3ee; color: #062a33; }
+body.samurai-theme #drop-zone { border-color: #22d3ee; }
 body.samurai-theme .notif-status-dot.on,
 body.samurai-theme .notif-status-dot.off { text-shadow: none; }
 body.samurai-theme input:focus,
-body.samurai-theme textarea:focus { border-color: #b8860b; box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.18); }
+body.samurai-theme textarea:focus { border-color: #22d3ee; box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18); }
 body.samurai-theme .instagram-link,
 body.samurai-theme .instagram-link img,
-body.samurai-theme .footer-author strong { color: #b8860b; }
-body.samurai-theme ::-webkit-scrollbar-thumb { background: #b8860b; }
-body.samurai-theme ::-webkit-scrollbar-thumb:hover { background: #cd9b1d; }
+body.samurai-theme .footer-author strong { color: #22d3ee; }
+body.samurai-theme ::-webkit-scrollbar-thumb { background: #22d3ee; }
+body.samurai-theme ::-webkit-scrollbar-thumb:hover { background: #67e8f9; }
 
 /* Samurai theme video background - muted */
  body.samurai-theme .samurai-video-bg {
