@@ -756,13 +756,6 @@ async function fetchLibrary() {
 
 /* Admin dashboard + requests                                          */
 /* ------------------------------------------------------------------ */
-        </div>
-        ${seenHtml(l)}
-        <a class="btn-primary download-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${l.id}')">⬇ Click here to download</a>
-      </div>
-    </li>`).join('');
-}
-
 window.viewInfo = function (type, title, uploader) {
   showAlert(`File Details:\n- Type: ${type}\n- Title: ${title}\n- Uploaded By: ${uploader}`);
 };
