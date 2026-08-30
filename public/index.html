@@ -12,10 +12,24 @@
   <title>Azim's Space — Audio & Video Upload + Chat</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <!-- YouTube video loop background (hacker theme) -->
-  <div id="hacker-video-bg" class="hacker-video-bg">
-    <iframe id="hacker-youtube-iframe" src="https://www.youtube.com/embed/yHaFiWVwPNY?loop=1&playlist=yHaFiWVwPNY&controls=0&showinfo=0&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+<body class="samurai-theme">
+  <!-- Theme video loop background (muted, volume 0) -->
+  <div id="theme-video-bg" class="samurai-video-bg">
+    <video autoplay loop muted playsinline>
+      <source src="" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+
+  <!-- Theme music player -->
+  <div id="theme-music-player" class="notif-prompt hidden">
+    <div class="notif-prompt-inner">
+      <span class="notif-prompt-icon">🎵</span>
+      <div class="notif-prompt-text">
+        <strong>Theme Music</strong>
+        <span id="theme-music-text">No music selected</span>
+      </div>
+    </div>
   </div>
 
   <!-- Register / Login modal -->
@@ -191,7 +205,6 @@
         <div class="user-avatar" id="user-avatar">
           <span class="avatar-initials" id="avatar-initials">👤</span>
         </div>
-        <button type="button" id="theme-toggle" class="theme-toggle-btn" title="Toggle hacker theme" aria-label="Toggle hacker theme">🖥️</button>
       </div>
     </header>
 
@@ -314,6 +327,38 @@
                   <button type="button" class="thumb-clear" id="link-thumb-clear-btn" title="Remove thumbnail">×</button>
                 </div>
               </div>
+            </div>
+
+            <!-- Theme video source -->
+            <div class="field-label" style="margin: 14px 0 6px;">Theme Video</div>
+            <div class="segmented" style="margin-bottom: 10px;">
+              <button type="button" class="seg-btn active" data-theme-src="none">None</button>
+              <button type="button" class="seg-btn" data-theme-src="upload">From Upload</button>
+              <button type="button" class="seg-btn" data-theme-src="device">From Device</button>
+            </div>
+            <div id="theme-video-url-wrap" style="display:none;">
+              <input type="url" id="theme-video-url" placeholder="Video URL (mp4/webm)">
+            </div>
+            <div id="theme-device-wrap" style="display:none;">
+              <input type="file" id="theme-video-file" accept="video/*" hidden>
+              <button type="button" class="btn-secondary" id="pick-theme-video-btn">Choose Video</button>
+              <span id="theme-video-file-name">No video selected</span>
+            </div>
+
+            <!-- Theme music -->
+            <div class="field-label" style="margin: 14px 0 6px;">Theme Music</div>
+            <div class="segmented" style="margin-bottom: 10px;">
+              <button type="button" class="seg-btn active" data-music-src="none">None</button>
+              <button type="button" class="seg-btn" data-music-src="upload">From Upload</button>
+              <button type="button" class="seg-btn" data-music-src="device">From Device</button>
+            </div>
+            <div id="theme-music-url-wrap" style="display:none;">
+              <input type="url" id="theme-music-url" placeholder="Music URL">
+            </div>
+            <div id="theme-music-device-wrap" style="display:none;">
+              <input type="file" id="theme-music-file" accept="audio/*" hidden>
+              <button type="button" class="btn-secondary" id="pick-theme-music-btn">Choose Music</button>
+              <span id="theme-music-file-name">No music selected</span>
             </div>
 
             <!-- Thumbnail: URL or file -->
