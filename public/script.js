@@ -798,9 +798,7 @@ window.deleteItem = async function (type, id) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) { showAlert(data.error || 'Delete failed.'); return; }
   loadBossDashboard();
-  fetchGlobalTracks();
-  fetchGlobalMovies();
-  fetchGlobalLinks();
+  fetchLibrary();
 };
 
 window.renameItem = async function (type, id, oldTitle) {
@@ -815,8 +813,7 @@ window.renameItem = async function (type, id, oldTitle) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) { showAlert(data.error || 'Rename failed.'); return; }
   loadBossDashboard();
-  fetchGlobalTracks();
-  fetchGlobalMovies();
+  fetchLibrary();
 };
 
 /* ------------------------------------------------------------------ */
@@ -1025,7 +1022,7 @@ window.approveAccount = async function (name) {
 };
 
 $('clear-permanent-accounts-btn').addEventListener('click', async () => {
-  if (!isBossUnlocked && !isBossUnlocked) { showAlert('Boss access required.'); return; }
+  if (!isBossUnlocked) { showAlert('Boss access required.'); return; }
   if (!await showConfirm('Remove ALL permanently disabled accounts from the system? This cannot be undone.', 'Clear Permanently Deleted')) return;
   try {
     const res = await fetch('/api/auth/clear-permanent', {
@@ -1214,6 +1211,8 @@ $('thumb-clear-btn').addEventListener('click', () => {
 
 $('thumb-url').addEventListener('input', updateThumbPreview);
 
+let lastThumbObjectUrl = '';
+
 function getThumbnailUrlValue() {
   return currentThumbSource === 'url' ? $('thumb-url').value.trim() : '';
 }
@@ -1226,15 +1225,21 @@ function updateThumbPreview() {
     : (selectedThumbFile ? URL.createObjectURL(selectedThumbFile) : '');
 
   if (currentThumbSource === 'file' && selectedThumbFile) {
+    if (lastThumbObjectUrl) URL.revokeObjectURL(lastThumbObjectUrl);
+    lastThumbObjectUrl = thumbVal;
     preview.style.display = 'inline-block';
     img.src = thumbVal;
     return;
   }
   if (currentThumbSource === 'url' && thumbVal) {
+    if (lastThumbObjectUrl) URL.revokeObjectURL(lastThumbObjectUrl);
+    lastThumbObjectUrl = '';
     preview.style.display = 'inline-block';
     img.src = thumbVal;
     return;
   }
+  if (lastThumbObjectUrl) URL.revokeObjectURL(lastThumbObjectUrl);
+  lastThumbObjectUrl = '';
   preview.style.display = 'none';
   img.src = '';
 }
@@ -1244,6 +1249,7 @@ function updateThumbPreview() {
 /* ------------------------------------------------------------------ */
 let currentLinkThumbSource = 'url';
 let selectedLinkThumbFile = null;
+let lastLinkThumbObjectUrl = '';
 
 document.querySelectorAll('#link-thumb-seg .seg-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -1287,10 +1293,14 @@ function updateLinkThumbPreview() {
     : (selectedLinkThumbFile ? URL.createObjectURL(selectedLinkThumbFile) : '');
 
   if ((currentLinkThumbSource === 'file' && selectedLinkThumbFile) || (currentLinkThumbSource === 'url' && thumbVal)) {
+    if (lastLinkThumbObjectUrl) URL.revokeObjectURL(lastLinkThumbObjectUrl);
+    lastLinkThumbObjectUrl = currentLinkThumbSource === 'file' ? thumbVal : '';
     preview.style.display = 'inline-block';
     img.src = thumbVal;
     return;
   }
+  if (lastLinkThumbObjectUrl) URL.revokeObjectURL(lastLinkThumbObjectUrl);
+  lastLinkThumbObjectUrl = '';
   preview.style.display = 'none';
   img.src = '';
 }
@@ -1502,9 +1512,7 @@ function addHistoryItem(item, type) {
     </div>`;
   history.prepend(box);
 
-  fetchGlobalTracks();
-  fetchGlobalMovies();
-  fetchGlobalLinks();
+  fetchLibrary();
 }
 
 async function startLinkUpload() {
@@ -1670,7 +1678,7 @@ $('chat-input').addEventListener('input', () => {
 });
 
 $('clear-chat-btn').addEventListener('click', async () => {
-  if (!isBossUnlocked && !isBossUnlocked) return;
+  if (!isBossUnlocked) return;
   if (!(await showConfirm('Clear ALL chat messages?'))) return;
   const res = await fetch('/api/messages/clear', {
     method: 'POST',
@@ -1686,7 +1694,7 @@ $('clear-chat-btn').addEventListener('click', async () => {
   }
 });
 
-setInterval(() => loadMessages(), 3500);
+setInterval(() => { if (currentUser) loadMessages(); }, 3500);
 
 /* ------------------------------------------------------------------ */
 /* FIREBASE CLOUD MESSAGING — PUSH NOTIFICATIONS                       */
@@ -1971,7 +1979,7 @@ function navigatePageName(p) {
 
 /* Boss: send an announcement to all users */
 $('send-notif-btn').addEventListener('click', async () => {
-  if (!isBossUnlocked && !isBossUnlocked) { showAlert('Boss access required to send notifications.'); return; }
+  if (!isBossUnlocked) { showAlert('Boss access required to send notifications.'); return; }
   const title = $('notif-title').value.trim();
   const body = $('notif-body').value.trim();
   if (!title && !body) { showAlert('Please enter a title or message.'); return; }
@@ -2045,8 +2053,6 @@ updateKeyboardState();
 /* ------------------------------------------------------------------ */
 checkUserSession();
 fetchLibrary();
-  fetchLibrary();
-  fetchLibrary();
 loadMessages({ force: true });
 updateQueueTitle();
 initMessaging();
