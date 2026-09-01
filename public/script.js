@@ -1,6 +1,46 @@
 const $ = (id) => document.getElementById(id);
 
 /* ------------------------------------------------------------------ */
+/* Direct-to-Cloudinary upload (signed)                                */
+/* ------------------------------------------------------------------ */
+/* Vercel host: the browser uploads files straight to Cloudinary, then
+   the server only records metadata. `onProgress(percent)` is optional. */
+async function getCloudinarySignature(resourceType, folder) {
+  const q = new URLSearchParams({ type: resourceType });
+  if (folder) q.set('folder', folder);
+  const res = await fetch('/api/upload/cloudinary-sign?' + q.toString());
+  if (!res.ok) throw new Error('Failed to get upload signature (' + res.status + ')');
+  return res.json();
+}
+
+function directUploadToCloudinary(file, sig, resourceType, onProgress) {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('folder', sig.folder);
+    fd.append('resource_type', resourceType);
+    fd.append('timestamp', sig.timestamp);
+    fd.append('signature', sig.signature);
+    fd.append('api_key', sig.apiKey);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + sig.cloudName + '/' + resourceType + '/upload');
+    xhr.upload.onprogress = (e) => {
+      if (onProgress && e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
+    };
+    xhr.onload = () => {
+      try {
+        const r = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300 && r.secure_url) resolve(r.secure_url);
+        else reject(new Error((r && r.error && r.error.message) || ('Upload failed (' + xhr.status + ')')));
+      } catch (e) { reject(new Error('Upload failed (' + xhr.status + ')')); }
+    };
+    xhr.onerror = () => reject(new Error('Network error during upload.'));
+    xhr.send(fd);
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Themed alert / confirm popups (replace native alert/confirm)        */
 /* ------------------------------------------------------------------ */
 function showAlert(msg, title, icon) {
@@ -1315,16 +1355,24 @@ async function startLinkItemUpload() {
   queueItems.push({ key, name: title || url, kindLabel: 'Link', status: 'uploading', progress: 50, progressText: 'Adding link…' });
   renderQueue();
 
-  const formData = new FormData();
-  formData.append('title', title || 'Untitled');
-  formData.append('url', url);
-  formData.append('uploader', currentUser || 'Anonymous');
-  const thumbUrl = getLinkThumbUrlValue();
-  if (thumbUrl) formData.append('thumbnailUrl', thumbUrl);
-  if (currentLinkThumbSource === 'file' && selectedLinkThumbFile) formData.append('thumbnailFile', selectedLinkThumbFile);
-
   try {
-    const res = await fetch('/api/upload/link-item', { method: 'POST', body: formData });
+    let thumbUrl = getLinkThumbUrlValue();
+    if (!thumbUrl && currentLinkThumbSource === 'file' && selectedLinkThumbFile) {
+      updateQueueProgress(key, 70, { progressText: 'Uploading thumbnail…' });
+      const thumbSig = await getCloudinarySignature('image', 'azim_thumbs');
+      thumbUrl = await directUploadToCloudinary(selectedLinkThumbFile, thumbSig, 'image');
+    }
+
+    const res = await fetch('/api/upload/finalize-link-item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title || 'Untitled',
+        url,
+        uploader: currentUser || 'Anonymous',
+        thumbnailUrl: thumbUrl || ''
+      })
+    });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success) {
       updateQueueProgress(key, 100, { status: 'done', data: data.item });
@@ -1444,55 +1492,47 @@ async function startDeviceUpload() {
   renderQueue();
 }
 
-function uploadOneFile(file, title, type, thumbnailUrl) {
-  return new Promise((resolve) => {
-    const key = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-    const label = type === 'movie' ? 'Video' : (type === 'link' ? 'Link' : 'Audio');
-    queueItems.push({ key, name: title, kindLabel: label, status: 'waiting', progress: 0, error: '' });
-    renderQueue();
+async function uploadOneFile(file, title, type, thumbnailUrl) {
+  const key = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+  const label = type === 'movie' ? 'Video' : (type === 'link' ? 'Link' : 'Audio');
+  queueItems.push({ key, name: title, kindLabel: label, status: 'waiting', progress: 0, error: '' });
+  renderQueue();
+  updateQueueProgress(key, 2, { status: 'uploading', progressText: 'Preparing…' });
 
-    const formData = new FormData();
-    formData.append('mediaFile', file);
-    formData.append('type', type);
-    formData.append('title', title);
-    formData.append('uploader', currentUser || 'Anonymous');
-    if (thumbnailUrl) formData.append('thumbnailUrl', thumbnailUrl);
-    if (currentThumbSource === 'file' && selectedThumbFile) formData.append('thumbnailFile', selectedThumbFile);
+  try {
+    const sig = await getCloudinarySignature('auto', 'azim_media');
+    const mediaUrl = await directUploadToCloudinary(file, sig, 'auto', (pct) => {
+      updateQueueProgress(key, pct, { progressText: 'Uploading… ' + pct + '%', loaded: Math.round((file.size * pct) / 100) });
+    });
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload');
-    updateQueueProgress(key, 3, { status: 'uploading', progressText: 'Uploading…' });
+    let finalThumb = thumbnailUrl || '';
+    if (!finalThumb && currentThumbSource === 'file' && selectedThumbFile) {
+      const thumbSig = await getCloudinarySignature('image', 'azim_thumbs');
+      finalThumb = await directUploadToCloudinary(selectedThumbFile, thumbSig, 'image');
+    }
 
-    xhr.upload.onprogress = (e) => {
-      if (!e.lengthComputable) return;
-      const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
-      updateQueueProgress(key, pct, { progressText: pct + '%', loaded: e.loaded });
-    };
-
-    xhr.onload = () => {
-      let data = {};
-      try { data = JSON.parse(xhr.responseText); } catch (e) { data = { error: xhr.responseText }; }
-      if (xhr.status >= 200 && xhr.status < 300 && data.success) {
-        updateQueueProgress(key, 100, { status: 'done', data: data.item });
-        addHistoryItem(data.item, type);
-      } else {
-        updateQueueProgress(key, 100, { status: 'error', error: data.error || ('Upload failed (' + xhr.status + ')') });
-      }
-      resolve();
-    };
-
-    xhr.onerror = () => {
-      updateQueueProgress(key, 100, { status: 'error', error: 'Network error during upload.' });
-      resolve();
-    };
-
-    xhr.onabort = () => {
-      updateQueueProgress(key, 100, { status: 'error', error: 'Upload aborted.' });
-      resolve();
-    };
-
-    xhr.send(formData);
-  });
+    updateQueueProgress(key, 99, { status: 'uploading', progressText: 'Saving…' });
+    const res = await fetch('/api/upload/finalize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        type,
+        uploader: currentUser || 'Anonymous',
+        mediaUrl,
+        thumbnailUrl: finalThumb || ''
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      updateQueueProgress(key, 100, { status: 'done', data: data.item });
+      addHistoryItem(data.item, type);
+    } else {
+      updateQueueProgress(key, 100, { status: 'error', error: data.error || ('Upload failed (' + res.status + ')') });
+    }
+  } catch (e) {
+    updateQueueProgress(key, 100, { status: 'error', error: e.message || 'Upload failed.' });
+  }
 }
 
 function addHistoryItem(item, type) {
@@ -1531,17 +1571,24 @@ async function startLinkUpload() {
   queueItems.push({ key, name: title, kindLabel: typeLabel(), status: 'uploading', progress: 50, progressText: 'Adding link…' });
   renderQueue();
 
-  const formData = new FormData();
-  formData.append('type', kindName());
-  formData.append('title', title);
-  formData.append('uploader', currentUser || 'Anonymous');
-  formData.append('mediaUrl', mediaUrl);
-  if (thumbUrl) formData.append('thumbnailUrl', thumbUrl);
-  if (currentThumbSource === 'file' && selectedThumbFile) formData.append('thumbnailFile', selectedThumbFile);
-  formData.append('bossSecret', bossSecret);
-
   try {
-    const res = await fetch('/api/upload/link', { method: 'POST', body: formData });
+    let finalThumb = thumbUrl || '';
+    if (!finalThumb && currentThumbSource === 'file' && selectedThumbFile) {
+      updateQueueProgress(key, 70, { progressText: 'Uploading thumbnail…' });
+      const thumbSig = await getCloudinarySignature('image', 'azim_thumbs');
+      finalThumb = await directUploadToCloudinary(selectedThumbFile, thumbSig, 'image');
+    }
+
+    const res = await fetch('/api/upload/finalize-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-boss-secret': bossSecret || '' },
+      body: JSON.stringify({
+        title,
+        uploader: currentUser || 'Anonymous',
+        mediaUrl,
+        thumbnailUrl: finalThumb || ''
+      })
+    });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success) {
       updateQueueProgress(key, 100, { status: 'done', data: data.item });

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload movies directly to azim-studio.onrender.com — no CSV, no localhost.
+"""Upload movies directly to azim.run.place — no CSV, no localhost.
 
 Prompts you for the boss secret and each movie (title, download URL,
 thumbnail URL) and posts it straight to the site's boss upload endpoint.
@@ -21,7 +21,7 @@ import urllib.parse
 import urllib.request
 
 ENDPOINT = "/api/upload/link-item"
-LIVE_BASE_URL = "https://azim-studio.onrender.com"
+LIVE_BASE_URL = "https://azim.run.place"
 
 
 def load_env_file(path=".env"):
