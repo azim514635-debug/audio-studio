@@ -10,8 +10,10 @@ const admin = require('firebase-admin');
 const { getMessaging: fbGetMessaging } = require('firebase-admin/messaging');
 const { getDatabase: fbGetDatabase } = require('firebase-admin/database');
 
-if (fs.existsSync(path.join(__dirname, '.env'))) {
-  for (const line of fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split('\n')) {
+const envCandidates = [path.join(__dirname, '.env'), path.join(__dirname, '..', '.env')];
+const envFile = envCandidates.find((f) => fs.existsSync(f));
+if (envFile) {
+  for (const line of fs.readFileSync(envFile, 'utf8').split('\n')) {
     const m = line.match(/^\s*([\w.-]+)\s*=\s*(.*)\s*$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
   }
@@ -34,11 +36,16 @@ function resolveServiceAccount() {
     return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
   }
   const pathList = [process.env.FIREBASE_SERVICE_ACCOUNT_PATH, process.env.GOOGLE_APPLICATION_CREDENTIALS];
+  const rootDir = path.join(__dirname, '..'); // project root fallback (e.g. when bundled into functions/)
   for (const p of pathList) {
     if (!p) continue;
-    const abs = path.isAbsolute(p) ? p : path.join(__dirname, p);
-    if (fs.existsSync(abs)) {
-      return JSON.parse(fs.readFileSync(abs, 'utf8'));
+    if (path.isAbsolute(p)) {
+      if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
+    } else {
+      const candidates = [path.join(__dirname, p), path.join(rootDir, p)];
+      for (const abs of candidates) {
+        if (fs.existsSync(abs)) return JSON.parse(fs.readFileSync(abs, 'utf8'));
+      }
     }
   }
   return null;
@@ -69,7 +76,9 @@ function initFirebase() {
     return;
   }
   try {
-    const firebaseApp = admin.initializeApp({ credential: admin.cert(serviceAccount), databaseURL: DB_URL });
+    const firebaseApp = admin.apps && admin.apps.length
+      ? admin.apps[0]
+      : admin.initializeApp({ credential: admin.cert(serviceAccount), databaseURL: DB_URL });
     firebaseAppRef = firebaseApp;
     dbRef = require('firebase-admin/firestore').getFirestore(firebaseApp)
       .collection('studio').doc('data');
@@ -150,7 +159,8 @@ const BOSS_SECRET = process.env.BOSS_SECRET || process.env.ADMIN_SECRET || "azim
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
-  if (req.headers.host.includes('onrender.com')) {
+  const host = req.headers && req.headers.host;
+  if (host && String(host).includes('onrender.com')) {
     return res.redirect(301, 'https://azim.run.place' + req.url);
   }
   next();
@@ -695,6 +705,94 @@ app.post('/api/upload/link-item', upload.single('thumbnailFile'), ah(async (req,
 }));
 
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/* Signed direct-to-Cloudinary uploads (serverless-friendly)           */
+/* ------------------------------------------------------------------ */
+/* On serverless hosts the request body limit and lack of reliable
+   multipart streaming make proxying file uploads through the server
+   impractical. Instead the browser uploads the file straight to
+   Cloudinary and only writes metadata via /api/upload/finalize*. */
+function cloudinarySign(params) {
+  const cfg = cloudinary.config();
+  const timestamp = Math.round(Date.now() / 1000);
+  const toSign = Object.assign({}, params, { timestamp });
+  return {
+    cloudName: cfg.cloud_name,
+    apiKey: cfg.api_key,
+    timestamp,
+    folder: String(params.folder || ''),
+    signature: cloudinary.utils.api_sign_request(toSign, cfg.api_secret)
+  };
+}
+
+app.get('/api/upload/cloudinary-sign', (req, res) => {
+  const { type } = req.query; // 'video' | 'image' | 'auto'
+  const folder = String(req.query.folder || 'azim_uploads');
+  const resourceType = (type && ['video', 'image', 'raw', 'auto'].includes(type)) ? type : 'auto';
+  res.json(cloudinarySign({ folder: folder + '/' + resourceType, resource_type: resourceType }));
+});
+
+async function saveUploadedItem({ title, uploader, type, mediaUrl, thumbnailUrl }) {
+  return withDbWrite(async () => {
+    const db = await getDb();
+    const newItem = {
+      id: makeId(),
+      title: String(title || 'Untitled').trim(),
+      uploader: String(uploader || 'Anonymous').trim(),
+      thumbnailUrl: thumbnailUrl || '',
+      createdAt: new Date().toISOString()
+    };
+    if (type === 'movie' || type === 'movies') {
+      newItem.movieUrl = mediaUrl;
+      db.movies.unshift(newItem);
+    } else {
+      newItem.songUrl = mediaUrl;
+      db.songs.unshift(newItem);
+    }
+    await saveDb(db);
+    return newItem;
+  });
+}
+
+app.post('/api/upload/finalize', ah(async (req, res) => {
+  const { title, uploader, mediaUrl, thumbnailUrl, type } = req.body;
+  if (!mediaUrl) return res.status(400).json({ success: false, error: 'Missing media URL.' });
+  const mediaType = type || mediaTypeFromName(mediaUrl);
+  const item = await saveUploadedItem({ title, uploader, type: mediaType, mediaUrl, thumbnailUrl });
+  sendUploadNotification(mediaType, item.title, item.uploader);
+  res.json({ success: true, type: mediaType, item });
+}));
+
+app.post('/api/upload/finalize-link', ah(async (req, res) => {
+  const { title, uploader, mediaUrl, thumbnailUrl } = req.body;
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!mediaUrl) return res.status(400).json({ success: false, error: 'Missing media URL.' });
+  const mediaType = mediaTypeFromName(mediaUrl);
+  const item = await saveUploadedItem({ title, uploader, type: mediaType, mediaUrl, thumbnailUrl });
+  res.json({ success: true, type: mediaType, item });
+}));
+
+app.post('/api/upload/finalize-link-item', ah(async (req, res) => {
+  const { title, url, uploader, thumbnailUrl } = req.body;
+  if (!url) return res.status(400).json({ success: false, error: 'Missing download URL.' });
+  const item = await withDbWrite(async () => {
+    const db = await getDb();
+    const newItem = {
+      id: makeId(),
+      title: String(title || 'Untitled').trim(),
+      url: String(url).trim(),
+      uploader: String(uploader || 'Anonymous').trim(),
+      thumbnailUrl: String(thumbnailUrl || '').trim(),
+      createdAt: new Date().toISOString()
+    };
+    db.links.unshift(newItem);
+    await saveDb(db);
+    return newItem;
+  });
+  res.json({ success: true, type: 'link', item });
+}));
+
+/* ------------------------------------------------------------------ */
 /* Media management (rename / delete)                                  */
 /* ------------------------------------------------------------------ */
 const canManage = (item, uploader, bossSecret) =>
@@ -1174,4 +1272,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, error: err.message || 'Internal server error' });
 });
 
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+/* Serverless hosts (Netlify/Vercel) import this module and wrap `app`;
+   only bind a port when the file is run directly (node server.js). */
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+}
+
+module.exports = app;
