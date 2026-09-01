@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://azim-studio.onrender.com/sitemap.xml
