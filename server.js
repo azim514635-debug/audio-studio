@@ -149,6 +149,12 @@ const BOSS_SECRET = process.env.BOSS_SECRET || process.env.ADMIN_SECRET || "azim
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+  if (req.headers.host.includes('onrender.com')) {
+    return res.redirect(301, 'https://azim.run.place' + req.url);
+  }
+  next();
+});
 app.use(express.static('public'));
 
 /* Express 4 does not catch rejections from async handlers on its own:
