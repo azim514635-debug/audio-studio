@@ -10,7 +10,12 @@ const admin = require('firebase-admin');
 const { getMessaging: fbGetMessaging } = require('firebase-admin/messaging');
 const { getDatabase: fbGetDatabase } = require('firebase-admin/database');
 
-const envCandidates = [path.join(__dirname, '.env'), path.join(__dirname, '..', '.env')];
+const envCandidates = [
+  path.join(__dirname, '.env.web'),
+  path.join(__dirname, '..', '.env.web'),
+  path.join(__dirname, '.env'),
+  path.join(__dirname, '..', '.env'),
+];
 const envFile = envCandidates.find((f) => fs.existsSync(f));
 if (envFile) {
   for (const line of fs.readFileSync(envFile, 'utf8').split('\n')) {

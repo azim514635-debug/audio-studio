@@ -3,6 +3,8 @@ public/uploads/*
 uploads/
 __pycache__/
 .env
+.env.web
+.env.bot
 firebase-service-account*.json
 *-firebase-adminsdk-*.json
 bot_config.json
