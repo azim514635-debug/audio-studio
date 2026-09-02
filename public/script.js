@@ -238,7 +238,7 @@ function closeChangeNamePopup() {
 })();
 
 function checkUserSession() {
-  if (currentUser && authToken) {
+  if ((currentUser && authToken) || (currentUser && isBossUnlocked)) {
     modalOverlay.classList.add('hidden');
   } else {
     modalOverlay.classList.remove('hidden');
@@ -796,6 +796,7 @@ async function fetchLibrary() {
       <div class="track-actions">
         <button onclick="viewInfo('${typeLabel}', '${jsAttr(it.title)}', '${jsAttr(it.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
         <button onclick="renameItem('${it.kind === 'song' ? 'song' : it.kind}', '${it.id}', '${jsAttr(it.title)}')" class="btn-primary">Rename</button>
+        ${isLink ? `<button onclick="changeUrlItem('${it.id}', '${jsAttr(it.url)}')" class="btn-primary" style="background:#8b5cf6;">Change URL</button>` : ''}
         <button onclick="deleteItem('${it.kind === 'song' ? 'song' : it.kind}', '${it.id}')" class="btn-danger">Delete</button>
       </div>` : '';
     const player = isVideo
@@ -856,6 +857,24 @@ window.renameItem = async function (type, id, oldTitle) {
   fetchLibrary();
 };
 
+window.changeUrlItem = async function (id, oldUrl) {
+  const newUrl = await showPrompt('Enter new download URL', oldUrl, 'Change Link URL', '🔗');
+  if (!newUrl || newUrl.trim() === '' || newUrl.trim() === oldUrl) return;
+  if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+    showAlert('URL must start with http:// or https://');
+    return;
+  }
+  const res = await fetch(`/api/media/link/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newUrl: newUrl.trim(), uploader: currentUser, bossSecret })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { showAlert(data.error || 'Failed to update URL.'); return; }
+  loadBossDashboard();
+  fetchLibrary();
+};
+
 /* ------------------------------------------------------------------ */
 /* Boss dashboard + requests                                          */
 /* ------------------------------------------------------------------ */
@@ -904,12 +923,14 @@ async function loadBossDashboard() {
   if (links.length === 0) html += '<p style="color:#94a3b8; font-size:0.9rem;">No links.</p>';
   links.forEach((l) => {
     const safeTitle = jsAttr(l.title);
+    const safeUrl = jsAttr(l.url);
     html += `
       <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 12px; border-radius:6px; margin-bottom:6px;">
         <span style="color:#fff;">🔗 ${escapeHtml(l.title)} <span style="font-size:0.72rem; color:#94a3b8;">— ${escapeHtml(l.uploader)}</span></span>
         <div style="display:flex; gap:6px;">
-          <button onclick="window.open('${jsAttr(l.url)}','_blank')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Open</button>
+          <button onclick="window.open('${safeUrl}','_blank')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#0ea5e9;">Open</button>
           <button onclick="renameItem('link', '${l.id}', '${safeTitle}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem;">Rename</button>
+          <button onclick="changeUrlItem('${l.id}', '${safeUrl}')" class="btn-primary" style="padding:4px 8px; font-size:0.8rem; background:#8b5cf6;">Change URL</button>
           <button onclick="deleteItem('link', '${l.id}')" class="btn-danger" style="padding:4px 8px; font-size:0.8rem;">Delete</button>
         </div>
       </div>`;
@@ -1095,10 +1116,9 @@ $('send-request-btn').addEventListener('click', async () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* PROFESSIONAL UPLOAD SYSTEM                                          */
+/* PROFESSIONAL UPLOAD SYSTEM (device-only)                            */
 /* ------------------------------------------------------------------ */
 let currentKind = 'audio';
-let currentSource = 'device';
 let currentThumbSource = 'url';
 let selectedMediaFiles = [];
 let selectedThumbFile = null;
@@ -1106,9 +1126,8 @@ let queueItems = [];      // { key, name, kindLabel, status, progress, error, da
 let uploading = false;
 
 function kindIsVideo() { return currentKind === 'video'; }
-function kindIsLink() { return currentKind === 'link'; }
-function kindName() { return currentKind === 'link' ? 'link' : (kindIsVideo() ? 'movie' : 'song'); }
-function typeLabel() { return kindIsLink() ? 'Link' : (kindIsVideo() ? 'Video' : 'Audio'); }
+function kindName() { return kindIsVideo() ? 'movie' : 'song'; }
+function typeLabel() { return kindIsVideo() ? 'Video' : 'Audio'; }
 
 function detectKindFromFile(file) {
   if (!file) return null;
@@ -1130,28 +1149,15 @@ document.querySelectorAll('#media-type-seg .seg-btn').forEach((btn) => {
     btn.classList.add('active');
     renderKindPanes();
     $('media-file').accept = 'audio/*,video/*';
-    $('start-upload-btn').textContent = currentSource === 'link' ? 'Add Link' : (kindIsLink() ? 'Add Link' : 'Upload Media');
+    $('start-upload-btn').textContent = 'Upload Media';
     updateQueueTitle();
   });
 });
 
 function renderKindPanes() {
-  const linkMode = kindIsLink();
-  $('device-pane').style.display = (!linkMode && currentSource === 'device') ? 'block' : 'none';
-  $('link-pane').style.display = (!linkMode && currentSource === 'link') ? 'block' : 'none';
-  $('link-item-pane').style.display = linkMode ? 'block' : 'none';
-  $('thumb-block-root').style.display = linkMode ? 'none' : 'block';
+  $('device-pane').style.display = 'block';
+  $('thumb-block-root').style.display = 'block';
 }
-
-document.querySelectorAll('#source-seg .seg-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    currentSource = btn.dataset.source;
-    document.querySelectorAll('#source-seg .seg-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderKindPanes();
-    $('start-upload-btn').textContent = currentSource === 'link' ? 'Add Link' : (kindIsLink() ? 'Add Link' : 'Upload Media');
-  });
-});
 
 document.querySelectorAll('#thumb-seg .seg-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -1284,113 +1290,6 @@ function updateThumbPreview() {
   img.src = '';
 }
 
-/* ------------------------------------------------------------------ */
-/* LINKS LIBRARY upload (title + URL + thumbnail)                      */
-/* ------------------------------------------------------------------ */
-let currentLinkThumbSource = 'url';
-let selectedLinkThumbFile = null;
-let lastLinkThumbObjectUrl = '';
-
-document.querySelectorAll('#link-thumb-seg .seg-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    currentLinkThumbSource = btn.dataset.lthumb;
-    document.querySelectorAll('#link-thumb-seg .seg-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    $('link-thumb-url-wrap').style.display = currentLinkThumbSource === 'url' ? 'block' : 'none';
-    $('link-thumb-file-wrap').style.display = currentLinkThumbSource === 'file' ? 'block' : 'none';
-    updateLinkThumbPreview();
-  });
-});
-
-const linkThumbFileInput = $('link-thumb-file');
-$('pick-link-thumb-btn').addEventListener('click', (e) => { e.stopPropagation(); linkThumbFileInput.click(); });
-linkThumbFileInput.addEventListener('change', () => {
-  if (linkThumbFileInput.files.length) {
-    selectedLinkThumbFile = linkThumbFileInput.files[0];
-    $('link-thumb-file-name').textContent = selectedLinkThumbFile.name;
-    updateLinkThumbPreview();
-  }
-});
-
-$('link-thumb-clear-btn').addEventListener('click', () => {
-  selectedLinkThumbFile = null;
-  $('link-thumb-url').value = '';
-  $('link-thumb-file-name').textContent = 'No image selected';
-  updateLinkThumbPreview();
-});
-
-$('link-thumb-url').addEventListener('input', updateLinkThumbPreview);
-
-function getLinkThumbUrlValue() {
-  return currentLinkThumbSource === 'url' ? $('link-thumb-url').value.trim() : '';
-}
-
-function updateLinkThumbPreview() {
-  const preview = $('link-thumb-preview');
-  const img = $('link-thumb-preview-img');
-  const thumbVal = currentLinkThumbSource === 'url'
-    ? $('link-thumb-url').value.trim()
-    : (selectedLinkThumbFile ? URL.createObjectURL(selectedLinkThumbFile) : '');
-
-  if ((currentLinkThumbSource === 'file' && selectedLinkThumbFile) || (currentLinkThumbSource === 'url' && thumbVal)) {
-    if (lastLinkThumbObjectUrl) URL.revokeObjectURL(lastLinkThumbObjectUrl);
-    lastLinkThumbObjectUrl = currentLinkThumbSource === 'file' ? thumbVal : '';
-    preview.style.display = 'inline-block';
-    img.src = thumbVal;
-    return;
-  }
-  if (lastLinkThumbObjectUrl) URL.revokeObjectURL(lastLinkThumbObjectUrl);
-  lastLinkThumbObjectUrl = '';
-  preview.style.display = 'none';
-  img.src = '';
-}
-
-async function startLinkItemUpload() {
-  if (!requireName()) return;
-  const title = $('link-item-title').value.trim();
-  const url = $('link-item-url').value.trim();
-  if (!url) { showAlert('Please enter the download URL.'); return; }
-
-  const key = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-  queueItems.push({ key, name: title || url, kindLabel: 'Link', status: 'uploading', progress: 50, progressText: 'Adding link…' });
-  renderQueue();
-
-  try {
-    let thumbUrl = getLinkThumbUrlValue();
-    if (!thumbUrl && currentLinkThumbSource === 'file' && selectedLinkThumbFile) {
-      updateQueueProgress(key, 70, { progressText: 'Uploading thumbnail…' });
-      const thumbSig = await getCloudinarySignature('image', 'azim_thumbs');
-      thumbUrl = await directUploadToCloudinary(selectedLinkThumbFile, thumbSig, 'image');
-    }
-
-    const res = await fetch('/api/upload/finalize-link-item', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: title || 'Untitled',
-        url,
-        uploader: currentUser || 'Anonymous',
-        thumbnailUrl: thumbUrl || ''
-      })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.success) {
-      updateQueueProgress(key, 100, { status: 'done', data: data.item });
-      addHistoryItem(data.item, 'link');
-      $('link-item-title').value = '';
-      $('link-item-url').value = '';
-      $('link-thumb-url').value = '';
-      selectedLinkThumbFile = null;
-      $('link-thumb-file-name').textContent = 'No image selected';
-      updateLinkThumbPreview();
-    } else {
-      updateQueueProgress(key, 100, { status: 'error', error: data.error || ('Link upload failed (' + res.status + ')') });
-    }
-  } catch (e) {
-    updateQueueProgress(key, 100, { status: 'error', error: 'Network error: ' + e.message });
-  }
-}
-
 /* Queue UI */
 function updateQueueTitle() {
   $('queue-title').textContent = `${typeLabel()} Upload Queue`;
@@ -1457,9 +1356,7 @@ function updateQueueProgress(key, progress, extra) {
 
 /* submit */
 $('start-upload-btn').addEventListener('click', () => {
-  if (kindIsLink()) { startLinkItemUpload(); return; }
-  if (currentSource === 'device') startDeviceUpload();
-  else startLinkUpload();
+  startDeviceUpload();
 });
 
 async function startDeviceUpload() {
@@ -1553,52 +1450,6 @@ function addHistoryItem(item, type) {
   history.prepend(box);
 
   fetchLibrary();
-}
-
-async function startLinkUpload() {
-  if (!requireName()) return;
-  const mediaUrl = $('media-url').value.trim();
-  if (!mediaUrl) { showAlert('Please enter the direct media URL.'); return; }
-
-  if (!isBossUnlocked) {
-    const ok = await ensureBossAccess();
-    if (!ok) return;
-  }
-  const title = $('media-title').value.trim() || 'Untitled';
-  const thumbUrl = getThumbnailUrlValue();
-
-  const key = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-  queueItems.push({ key, name: title, kindLabel: typeLabel(), status: 'uploading', progress: 50, progressText: 'Adding link…' });
-  renderQueue();
-
-  try {
-    let finalThumb = thumbUrl || '';
-    if (!finalThumb && currentThumbSource === 'file' && selectedThumbFile) {
-      updateQueueProgress(key, 70, { progressText: 'Uploading thumbnail…' });
-      const thumbSig = await getCloudinarySignature('image', 'azim_thumbs');
-      finalThumb = await directUploadToCloudinary(selectedThumbFile, thumbSig, 'image');
-    }
-
-    const res = await fetch('/api/upload/finalize-link', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-boss-secret': bossSecret || '' },
-      body: JSON.stringify({
-        title,
-        uploader: currentUser || 'Anonymous',
-        mediaUrl,
-        thumbnailUrl: finalThumb || ''
-      })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.success) {
-      updateQueueProgress(key, 100, { status: 'done', data: data.item });
-      addHistoryItem(data.item, kindName());
-    } else {
-      updateQueueProgress(key, 100, { status: 'error', error: data.error || ('Link upload failed (' + res.status + ')') });
-    }
-  } catch (e) {
-    updateQueueProgress(key, 100, { status: 'error', error: 'Network error: ' + e.message });
-  }
 }
 
 /* ------------------------------------------------------------------ */

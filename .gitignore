@@ -5,3 +5,9 @@ __pycache__/
 .env
 firebase-service-account*.json
 *-firebase-adminsdk-*.json
+bot_config.json
+# Bot files live in the azim514635-debug/telegram_bot repo
+telegram_bot.py
+requirements.txt
+runtime.txt
+upload_links.py

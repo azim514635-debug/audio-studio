@@ -239,8 +239,8 @@
       <!-- Professional Upload Media -->
       <section id="page-upload" class="page">
         <div class="header-card">
-          <h1>⬆️ Professional Media Upload</h1>
-          <p>Upload audio &amp; video with live progress, link sharing and custom thumbnails.</p>
+          <h1>⬆️ Upload Media</h1>
+          <p>Upload audio &amp; video from your device with live progress and custom thumbnails.</p>
         </div>
 
         <div class="upload-layout">
@@ -248,12 +248,6 @@
             <div class="segmented" id="media-type-seg">
               <button type="button" class="seg-btn active" data-kind="audio">🎵 Audio</button>
               <button type="button" class="seg-btn" data-kind="video">🎬 Video</button>
-              <button type="button" class="seg-btn" data-kind="link">🔗 Link</button>
-            </div>
-
-            <div class="segmented" id="source-seg" style="margin-top: 10px;">
-              <button type="button" class="seg-btn active" data-source="device">📁 From Device</button>
-              <button type="button" class="seg-btn" data-source="link">🔗 From Link</button>
             </div>
 
             <!-- Media name -->
@@ -273,44 +267,6 @@
                 <button type="button" class="btn-primary" id="pick-media-btn">Browse Files</button>
                 <p class="field-hint">MP3, M4A, WAV, MP4, MKV, MOV…</p>
                 <div id="selected-files" class="selected-files"></div>
-              </div>
-            </div>
-
-            <!-- LINK source -->
-            <div id="link-pane" style="display:none;">
-              <label class="field-label" for="media-url">Direct Media URL <span class="req">*</span></label>
-              <input type="url" id="media-url" placeholder="https://example.com/track.mp3">
-              <p class="field-hint">Link-only uploads require Boss access.</p>
-            </div>
-
-            <!-- LINK ITEM (Links library) pane -->
-            <div id="link-item-pane" style="display:none;">
-              <label class="field-label" for="link-item-title">Title <span class="req">*</span></label>
-              <input type="text" id="link-item-title" placeholder="e.g. My Study Notes PDF">
-              <label class="field-label" for="link-item-url">Download URL <span class="req">*</span></label>
-              <input type="url" id="link-item-url" placeholder="https://example.com/file.pdf">
-              <p class="field-hint">Visitors can click “Click here to download” to open this link.</p>
-
-              <div class="thumb-block">
-                <div class="thumb-options">
-                  <label class="field-label">Thumbnail</label>
-                  <div class="segmented" id="link-thumb-seg">
-                    <button type="button" class="seg-btn active" data-lthumb="url">🖼 URL</button>
-                    <button type="button" class="seg-btn" data-lthumb="file">📄 File</button>
-                  </div>
-                </div>
-                <div id="link-thumb-url-wrap">
-                  <input type="url" id="link-thumb-url" placeholder="https://example.com/cover.jpg (optional)">
-                </div>
-                <div id="link-thumb-file-wrap" style="display:none;">
-                  <input type="file" id="link-thumb-file" accept="image/*" hidden>
-                  <button type="button" class="btn-secondary" id="pick-link-thumb-btn">Choose Image File</button>
-                  <span class="thumb-file-name" id="link-thumb-file-name">No image selected</span>
-                </div>
-                <div id="link-thumb-preview" class="thumb-preview" style="display:none;">
-                  <img id="link-thumb-preview-img" alt="Thumbnail preview">
-                  <button type="button" class="thumb-clear" id="link-thumb-clear-btn" title="Remove thumbnail">×</button>
-                </div>
               </div>
             </div>
 
