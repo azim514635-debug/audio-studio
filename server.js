@@ -772,7 +772,7 @@ app.get('/api/upload/cloudinary-sign', (req, res) => {
   res.json(cloudinarySign({ folder: folder + '/' + resourceType, resource_type: resourceType }));
 });
 
-async function saveUploadedItem({ title, uploader, type, mediaUrl, thumbnailUrl }) {
+async function saveUploadedItem({ title, uploader, type, mediaUrl, thumbnailUrl, telegramUrl }) {
   return withDbWrite(async () => {
     const db = await getDb();
     const newItem = {
@@ -780,6 +780,7 @@ async function saveUploadedItem({ title, uploader, type, mediaUrl, thumbnailUrl 
       title: String(title || 'Untitled').trim(),
       uploader: String(uploader || 'Anonymous').trim(),
       thumbnailUrl: thumbnailUrl || '',
+      telegramUrl: String(telegramUrl || '').trim(),
       createdAt: new Date().toISOString()
     };
     if (type === 'movie' || type === 'movies') {
@@ -795,10 +796,10 @@ async function saveUploadedItem({ title, uploader, type, mediaUrl, thumbnailUrl 
 }
 
 app.post('/api/upload/finalize', ah(async (req, res) => {
-  const { title, uploader, mediaUrl, thumbnailUrl, type } = req.body;
+  const { title, uploader, mediaUrl, thumbnailUrl, type, telegramUrl } = req.body;
   if (!mediaUrl) return res.status(400).json({ success: false, error: 'Missing media URL.' });
   const mediaType = type || mediaTypeFromName(mediaUrl);
-  const item = await saveUploadedItem({ title, uploader, type: mediaType, mediaUrl, thumbnailUrl });
+  const item = await saveUploadedItem({ title, uploader, type: mediaType, mediaUrl, thumbnailUrl, telegramUrl });
   sendUploadNotification(mediaType, item.title, item.uploader);
   res.json({ success: true, type: mediaType, item });
 }));
@@ -813,7 +814,7 @@ app.post('/api/upload/finalize-link', ah(async (req, res) => {
 }));
 
 app.post('/api/upload/finalize-link-item', ah(async (req, res) => {
-  const { title, url, uploader, thumbnailUrl } = req.body;
+  const { title, url, uploader, thumbnailUrl, telegramUrl } = req.body;
   if (!url) return res.status(400).json({ success: false, error: 'Missing download URL.' });
   const item = await withDbWrite(async () => {
     const db = await getDb();
@@ -823,6 +824,7 @@ app.post('/api/upload/finalize-link-item', ah(async (req, res) => {
       url: String(url).trim(),
       uploader: String(uploader || 'Anonymous').trim(),
       thumbnailUrl: String(thumbnailUrl || '').trim(),
+      telegramUrl: String(telegramUrl || '').trim(),
       createdAt: new Date().toISOString()
     };
     db.links.unshift(newItem);

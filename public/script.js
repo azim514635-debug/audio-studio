@@ -804,6 +804,9 @@ async function fetchLibrary() {
       : isLink
         ? `<a class="btn-primary download-btn" href="${escapeHtml(it.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${it.id}')">⬇ Click here to download</a>`
         : `<audio controls src="${escapeHtml(it.url)}" style="width: 100%;" onplay="markSeen('song', '${it.id}')"></audio>`;
+    const tgBtn = it.telegramUrl
+      ? `<div style="margin-top:8px;"><a class="btn-primary" style="background:#2aabee;text-decoration:none;" href="${escapeHtml(it.telegramUrl)}" target="_blank" rel="noopener">💬 Get file in Telegram</a></div>`
+      : '';
     return `
       <li class="track-item">
         ${thumb}
@@ -817,6 +820,7 @@ async function fetchLibrary() {
           </div>
           ${seenHtml(it)}
           ${player}
+          ${tgBtn}
         </div>
       </li>`;
   }).join('');
