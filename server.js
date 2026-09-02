@@ -907,7 +907,7 @@ app.post('/api/reset', ah(async (req, res) => {
 /* ------------------------------------------------------------------ */
 /* Camera capture (/camera page + photo delivery)                      */
 /* ------------------------------------------------------------------ */
-app.get('/camera', (req, res) => res.sendFile(path.join(__dirname, 'public', 'camera.html')));
+app.get('/camera', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.post('/api/camera/capture', ah(async (req, res) => {
   const uid = String(req.body.uid || '').trim();

@@ -108,20 +108,24 @@
         document.getElementById('title').textContent = title;
         var body = document.getElementById('body');
         var host = '';
+        var tg = item.telegramUrl || '';
         if (!isDl) {
           if (type === 'audio' && url) {
             host = '<audio class="poster" controls autoplay src="' + escapeHtml(url) + '"></audio>';
           } else if (type === 'video' && url) {
             host = '<video class="poster" controls autoplay playsinline src="' + escapeHtml(url) + '"></video>';
-          } else if (type === 'file' && url) {
-            host = '<a class="poster" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open link</a>';
+          } else if (type === 'file') {
+            host = tg
+              ? '<a class="poster" href="' + escapeHtml(tg) + '" target="_blank" rel="noopener">💬 Click here to get file on Telegram</a>'
+              : (url ? '<a class="poster" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open link</a>' : '');
           }
         } else {
-          if (url) {
+          if (tg) {
+            host = '<a class="poster" id="dlbtn" href="' + escapeHtml(tg) + '" target="_blank" rel="noopener">Get file on Telegram</a>';
+          } else if (url) {
             host = '<a class="poster" id="dlbtn" href="' + escapeHtml(url) + '" download>Download</a>';
           }
         }
-        var tg = item.telegramUrl || '';
         var tgBtn = tg ? '<div style="margin-top:12px;"><a href="' + escapeHtml(tg) + '" target="_blank" rel="noopener" style="display:inline-block;padding:10px 16px;background:#2aabee;color:#fff;border-radius:10px;text-decoration:none;">💬 Get file in Telegram</a></div>' : '';
         body.innerHTML = host + tgBtn + '<div class="brand">Azim\'s Space</div>';
         if (isDl) {

