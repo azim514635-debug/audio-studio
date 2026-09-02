@@ -860,22 +860,16 @@ const forceDownloadUrl = (url, filename) => {
 
 app.get('/stream/:type/:id', ah(async (req, res) => {
   const { type, id } = req.params;
-  const db = await getDb();
-  const item = findMediaItem(type, id, db);
-  if (!item) return res.status(404).json({ success: false, error: 'Not found.' });
-  const url = mediaPublicUrl(item, type);
-  if (!url) return res.status(404).json({ success: false, error: 'No media URL.' });
-  res.redirect(302, url);
+  const normType = (type === 'link' || type === 'links' || type === 'file') ? 'file'
+    : (type === 'movie' || type === 'movies' || type === 'video' ? 'video' : 'audio');
+  res.sendFile(path.join(__dirname, 'public', 'share.html'));
 }));
 
 app.get('/dl/:type/:id', ah(async (req, res) => {
   const { type, id } = req.params;
-  const db = await getDb();
-  const item = findMediaItem(type, id, db);
-  if (!item) return res.status(404).json({ success: false, error: 'Not found.' });
-  const url = mediaPublicUrl(item, type);
-  if (!url) return res.status(404).json({ success: false, error: 'No media URL.' });
-  res.redirect(302, forceDownloadUrl(url, item.title));
+  const normType = (type === 'link' || type === 'links' || type === 'file') ? 'file'
+    : (type === 'movie' || type === 'movies' || type === 'video' ? 'video' : 'audio');
+  res.sendFile(path.join(__dirname, 'public', 'share.html'));
 }));
 
 /* ------------------------------------------------------------------ */
