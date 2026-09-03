@@ -857,37 +857,43 @@ async function fetchLibrary() {
   }).join('');
 }
 
-/* Instant Get File — triggers Secretary Mode link extraction */
+/* Instant Get File — opens pre-resolved link or generates one on demand */
 window.instantGet = async function (movieId, title) {
   const btn = document.querySelector(`.instant-btn[data-movie-id="${movieId}"]`);
-  if (btn && btn.dataset.generating === '1') return; // block double-press
+  if (btn && btn.dataset.generating === '1') return;
   if (btn) {
     btn.dataset.generating = '1';
     btn.disabled = true;
-    btn.textContent = 'Generating...';
+    btn.textContent = 'Loading...';
   }
 
-  const release = () => {
+  const release = (text) => {
     if (btn) {
       btn.dataset.generating = '';
       btn.disabled = false;
-      btn.textContent = '\u26A1 Instant Get File';
+      btn.textContent = text || '\u26A1 Instant Get File';
     }
   };
 
   try {
-    // Check if a valid cached link already exists (<2h old).
     const TWO_HOURS = 2 * 60 * 60 * 1000;
+
+    // Check both movies and links for a pre-resolved URL
     try {
-      const mRes = await fetch('/api/movies');
+      const [mRes, lRes] = await Promise.all([fetch('/api/movies'), fetch('/api/links')]);
       const movies = await mRes.json();
-      const movie = (movies || []).find((m) => m.id === movieId);
-      if (movie && movie.watchUrl && movie.resolvedAt && (Date.now() - movie.resolvedAt) < TWO_HOURS) {
-        window.open(movie.watchUrl, '_blank');
+      const links = await lRes.json();
+      const all = [...(movies || []), ...(links || [])];
+      const item = all.find((m) => m.id === movieId);
+      if (item && item.watchUrl && item.resolvedAt && (Date.now() - item.resolvedAt) < TWO_HOURS) {
+        window.open(item.watchUrl, '_blank');
         release();
         return;
       }
-    } catch (e) { /* ignore — fall through to fresh generation */ }
+    } catch (e) { /* fall through to generation */ }
+
+    // No valid cached link — trigger generation
+    if (btn) btn.textContent = 'Generating...';
 
     const res = await fetch('/api/instant-get', {
       method: 'POST',

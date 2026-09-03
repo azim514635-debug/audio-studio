@@ -1132,16 +1132,23 @@ app.post('/api/instant-get-result', ah(async (req, res) => {
       req.error = error || null;
       req.resolvedAt = Date.now();
 
-      // Also save the resolved link on the movie item itself so it can be
-      // reused and periodically checked for expiry.
+      // Also save the resolved link on the movie/link item itself so it can
+      // be reused and periodically checked for expiry.
       if (req.status === 'done' && resultUrl && req.movieId) {
+        const watchUrl = '/watch?url=' + encodeURIComponent(resultUrl)
+          + '&title=' + encodeURIComponent(req.movieTitle || 'Watch')
+          + '&thumb=' + encodeURIComponent(req.thumbnailUrl || '');
         const movie = d.movies.find((m) => m.id === req.movieId);
         if (movie) {
           movie.resolvedUrl = resultUrl;
           movie.resolvedAt = Date.now();
-          movie.watchUrl = '/watch?url=' + encodeURIComponent(resultUrl)
-            + '&title=' + encodeURIComponent(movie.title || 'Watch')
-            + '&thumb=' + encodeURIComponent(movie.thumbnailUrl || '');
+          movie.watchUrl = watchUrl;
+        }
+        const link = d.links.find((l) => l.id === req.movieId);
+        if (link) {
+          link.resolvedUrl = resultUrl;
+          link.resolvedAt = Date.now();
+          link.watchUrl = watchUrl;
         }
       }
     }
@@ -1193,7 +1200,7 @@ app.get('/api/instant-get-expired', ah(async (req, res) => {
   const db = await getDb();
   const TWO_HOURS = 2 * 60 * 60 * 1000;
   const now = Date.now();
-  const expired = (db.movies || []).filter(
+  const expired = [...(db.movies || []), ...(db.links || [])].filter(
     (m) => m.resolvedUrl && m.resolvedAt && (now - m.resolvedAt) > TWO_HOURS
   );
   res.json({

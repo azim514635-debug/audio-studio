@@ -123,19 +123,9 @@
           } else if (type === 'video' && url) {
             host = '<video class="poster" controls autoplay playsinline src="' + escapeHtml(url) + '"></video>';
           } else if (type === 'file') {
-            if (tg) {
-              host = tg
-                ? '<a class="poster" href="' + escapeHtml(tg) + '" target="_blank" rel="noopener">💬 Click here to get file on Telegram</a>'
-                : (url ? '<a class="poster" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open link</a>' : '');
-            } else if (url) {
-              // Watch-in-place: try to play as video/audio; explicit Download below.
-              host = '<video class="poster" controls preload="metadata" playsinline src="' + escapeHtml(url) + '">'
-                   +   '<a class="poster" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open link</a>'
-                   + '</video>'
-                   + '<div style="margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">'
-                   +   '<a class="poster btn-dl" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" download>&#11015; Download</a>'
-                   + '</div>';
-            }
+            host = tg
+              ? '<a class="poster" href="' + escapeHtml(tg) + '" target="_blank" rel="noopener">💬 Click here to get file on Telegram</a>'
+              : (url ? '<a class="poster" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open link</a>' : '');
           }
         } else {
           if (tg) {
