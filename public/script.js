@@ -798,7 +798,7 @@ async function fetchLibrary() {
       const tgBtn = tgLink
         ? `<a class="grid-card-btn tg-btn" href="${escapeHtml(tgLink)}" target="_blank" rel="noopener">💬 Get File on Telegram</a>`
         : '';
-      const instantBtn = `<button class="grid-card-btn instant-btn" onclick="instantGet('${it.id}', '${jsAttr(it.title)}')">⚡ Instant Get File</button>`;
+      const instantBtn = `<button class="grid-card-btn instant-btn" data-movie-id="${it.id}" onclick="instantGet('${it.id}', '${jsAttr(it.title)}')">⚡ Instant Get File</button>`;
       const adminActions = isBossUnlocked ? `
         <div class="grid-card-admin">
           <button onclick="renameItem('${isVideo ? 'movie' : 'link'}', '${it.id}', '${jsAttr(it.title)}')" class="btn-primary btn-sm">Rename</button>
@@ -860,10 +860,20 @@ async function fetchLibrary() {
 /* Instant Get File — triggers Secretary Mode link extraction */
 window.instantGet = async function (movieId, title) {
   const btn = document.querySelector(`.instant-btn[data-movie-id="${movieId}"]`);
+  if (btn && btn.dataset.generating === '1') return; // block double-press
   if (btn) {
+    btn.dataset.generating = '1';
     btn.disabled = true;
-    btn.textContent = '⏳ Requesting...';
+    btn.textContent = 'Generating...';
   }
+
+  const release = () => {
+    if (btn) {
+      btn.dataset.generating = '';
+      btn.disabled = false;
+      btn.textContent = '⚡ Instant Get File';
+    }
+  };
 
   try {
     const res = await fetch('/api/instant-get', {
@@ -874,46 +884,49 @@ window.instantGet = async function (movieId, title) {
     const data = await res.json();
     if (!data.success) {
       showAlert(data.error || 'Failed to start instant get.');
-      if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
+      release();
       return;
     }
 
     const requestId = data.requestId;
-    if (btn) btn.textContent = '⏳ Waiting for link...';
+    if (btn) btn.textContent = 'Generating...';
 
-    // Poll for the result
+    // Poll until the result arrives (success / error / timeout). The button
+    // stays locked ("Generating...") the whole time so it can't be pressed
+    // again under 30s.
     let attempts = 0;
-    const maxAttempts = 60;
+    const maxAttempts = 75; // up to ~2.5 minutes
     const poll = async () => {
       attempts++;
-      if (attempts > maxAttempts) {
-        showAlert('Timed out waiting for the download link. Please try again.');
-        if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
-        return;
-      }
       try {
         const r = await fetch(`/api/instant-get-result/${requestId}`);
         const rd = await r.json();
-        if (rd.status === 'done' && rd.resultUrl) {
-          window.open(rd.resultUrl, '_blank');
-          if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
+        if (rd.status === 'done' && (rd.watchUrl || rd.resultUrl)) {
+          // Open the site's watch page (player + download button) rather than
+          // the raw link that would auto-download.
+          window.open(rd.watchUrl || rd.resultUrl, '_blank');
+          release();
           return;
         }
         if (rd.status === 'error' || rd.status === 'timeout') {
-          showAlert(rd.error || 'Failed to get download link.');
-          if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
+          showAlert(rd.error || 'Failed to get link.');
+          release();
           return;
         }
-        // Still pending — poll again
-        setTimeout(poll, 2000);
       } catch (e) {
-        setTimeout(poll, 2000);
+        /* transient network error — keep polling */
       }
+      if (attempts >= maxAttempts) {
+        showAlert('Timed out waiting for the link. Please try again.');
+        release();
+        return;
+      }
+      setTimeout(poll, 2000);
     };
     setTimeout(poll, 2000);
   } catch (e) {
     showAlert('Network error: ' + e.message);
-    if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
+    release();
   }
 };
 

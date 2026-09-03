@@ -52,6 +52,14 @@
       letter-spacing: .3px;
     }
     a { color: #7ae0ff; text-decoration: none; }
+    .btn-dl {
+      display: inline-block;
+      padding: 10px 18px;
+      background: #2aabee;
+      color: #fff;
+      border-radius: 10px;
+      font-size: 14px;
+    }
     .spinner {
       margin: 30px auto;
       width: 34px; height: 34px;
@@ -111,13 +119,23 @@
         var tg = item.telegramUrl || '';
         if (!isDl) {
           if (type === 'audio' && url) {
-            host = '<audio class="poster" controls autoplay src="' + escapeHtml(url) + '"></audio>';
+            host = '<audio class="poster" controls autoplay playsinline src="' + escapeHtml(url) + '"></audio>';
           } else if (type === 'video' && url) {
             host = '<video class="poster" controls autoplay playsinline src="' + escapeHtml(url) + '"></video>';
           } else if (type === 'file') {
-            host = tg
-              ? '<a class="poster" href="' + escapeHtml(tg) + '" target="_blank" rel="noopener">💬 Click here to get file on Telegram</a>'
-              : (url ? '<a class="poster" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open link</a>' : '');
+            if (tg) {
+              host = tg
+                ? '<a class="poster" href="' + escapeHtml(tg) + '" target="_blank" rel="noopener">💬 Click here to get file on Telegram</a>'
+                : (url ? '<a class="poster" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open link</a>' : '');
+            } else if (url) {
+              // Watch-in-place: try to play as video/audio; explicit Download below.
+              host = '<video class="poster" controls preload="metadata" playsinline src="' + escapeHtml(url) + '">'
+                   +   '<a class="poster" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open link</a>'
+                   + '</video>'
+                   + '<div style="margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">'
+                   +   '<a class="poster btn-dl" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" download>&#11015; Download</a>'
+                   + '</div>';
+            }
           }
         } else {
           if (tg) {
