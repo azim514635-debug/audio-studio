@@ -1379,3 +1379,150 @@ body.samurai-theme ::-webkit-scrollbar-thumb:hover { background: #67e8f9; }
  @media (max-width: 480px) {
    body.samurai-theme .samurai-video-bg { top: 62px; }
  }
+
+/* ------------------------------------------------------------------ */
+/* Movie Grid Cards (Secretary Mode)                                   */
+/* ------------------------------------------------------------------ */
+#library-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+#library-list .track-item {
+  grid-column: 1 / -1;
+}
+
+.grid-card {
+  background: var(--card-bg, #1e1e2e);
+  border: 1px solid var(--border, #333);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.grid-card-thumb {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.grid-card-thumb-placeholder {
+  width: 100%;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: #94a3b8;
+}
+
+.grid-card-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.grid-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text, #e2e8f0);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grid-card-meta {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.grid-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+
+.grid-card-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.grid-card-btn:active {
+  transform: scale(0.97);
+}
+
+.tg-btn {
+  background: #2aabee;
+  color: #fff;
+}
+
+.tg-btn:hover {
+  background: #229ed9;
+}
+
+.instant-btn {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+}
+
+.instant-btn:hover {
+  background: linear-gradient(135deg, #d97706, #dc2626);
+}
+
+.instant-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.grid-card-admin {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.grid-card-admin .btn-primary,
+.grid-card-admin .btn-danger {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+
+@media (max-width: 600px) {
+  #library-list {
+    grid-template-columns: 1fr;
+  }
+  .grid-card-thumb {
+    height: 160px;
+  }
+}

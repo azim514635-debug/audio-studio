@@ -34,7 +34,7 @@ const DB_URL = process.env.DB_URL;
 let useFirebase = false;
 let dbRef = null;
 let firebaseAppRef = null;
-let memoryDb = { songs: [], movies: [], links: [], messages: [] }; // fallback when not configured
+let memoryDb = { songs: [], movies: [], links: [], messages: [], instantRequests: [] }; // fallback when not configured
 let memoryCaptures = []; // pending /camera captures (kept out of public /api/data)
 
 function resolveServiceAccount() {
@@ -115,7 +115,8 @@ async function getDb() {
       requests: Array.isArray(val.requests) ? val.requests : [],
       notifTokens: Array.isArray(val.notifTokens) ? val.notifTokens : [],
       users: Array.isArray(val.users) ? val.users : [],
-      appeals: Array.isArray(val.appeals) ? val.appeals : []
+      appeals: Array.isArray(val.appeals) ? val.appeals : [],
+      instantRequests: Array.isArray(val.instantRequests) ? val.instantRequests : []
     };
   }
   return {
@@ -126,15 +127,16 @@ async function getDb() {
     requests: Array.isArray(memoryDb.requests) ? memoryDb.requests : [],
     notifTokens: Array.isArray(memoryDb.notifTokens) ? memoryDb.notifTokens : [],
     users: Array.isArray(memoryDb.users) ? memoryDb.users : [],
-    appeals: Array.isArray(memoryDb.appeals) ? memoryDb.appeals : []
+    appeals: Array.isArray(memoryDb.appeals) ? memoryDb.appeals : [],
+    instantRequests: Array.isArray(memoryDb.instantRequests) ? memoryDb.instantRequests : []
   };
 }
 
 async function saveDb(data) {
   if (useFirebase) {
-    await dbRef.set({ songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [] });
+    await dbRef.set({ songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [], instantRequests: data.instantRequests || [] });
   } else {
-    memoryDb = { songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [] };
+    memoryDb = { songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [], instantRequests: data.instantRequests || [] };
   }
   const size = Buffer.byteLength(JSON.stringify(data) || '[]', 'utf8');
   if (size > 700 * 1024) {
@@ -1041,6 +1043,80 @@ app.post('/api/delete', ah(async (req, res) => {
   });
   if (item && result.statusCode === 200) await destroyCloudinaryMedia(item);
   return result;
+}));
+
+/* ------------------------------------------------------------------ */
+/* Instant Get — Secretary Mode link extraction                        */
+/* ------------------------------------------------------------------ */
+app.post('/api/instant-get', ah(async (req, res) => {
+  const { movieId } = req.body;
+  if (!movieId) return res.status(400).json({ success: false, error: 'Missing movieId.' });
+
+  const db = await getDb();
+  const movie = db.movies.find((m) => m.id === movieId);
+  if (!movie) return res.status(404).json({ success: false, error: 'Movie not found.' });
+
+  const requestId = makeId();
+  const request = {
+    id: requestId,
+    movieId,
+    movieTitle: movie.title || 'Untitled',
+    movieUrl: movie.movieUrl || '',
+    thumbnailUrl: movie.thumbnailUrl || '',
+    telegramUrl: movie.telegramUrl || '',
+    status: 'pending',
+    resultUrl: null,
+    createdAt: Date.now()
+  };
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    d.instantRequests = d.instantRequests || [];
+    d.instantRequests.unshift(request);
+    if (d.instantRequests.length > 50) d.instantRequests = d.instantRequests.slice(0, 50);
+    await saveDb(d);
+  });
+
+  res.json({ success: true, requestId });
+}));
+
+app.get('/api/instant-get-pending', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const db = await getDb();
+  const pending = (db.instantRequests || []).filter((r) => r.status === 'pending');
+  res.json({ requests: pending });
+}));
+
+app.post('/api/instant-get-result', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const { requestId, status, resultUrl, error } = req.body;
+  if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const req = (d.instantRequests || []).find((r) => r.id === requestId);
+    if (req) {
+      req.status = status || 'done';
+      req.resultUrl = resultUrl || null;
+      req.error = error || null;
+      req.resolvedAt = Date.now();
+    }
+    await saveDb(d);
+  });
+  res.json({ success: true });
+}));
+
+app.get('/api/instant-get-result/:requestId', ah(async (req, res) => {
+  const { requestId } = req.params;
+  const db = await getDb();
+  const request = (db.instantRequests || []).find((r) => r.id === requestId);
+  if (!request) return res.status(404).json({ success: false, error: 'Request not found.' });
+  res.json({
+    success: true,
+    status: request.status,
+    resultUrl: request.resultUrl || null,
+    error: request.error || null
+  });
 }));
 
 /* ------------------------------------------------------------------ */

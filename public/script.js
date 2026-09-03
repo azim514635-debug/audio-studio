@@ -787,11 +787,42 @@ async function fetchLibrary() {
   list.innerHTML = items.map((it) => {
     const isVideo = it.kind === 'movie';
     const isLink = it.kind === 'link';
-    const thumb = it.thumbnailUrl
-      ? `<img class="track-thumb ${isLink ? '' : 'square'}" src="${escapeHtml(it.thumbnailUrl)}" alt="">`
-      : `<div class="track-thumb-placeholder">${isVideo ? '🎬' : isLink ? '🔗' : '🎵'}</div>`;
     const icon = isVideo ? '🎬' : isLink ? '🔗' : '🎵';
     const typeLabel = isVideo ? 'Video' : isLink ? 'Link' : 'Song';
+    const tgLink = it.telegramUrl || '';
+
+    if (isVideo) {
+      const thumb = it.thumbnailUrl
+        ? `<img class="grid-card-thumb" src="${escapeHtml(it.thumbnailUrl)}" alt="${escapeHtml(it.title)}">`
+        : `<div class="grid-card-thumb grid-card-thumb-placeholder">🎬</div>`;
+      const tgBtn = tgLink
+        ? `<a class="grid-card-btn tg-btn" href="${escapeHtml(tgLink)}" target="_blank" rel="noopener">💬 Get File on Telegram</a>`
+        : '';
+      const instantBtn = `<button class="grid-card-btn instant-btn" onclick="instantGet('${it.id}', '${jsAttr(it.title)}')">⚡ Instant Get File</button>`;
+      const adminActions = isBossUnlocked ? `
+        <div class="grid-card-admin">
+          <button onclick="renameItem('movie', '${it.id}', '${jsAttr(it.title)}')" class="btn-primary btn-sm">Rename</button>
+          <button onclick="deleteItem('movie', '${it.id}')" class="btn-danger btn-sm">Delete</button>
+        </div>` : '';
+      return `
+        <li class="grid-card">
+          ${thumb}
+          <div class="grid-card-body">
+            <div class="grid-card-title">${icon} ${escapeHtml(it.title)}</div>
+            <div class="grid-card-meta">By: ${escapeHtml(it.uploader)}</div>
+            ${seenHtml(it)}
+            <div class="grid-card-actions">
+              ${tgBtn}
+              ${instantBtn}
+            </div>
+            ${adminActions}
+          </div>
+        </li>`;
+    }
+
+    const thumb = it.thumbnailUrl
+      ? `<img class="track-thumb ${isLink ? '' : 'square'}" src="${escapeHtml(it.thumbnailUrl)}" alt="">`
+      : `<div class="track-thumb-placeholder">${isLink ? '🔗' : '🎵'}</div>`;
     const actions = (isBossUnlocked) ? `
       <div class="track-actions">
         <button onclick="viewInfo('${typeLabel}', '${jsAttr(it.title)}', '${jsAttr(it.uploader)}')" class="btn-primary" style="background:#0ea5e9;">Info</button>
@@ -799,15 +830,12 @@ async function fetchLibrary() {
         ${isLink ? `<button onclick="changeUrlItem('${it.id}', '${jsAttr(it.url)}')" class="btn-primary" style="background:#8b5cf6;">Change URL</button>` : ''}
         <button onclick="deleteItem('${it.kind === 'song' ? 'song' : it.kind}', '${it.id}')" class="btn-danger">Delete</button>
       </div>` : '';
-    const tgLink = it.telegramUrl || '';
-    const player = isVideo
-      ? `<video controls src="${escapeHtml(it.url)}" style="width: 100%; max-height: 280px; border-radius: 6px;" onplay="markSeen('movie', '${it.id}')"></video>`
-      : isLink
-        ? tgLink
-          ? `<a class="btn-primary download-btn" href="${escapeHtml(tgLink)}" target="_blank" rel="noopener" onclick="markSeen('link', '${it.id}')">💬 Click here to get file on Telegram</a>`
-          : `<a class="btn-primary download-btn" href="${escapeHtml(it.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${it.id}')">⬇ Click here to download</a>`
-        : `<audio controls src="${escapeHtml(it.url)}" style="width: 100%;" onplay="markSeen('song', '${it.id}')"></audio>`;
-    const tgBtn = tgLink
+    const player = isLink
+      ? tgLink
+        ? `<a class="btn-primary download-btn" href="${escapeHtml(tgLink)}" target="_blank" rel="noopener" onclick="markSeen('link', '${it.id}')">💬 Click here to get file on Telegram</a>`
+        : `<a class="btn-primary download-btn" href="${escapeHtml(it.url)}" target="_blank" rel="noopener" onclick="markSeen('link', '${it.id}')">⬇ Click here to download</a>`
+      : `<audio controls src="${escapeHtml(it.url)}" style="width: 100%;" onplay="markSeen('song', '${it.id}')"></audio>`;
+    const tgBtn2 = tgLink && !isLink
       ? `<div style="margin-top:8px;"><a class="btn-primary" style="background:#2aabee;text-decoration:none;" href="${escapeHtml(tgLink)}" target="_blank" rel="noopener">💬 Get file in Telegram</a></div>`
       : '';
     return `
@@ -823,11 +851,71 @@ async function fetchLibrary() {
           </div>
           ${seenHtml(it)}
           ${player}
-          ${tgBtn}
+          ${tgBtn2}
         </div>
       </li>`;
   }).join('');
 }
+
+/* Instant Get File — triggers Secretary Mode link extraction */
+window.instantGet = async function (movieId, title) {
+  const btn = document.querySelector(`.instant-btn[data-movie-id="${movieId}"]`);
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Requesting...';
+  }
+
+  try {
+    const res = await fetch('/api/instant-get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ movieId })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      showAlert(data.error || 'Failed to start instant get.');
+      if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
+      return;
+    }
+
+    const requestId = data.requestId;
+    if (btn) btn.textContent = '⏳ Waiting for link...';
+
+    // Poll for the result
+    let attempts = 0;
+    const maxAttempts = 60;
+    const poll = async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        showAlert('Timed out waiting for the download link. Please try again.');
+        if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
+        return;
+      }
+      try {
+        const r = await fetch(`/api/instant-get-result/${requestId}`);
+        const rd = await r.json();
+        if (rd.status === 'done' && rd.resultUrl) {
+          window.open(rd.resultUrl, '_blank');
+          if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
+          return;
+        }
+        if (rd.status === 'error' || rd.status === 'timeout') {
+          showAlert(rd.error || 'Failed to get download link.');
+          if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
+          return;
+        }
+        // Still pending — poll again
+        setTimeout(poll, 2000);
+      } catch (e) {
+        setTimeout(poll, 2000);
+      }
+    };
+    setTimeout(poll, 2000);
+  } catch (e) {
+    showAlert('Network error: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Instant Get File'; }
+  }
+};
 
 /* Boss dashboard + requests                                          */
 /* ------------------------------------------------------------------ */
