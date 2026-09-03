@@ -1137,6 +1137,28 @@ app.get('/api/instant-get-result/:requestId', ah(async (req, res) => {
   });
 }));
 
+// Clear all stuck pending instant-get requests (boss only). Marks any that are
+// still 'pending' as 'cancelled' so the bot stops retrying them and old queue
+// entries don't pile up.
+app.post('/api/instant-get/clear-pending', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  let cleared = 0;
+  await withDbWrite(async () => {
+    const d = await getDb();
+    d.instantRequests = d.instantRequests || [];
+    d.instantRequests.forEach((r) => {
+      if (r.status === 'pending') {
+        r.status = 'cancelled';
+        r.error = 'Cleared by boss';
+        r.resolvedAt = Date.now();
+        cleared += 1;
+      }
+    });
+    await saveDb(d);
+  });
+  res.json({ success: true, cleared });
+}));
+
 /* ------------------------------------------------------------------ */
 /* Community chat                                                      */
 /* ------------------------------------------------------------------ */
