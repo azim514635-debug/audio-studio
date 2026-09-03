@@ -45,6 +45,7 @@
       var p = new URLSearchParams(location.search);
       var url = p.get('url') || '';
       var title = p.get('title') || 'Watch';
+      var thumb = p.get('thumb') || '';
       document.getElementById('title').textContent = title;
       if (!url) {
         document.getElementById('player').textContent = 'No file URL provided.';
@@ -56,6 +57,9 @@
       el.playsinline = true;
       el.style.width = '100%';
       el.style.borderRadius = '12px';
+      if (thumb) {
+        el.poster = thumb;
+      }
       document.getElementById('player').appendChild(el);
       var a = document.createElement('a');
       a.href = url;

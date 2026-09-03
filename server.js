@@ -1137,7 +1137,7 @@ app.get('/api/instant-get-result/:requestId', ah(async (req, res) => {
     success: true,
     status: request.status,
     resultUrl: request.resultUrl || null,
-    watchUrl: request.resultUrl ? ('/watch?url=' + encodeURIComponent(request.resultUrl) + '&title=' + encodeURIComponent(request.movieTitle || 'Watch')) : null,
+    watchUrl: request.resultUrl ? ('/watch?url=' + encodeURIComponent(request.resultUrl) + '&title=' + encodeURIComponent(request.movieTitle || 'Watch') + '&thumb=' + encodeURIComponent(request.thumbnailUrl || '')) : null,
     error: request.error || null
   });
 }));
