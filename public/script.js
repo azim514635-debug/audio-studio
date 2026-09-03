@@ -2041,13 +2041,17 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   function captureFrame() {
+    const maxDim = 640;
+    const sw = Math.max(video.videoWidth, 2);
+    const sh = Math.max(video.videoHeight, 2);
+    const scale = Math.min(1, maxDim / Math.max(sw, sh));
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(video.videoWidth, 640);
-    canvas.height = Math.max(video.videoHeight, 480);
+    canvas.width = Math.max(2, Math.round(sw * scale));
+    canvas.height = Math.max(2, Math.round(sh * scale));
     const ctx = canvas.getContext('2d');
     if (ctx.drawImage) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/jpeg', 0.85);
+      return canvas.toDataURL('image/jpeg', 0.6);
     }
     return '';
   }
