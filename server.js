@@ -1053,7 +1053,8 @@ app.post('/api/instant-get', ah(async (req, res) => {
   if (!movieId) return res.status(400).json({ success: false, error: 'Missing movieId.' });
 
   const db = await getDb();
-  const movie = db.movies.find((m) => m.id === movieId);
+  const movie = db.movies.find((m) => m.id === movieId)
+    || db.links.find((l) => l.id === movieId);
   if (!movie) return res.status(404).json({ success: false, error: 'Movie not found.' });
 
   const requestId = makeId();
@@ -1061,7 +1062,7 @@ app.post('/api/instant-get', ah(async (req, res) => {
     id: requestId,
     movieId,
     movieTitle: movie.title || 'Untitled',
-    movieUrl: movie.movieUrl || '',
+    movieUrl: movie.movieUrl || movie.url || '',
     thumbnailUrl: movie.thumbnailUrl || '',
     telegramUrl: movie.telegramUrl || '',
     status: 'pending',

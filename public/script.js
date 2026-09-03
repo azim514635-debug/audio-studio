@@ -791,7 +791,7 @@ async function fetchLibrary() {
     const typeLabel = isVideo ? 'Video' : isLink ? 'Link' : 'Song';
     const tgLink = it.telegramUrl || '';
 
-    if (isVideo) {
+    if (isVideo || (isLink && tgLink)) {
       const thumb = it.thumbnailUrl
         ? `<img class="grid-card-thumb" src="${escapeHtml(it.thumbnailUrl)}" alt="${escapeHtml(it.title)}">`
         : `<div class="grid-card-thumb grid-card-thumb-placeholder">🎬</div>`;
@@ -801,8 +801,8 @@ async function fetchLibrary() {
       const instantBtn = `<button class="grid-card-btn instant-btn" onclick="instantGet('${it.id}', '${jsAttr(it.title)}')">⚡ Instant Get File</button>`;
       const adminActions = isBossUnlocked ? `
         <div class="grid-card-admin">
-          <button onclick="renameItem('movie', '${it.id}', '${jsAttr(it.title)}')" class="btn-primary btn-sm">Rename</button>
-          <button onclick="deleteItem('movie', '${it.id}')" class="btn-danger btn-sm">Delete</button>
+          <button onclick="renameItem('${isVideo ? 'movie' : 'link'}', '${it.id}', '${jsAttr(it.title)}')" class="btn-primary btn-sm">Rename</button>
+          <button onclick="deleteItem('${isVideo ? 'movie' : 'link'}', '${it.id}')" class="btn-danger btn-sm">Delete</button>
         </div>` : '';
       return `
         <li class="grid-card">
