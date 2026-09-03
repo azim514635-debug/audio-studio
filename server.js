@@ -1078,6 +1078,15 @@ app.post('/api/instant-get', ah(async (req, res) => {
     || db.links.find((l) => l.id === movieId);
   if (!movie) return res.status(404).json({ success: false, error: 'Movie not found.' });
 
+  // If there is already a pending request for this movie, return its id
+  // instead of creating duplicates.
+  const existing = (db.instantRequests || []).find(
+    (r) => r.movieId === movieId && r.status === 'pending'
+  );
+  if (existing) {
+    return res.json({ success: true, requestId: existing.id });
+  }
+
   const requestId = makeId();
   const request = {
     id: requestId,
@@ -1122,6 +1131,19 @@ app.post('/api/instant-get-result', ah(async (req, res) => {
       req.resultUrl = resultUrl || null;
       req.error = error || null;
       req.resolvedAt = Date.now();
+
+      // Also save the resolved link on the movie item itself so it can be
+      // reused and periodically checked for expiry.
+      if (req.status === 'done' && resultUrl && req.movieId) {
+        const movie = d.movies.find((m) => m.id === req.movieId);
+        if (movie) {
+          movie.resolvedUrl = resultUrl;
+          movie.resolvedAt = Date.now();
+          movie.watchUrl = '/watch?url=' + encodeURIComponent(resultUrl)
+            + '&title=' + encodeURIComponent(movie.title || 'Watch')
+            + '&thumb=' + encodeURIComponent(movie.thumbnailUrl || '');
+        }
+      }
     }
     await saveDb(d);
   });
@@ -1162,6 +1184,27 @@ app.post('/api/instant-get/clear-pending', ah(async (req, res) => {
     await saveDb(d);
   });
   res.json({ success: true, cleared });
+}));
+
+// Boss-only: return movies whose resolved link is older than 2 hours so the
+// bot can regenerate them in the background.
+app.get('/api/instant-get-expired', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const db = await getDb();
+  const TWO_HOURS = 2 * 60 * 60 * 1000;
+  const now = Date.now();
+  const expired = (db.movies || []).filter(
+    (m) => m.resolvedUrl && m.resolvedAt && (now - m.resolvedAt) > TWO_HOURS
+  );
+  res.json({
+    movies: expired.map((m) => ({
+      id: m.id,
+      title: m.title,
+      thumbnailUrl: m.thumbnailUrl || '',
+      telegramUrl: m.telegramUrl || '',
+      resolvedAt: m.resolvedAt,
+    }))
+  });
 }));
 
 /* ------------------------------------------------------------------ */

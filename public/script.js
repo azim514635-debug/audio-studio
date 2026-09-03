@@ -793,7 +793,7 @@ async function fetchLibrary() {
 
     if (isVideo || (isLink && tgLink)) {
       const thumb = it.thumbnailUrl
-        ? `<img class="grid-card-thumb" src="${escapeHtml(it.thumbnailUrl)}" alt="${escapeHtml(it.title)}">`
+        ? `<img class="grid-card-thumb" src="${escapeHtml(it.thumbnailUrl)}" alt="${escapeHtml(it.title)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="grid-card-thumb grid-card-thumb-placeholder" style="display:none">🎬</div>`
         : `<div class="grid-card-thumb grid-card-thumb-placeholder">🎬</div>`;
       const tgBtn = tgLink
         ? `<a class="grid-card-btn tg-btn" href="${escapeHtml(tgLink)}" target="_blank" rel="noopener">💬 Get File on Telegram</a>`
@@ -871,11 +871,24 @@ window.instantGet = async function (movieId, title) {
     if (btn) {
       btn.dataset.generating = '';
       btn.disabled = false;
-      btn.textContent = '⚡ Instant Get File';
+      btn.textContent = '\u26A1 Instant Get File';
     }
   };
 
   try {
+    // Check if a valid cached link already exists (<2h old).
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    try {
+      const mRes = await fetch('/api/movies');
+      const movies = await mRes.json();
+      const movie = (movies || []).find((m) => m.id === movieId);
+      if (movie && movie.watchUrl && movie.resolvedAt && (Date.now() - movie.resolvedAt) < TWO_HOURS) {
+        window.open(movie.watchUrl, '_blank');
+        release();
+        return;
+      }
+    } catch (e) { /* ignore — fall through to fresh generation */ }
+
     const res = await fetch('/api/instant-get', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -891,19 +904,14 @@ window.instantGet = async function (movieId, title) {
     const requestId = data.requestId;
     if (btn) btn.textContent = 'Generating...';
 
-    // Poll until the result arrives (success / error / timeout). The button
-    // stays locked ("Generating...") the whole time so it can't be pressed
-    // again under 30s.
     let attempts = 0;
-    const maxAttempts = 75; // up to ~2.5 minutes
+    const maxAttempts = 75;
     const poll = async () => {
       attempts++;
       try {
         const r = await fetch(`/api/instant-get-result/${requestId}`);
         const rd = await r.json();
         if (rd.status === 'done' && (rd.watchUrl || rd.resultUrl)) {
-          // Open the site's watch page (player + download button) rather than
-          // the raw link that would auto-download.
           window.open(rd.watchUrl || rd.resultUrl, '_blank');
           release();
           return;
@@ -913,9 +921,7 @@ window.instantGet = async function (movieId, title) {
           release();
           return;
         }
-      } catch (e) {
-        /* transient network error — keep polling */
-      }
+      } catch (e) { /* transient — keep polling */ }
       if (attempts >= maxAttempts) {
         showAlert('Timed out waiting for the link. Please try again.');
         release();
