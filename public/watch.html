@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Watch</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #12141d;
+      color: #f4f5fa;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .wrap { width: 100%; max-width: 700px; text-align: center; }
+    video { width: 100%; max-height: 80vh; border-radius: 12px; background: #000; }
+    h1 { font-size: 17px; margin: 14px 0 10px; word-break: break-word; }
+    .btn {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 11px 22px;
+      background: #2aabee;
+      color: #fff;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .brand { font-size: 12px; color: #7ae0ff; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="player"></div>
+    <h1 id="title"></h1>
+    <div id="dl"></div>
+    <div class="brand">Azim's Space</div>
+  </div>
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      var url = p.get('url') || '';
+      var title = p.get('title') || 'Watch';
+      document.getElementById('title').textContent = title;
+      if (!url) {
+        document.getElementById('player').textContent = 'No file URL provided.';
+        return;
+      }
+      var el = document.createElement('video');
+      el.src = url;
+      el.controls = true;
+      el.playsinline = true;
+      el.style.width = '100%';
+      el.style.borderRadius = '12px';
+      document.getElementById('player').appendChild(el);
+      var a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.className = 'btn';
+      a.textContent = '\u2B07 Download';
+      document.getElementById('dl').appendChild(a);
+    })();
+  </script>
+</body>
+</html>

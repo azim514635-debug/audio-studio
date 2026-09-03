@@ -893,6 +893,10 @@ app.get('/dl/:type/:id', ah(async (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'share.html'));
 }));
 
+// Watch-only page for Instant Get — plays the resolved file inline without
+// storing anything on the server. URL + title are passed via query string.
+app.get('/watch', (req, res) => res.sendFile(path.join(__dirname, 'public', 'watch.html')));
+
 /* ------------------------------------------------------------------ */
 /* Reset — boss only: clear all uploaded media + chat history          */
 /* ------------------------------------------------------------------ */
@@ -1118,36 +1122,6 @@ app.post('/api/instant-get-result', ah(async (req, res) => {
       req.resultUrl = resultUrl || null;
       req.error = error || null;
       req.resolvedAt = Date.now();
-
-      // When a file URL is resolved, register it as a site item so it can be
-      // served through the site's watch page (/dl/...) with a player + download
-      // button, instead of dumping a raw auto-downloading link.
-      if (req.status === 'done' && resultUrl) {
-        d.links = d.links || [];
-        const existing = d.links.find((l) => l.id === req.movieId);
-        if (existing) {
-          existing.url = resultUrl;
-          existing.resolvedUrl = resultUrl;
-          existing.resolvedAt = Date.now();
-          req.watchUrl = '/dl/file/' + existing.id;
-        } else {
-          const newItem = {
-            id: makeId(),
-            title: (req.movieTitle || 'File') + ' — Watch',
-            url: resultUrl,
-            resolvedUrl: resultUrl,
-            movieUrl: resultUrl,
-            thumbnailUrl: req.thumbnailUrl || '',
-            telegramUrl: req.telegramUrl || '',
-            instant: true,
-            createdAt: Date.now()
-          };
-          d.links.unshift(newItem);
-          db.links = d.links;
-          req.instantItemId = newItem.id;
-          req.watchUrl = '/dl/file/' + newItem.id;
-        }
-      }
     }
     await saveDb(d);
   });
@@ -1163,7 +1137,7 @@ app.get('/api/instant-get-result/:requestId', ah(async (req, res) => {
     success: true,
     status: request.status,
     resultUrl: request.resultUrl || null,
-    watchUrl: request.watchUrl || null,
+    watchUrl: request.resultUrl ? ('/watch?url=' + encodeURIComponent(request.resultUrl) + '&title=' + encodeURIComponent(request.movieTitle || 'Watch')) : null,
     error: request.error || null
   });
 }));
