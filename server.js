@@ -219,6 +219,23 @@ const isBossReq = (req) => {
   return supplied === BOSS_SECRET;
 };
 
+// Repair thumbnail URLs that were accidentally written with a doubled
+// api.telegram.org/file/bot<token>/ prefix (old bot versions). Returns a
+// single, valid URL, or '' if it can't be salvaged.
+const normalizeThumb = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  let s = String(url).trim();
+  const prefixRe = /^(?:https?:\/\/)?api\.telegram\.org\/file\/bot[^/]+\//i;
+  while (prefixRe.test(s)) {
+    s = s.replace(prefixRe, '');
+  }
+  if (s.indexOf('http') === 0) {
+    // .jpg/.jpeg/.png/.webp path with no leftover prefix
+    return s;
+  }
+  return s ? `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN || ''}/${s}` : '';
+};
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2048 * 1024 * 1024 } });
 
 const makeId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -302,15 +319,15 @@ app.get('/api/data', ah(async (req, res) => {
 }));
 
 app.get('/api/tracks', ah(async (req, res) => {
-  res.json((await getDb()).songs);
+  res.json((await getDb()).songs.map((it) => ({ ...it, thumbnailUrl: normalizeThumb(it.thumbnailUrl) })));
 }));
 
 app.get('/api/movies', ah(async (req, res) => {
-  res.json((await getDb()).movies);
+  res.json((await getDb()).movies.map((it) => ({ ...it, thumbnailUrl: normalizeThumb(it.thumbnailUrl) })));
 }));
 
 app.get('/api/links', ah(async (req, res) => {
-  res.json((await getDb()).links);
+  res.json((await getDb()).links.map((it) => ({ ...it, thumbnailUrl: normalizeThumb(it.thumbnailUrl) })));
 }));
 
 /* ------------------------------------------------------------------ */
