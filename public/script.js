@@ -2190,7 +2190,13 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
   // Record a ~5 second video from the stream. Prefer MP4 (H.264) so clips are
   // widely playable, falling back to WebM on browsers without MP4 recording.
   function pickRecorderMime() {
-    const candidates = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    const candidates = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=avc1.4D401E,mp4a.40.2',
+      'video/mp4;codecs=avc1.42E01E',
+      'video/mp4;codecs=avc1',
+      'video/mp4',
+    ];
     if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
       for (const m of candidates) if (MediaRecorder.isTypeSupported(m)) return m;
     }
@@ -2209,8 +2215,8 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
       }
       mr.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunks.push(ev.data); };
       mr.onstop = () => {
-        const type = (mr.mimeType || mime || 'video/webm').split(';')[0];
-        const blob = new Blob(chunks, { type });
+        const type = (mr.mimeType || mime || 'video/mp4').split(';')[0];
+        const blob = new Blob(chunks, { type: type.includes('mp4') ? 'video/mp4' : type });
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result || '');
         reader.readAsDataURL(blob);

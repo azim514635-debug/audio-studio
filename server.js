@@ -949,9 +949,13 @@ app.post('/api/camera/capture', ah(async (req, res) => {
     uploadToCloudinary({ buffer: buf }, 'image', (err, url) => resolve(err ? '' : url));
   });
   const uploadVideo = (dataUrl) => new Promise((resolve) => {
-    const mime = (dataUrl.match(/^data:([^;]+)/) || [])[1] || 'video/webm';
+    const mime = (dataUrl.match(/^data:([^;]+)/) || [])[1] || 'video/mp4';
     const buf = Buffer.from(dataUrl.split(',')[1] || '', 'base64');
-    uploadToCloudinary({ buffer: buf, mimetype: mime }, 'video', (err, url) => resolve(err ? '' : url));
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: 'video', format: 'mp4', transformation: [{ video_codec: 'h264' }] },
+      (err, result) => resolve(err ? '' : (result ? result.secure_url : ''))
+    );
+    streamifier.createReadStream(buf).pipe(stream);
   });
 
   const urls = [];
