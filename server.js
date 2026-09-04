@@ -1193,27 +1193,6 @@ app.post('/api/instant-get/clear-pending', ah(async (req, res) => {
   res.json({ success: true, cleared });
 }));
 
-// Boss-only: return movies whose resolved link is older than 2 hours so the
-// bot can regenerate them in the background.
-app.get('/api/instant-get-expired', ah(async (req, res) => {
-  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
-  const db = await getDb();
-  const TWO_HOURS = 2 * 60 * 60 * 1000;
-  const now = Date.now();
-  const expired = [...(db.movies || []), ...(db.links || [])].filter(
-    (m) => m.resolvedUrl && m.resolvedAt && (now - m.resolvedAt) > TWO_HOURS
-  );
-  res.json({
-    movies: expired.map((m) => ({
-      id: m.id,
-      title: m.title,
-      thumbnailUrl: m.thumbnailUrl || '',
-      telegramUrl: m.telegramUrl || '',
-      resolvedAt: m.resolvedAt,
-    }))
-  });
-}));
-
 /* ------------------------------------------------------------------ */
 /* Community chat                                                      */
 /* ------------------------------------------------------------------ */

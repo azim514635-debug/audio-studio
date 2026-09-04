@@ -1,0 +1,14 @@
+ 
+
+Write a complete, production-ready setup for a Movie Website Updates platform integrated with a Telegram Bot running in "Secretary Mode" (Telegram Business API).
+
+### Architecture & Workflow:
+1. Admin Upload: When I forward a movie video file directly to my bot (@movie_by_azim_bot), the bot must catch it, forward it to my private storage channel (BIN_CHANNEL_ID), and auto-extract the Telegram deep link to that specific channel post (https://t.me).
+2. Database Entry: Save the movie title, video thumbnail URL (extracted via bot.get_file from the video's native preview), target message ID, and Telegram deep link into a structured database array.
+3. Web Grid Interface: Create a responsive in my website project It loops through available data and outputs visual grid cards containing the movie thumbnail, title, and two custom buttons:
+   - Button 1: "Get File on Telegram" (Directly hyperlinked to the Telegram deep link post).
+   - Button 2: "Instant Get File" (Triggers an asynchronous fetch to the backend API).
+4. Secretary Link Extraction: When Button 2 is clicked, the backend must instantly command the bot to forward that movie file to a public third-party link generator bot . Because Secretary Mode is active, write a background event listener that catches the link bot's reply in the private profile chat feed, parses out the clean HTTP download URL on the fly, resolves the pending web request, and opens the download link automatically in the user's browser via JavaScript.
+
+main fioes located in publick or in my froject folder
+and make my bot not spin down after 15 min because of render

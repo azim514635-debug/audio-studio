@@ -857,10 +857,22 @@ async function fetchLibrary() {
   }).join('');
 }
 
-/* Instant Get File — opens pre-resolved link or generates one on demand */
+/* Instant Get File — serves the saved link if still valid, otherwise asks
+   the bot to regenerate it, keeps the new link, and reuses it on later
+   clicks until it expires again. */
+const instantCache = Object.create(null);
+const INSTANT_TTL = 2 * 60 * 60 * 1000; // 2 hours
+
 window.instantGet = async function (movieId, title) {
   const btn = document.querySelector(`.instant-btn[data-movie-id="${movieId}"]`);
   if (btn && btn.dataset.generating === '1') return;
+
+  const saved = instantCache[movieId];
+  if (saved && saved.watchUrl && (Date.now() - saved.at) < INSTANT_TTL) {
+    openWatch(saved.watchUrl, movieId, saved.title || title);
+    return;
+  }
+
   if (btn) {
     btn.dataset.generating = '1';
     btn.disabled = true;
@@ -876,23 +888,22 @@ window.instantGet = async function (movieId, title) {
   };
 
   try {
-    const TWO_HOURS = 2 * 60 * 60 * 1000;
-
-    // Check both movies and links for a pre-resolved URL
+    // Check both movies and links for a pre-resolved (still unexpired) URL
     try {
       const [mRes, lRes] = await Promise.all([fetch('/api/movies'), fetch('/api/links')]);
       const movies = await mRes.json();
       const links = await lRes.json();
       const all = [...(movies || []), ...(links || [])];
       const item = all.find((m) => m.id === movieId);
-      if (item && item.watchUrl && item.resolvedAt && (Date.now() - item.resolvedAt) < TWO_HOURS) {
-        window.open(item.watchUrl, '_blank');
+      if (item && item.watchUrl && item.resolvedAt && (Date.now() - item.resolvedAt) < INSTANT_TTL) {
+        instantCache[movieId] = { watchUrl: item.watchUrl, title: item.title, at: item.resolvedAt };
+        openWatch(item.watchUrl, movieId, item.title || title);
         release();
         return;
       }
-    } catch (e) { /* fall through to generation */ }
+    } catch (e) { /* fall through to regeneration */ }
 
-    // No valid cached link — trigger generation
+    // No valid cached link — ask the bot to regenerate a fresh one
     if (btn) btn.textContent = 'Generating...';
 
     const res = await fetch('/api/instant-get', {
@@ -918,7 +929,10 @@ window.instantGet = async function (movieId, title) {
         const r = await fetch(`/api/instant-get-result/${requestId}`);
         const rd = await r.json();
         if (rd.status === 'done' && (rd.watchUrl || rd.resultUrl)) {
-          window.open(rd.watchUrl || rd.resultUrl, '_blank');
+          const watchUrl = rd.watchUrl || rd.resultUrl;
+          // Keep the new link so the next click reuses it (no re-generation)
+          instantCache[movieId] = { watchUrl, title, at: Date.now() };
+          openWatch(watchUrl, movieId, title);
           release();
           return;
         }
@@ -941,6 +955,15 @@ window.instantGet = async function (movieId, title) {
     release();
   }
 };
+
+// Opens the served link once (returns early if the pre-existing watch page
+// is already open for this movie's button).
+function openWatch(url, movieId, title) {
+  const btn = document.querySelector(`.instant-btn[data-movie-id="${movieId}"]`);
+  if (btn && btn.dataset.opened === '1') return;
+  if (btn) btn.dataset.opened = '1';
+  window.open(url, '_blank');
+}
 
 /* Boss dashboard + requests                                          */
 /* ------------------------------------------------------------------ */
