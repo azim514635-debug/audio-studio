@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Azim's Space — share, upload and listen to audio and video, chat and send requests in one private space.">
+  <meta name="keywords" content="Azim's Space, Azim Space, audio upload, video upload, chat, Azim">
+  <link rel="canonical" href="https://azim-studio.onrender.com/">
+  <link rel="icon" href="logo.jpg">
+  <link rel="apple-touch-icon" href="logo.jpg">
+  <meta property="og:title" content="Azim's Space">
+  <meta property="og:description" content="Upload audio & video, listen and chat in Azim's private space.">
+  <meta property="og:type" content="website">
+  <title>Azim's Space — Audio & Video Upload + Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="samurai-theme">
+  <!-- Theme video loop background (muted, volume 0, zoomed to hide watermark) -->
+  <div id="theme-video-bg" class="samurai-video-bg">
+    <video id="theme-bg-video" autoplay loop muted playsinline>
+      <source src="https://res.cloudinary.com/vl7tgkgi/video/upload/q_auto:low,w_640/v1788079409/theme/vahje9eerdlpy2j9tl93.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+
+  <!-- Background music (100 volume, loops across all pages) -->
+  <audio id="theme-bg-music" loop preload="auto" volume="1"></audio>
+
+  <!-- Theme music player -->
+  <div id="theme-music-player" class="notif-prompt hidden">
+    <div class="notif-prompt-inner">
+      <span class="notif-prompt-icon">🎵</span>
+      <div class="notif-prompt-text">
+        <strong>Theme Music</strong>
+        <span id="theme-music-text">No music selected</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register / Login modal -->
+  <div id="name-modal" class="modal-overlay">
+    <div class="modal-card">
+
+      <!-- Step 1: choose Login or Register -->
+      <div id="auth-choice">
+        <h2>Welcome to Azim's Space</h2>
+        <p>Choose an option to unlock uploading, chatting and sending requests.</p>
+        <button id="auth-btn-register" class="btn-primary" style="margin-top:8px;">Register</button>
+        <button id="auth-btn-login" class="btn-secondary" style="margin-top:8px;">Login</button>
+      </div>
+
+      <!-- Step 2: auth form -->
+      <div id="auth-form" style="display:none;">
+        <h2 id="auth-title">Welcome to Azim's Space</h2>
+        <p id="auth-subtitle">Create an account to unlock uploading, chatting and sending requests.</p>
+
+        <input type="text" id="auth-name" placeholder="Enter your name" autocomplete="off">
+        <input type="password" id="auth-password" placeholder="Enter your password" autocomplete="off">
+        <input type="password" id="auth-confirm" placeholder="Confirm password" style="display:none;" autocomplete="off">
+
+        <p id="auth-error" class="boss-modal-error" style="display:none;"></p>
+
+        <button id="auth-submit" class="btn-primary" style="margin-top:8px;">Register</button>
+        <p id="auth-toggle" class="auth-toggle"><span id="auth-toggle-label">Already have an account?</span> <a href="javascript:void(0)" id="auth-toggle-link">Login</a></p>
+        <p class="auth-back"><a href="javascript:void(0)" id="auth-back-link">← Choose Log in / Register</a></p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Change name modal -->
+  <div id="change-name-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2>✏️ Change Name</h2>
+      <p>Enter the new name to show on your avatar.</p>
+      <input type="text" id="change-name-input" placeholder="Enter your name" autocomplete="off" maxlength="24">
+      <div class="boss-modal-btns">
+        <button id="change-name-cancel" class="btn-secondary">Cancel</button>
+        <button id="change-name-save" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Boss password modal (shown only to the owner, e.g. name "Azim") -->
+  <div id="boss-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2 id="boss-modal-heading">👑 Boss Access</h2>
+      <p id="boss-modal-prompt">Enter your pass to declare you are the Boss.</p>
+      <input type="password" id="boss-modal-input" placeholder="Boss pass..." autocomplete="off">
+      <div class="boss-modal-btns">
+        <button id="boss-modal-cancel" class="btn-secondary">Cancel</button>
+        <button id="boss-modal-ok" class="btn-primary">I'm the Boss</button>
+      </div>
+      <p id="boss-modal-error" class="boss-modal-error" style="display:none;">Incorrect pass. Try again.</p>
+    </div>
+  </div>
+
+  <!-- Friendly notification prompt banner -->
+  <div id="notif-prompt-banner" class="notif-prompt hidden">
+    <div class="notif-prompt-inner">
+      <span class="notif-prompt-icon">🔔</span>
+      <div class="notif-prompt-text">
+        <strong>Stay in the loop!</strong>
+        <span>Get notified about new uploads, chat messages and updates.</span>
+      </div>
+      <button type="button" id="notif-prompt-later" class="btn-secondary btn-sm">Not Now</button>
+      <button type="button" id="notif-prompt-enable" class="btn-primary btn-sm">Enable</button>
+    </div>
+  </div>
+
+  <!-- Floating circular notification button (bottom-left) -->
+  <div id="notif-fab" class="notif-fab">
+    <button type="button" id="notif-circle-btn" class="boss-circle notif-circle" title="Notifications" aria-label="Notifications">
+      🔔
+    </button>
+    <span class="boss-fab-label notif-fab-label" id="notif-fab-label">Notifications</span>
+  </div>
+  <!-- Floating circular boss button (bottom-right) -->
+  <div id="boss-fab" class="boss-fab">
+    <button type="button" id="boss-circle-btn" class="boss-circle" title="Boss Panel" aria-label="Boss Panel">
+      🔒
+    </button>
+    <span class="boss-fab-label" data-boss-text>Boss Panel</span>
+  </div>
+
+  <!-- Notification enable/disable popup -->
+  <div id="notif-popup" class="notif-popup hidden">
+    <span class="notif-popup-icon" id="notif-popup-icon">🔔</span>
+    <span id="notif-popup-text">Notifications enabled</span>
+  </div>
+
+  <!-- Themed alert popup -->
+  <div id="app-alert" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="app-alert-icon" id="app-alert-icon">ℹ️</div>
+      <h2 id="app-alert-title">Notice</h2>
+      <p id="app-alert-msg"></p>
+      <div class="boss-modal-btns">
+        <button type="button" class="btn-primary" id="app-alert-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Themed confirm popup -->
+  <div id="app-confirm" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="app-alert-icon" id="app-confirm-icon">❓</div>
+      <h2 id="app-confirm-title">Please Confirm</h2>
+      <p id="app-confirm-msg"></p>
+      <div class="boss-modal-btns">
+        <button type="button" class="btn-secondary" id="app-confirm-cancel">Cancel</button>
+        <button type="button" class="btn-danger" id="app-confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Themed prompt popup -->
+  <div id="app-prompt" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="app-alert-icon" id="app-prompt-icon">✏️</div>
+      <h2 id="app-prompt-title">Enter a value</h2>
+      <input type="text" id="app-prompt-input" autocomplete="off">
+      <div class="boss-modal-btns">
+        <button type="button" class="btn-secondary" id="app-prompt-cancel">Cancel</button>
+        <button type="button" class="btn-primary" id="app-prompt-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Disabled / appeal modal -->
+  <div id="appeal-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="app-alert-icon">🚫</div>
+      <h2>Account Disabled</h2>
+      <p>Your account <strong id="appeal-account-name"></strong> has been disabled by the boss. If you think this is a mistake, click the button below to appeal and get it re-enabled.</p>
+      <textarea id="appeal-text" rows="3" placeholder="Write a short appeal message..." autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);resize:vertical;"></textarea>
+      <p id="appeal-error" class="boss-modal-error" style="display:none;"></p>
+      <div class="boss-modal-btns">
+        <button type="button" class="btn-secondary" id="appeal-cancel">Close</button>
+        <button type="button" class="btn-primary" id="appeal-submit">Submit Appeal</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- Top app bar -->
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <img class="brand-logo" src="logo.jpg" alt="Azim's Space logo">
+          <span class="brand-name">Azim's <em>Space</em></span>
+          <span class="badge">PRO</span>
+        </div>
+        <div class="topbar-nav-wrap">
+  <button type="button" id="menu-toggle" class="menu-toggle" aria-label="More options" aria-expanded="false">
+    <span class="menu-bar"></span>
+    <span class="menu-bar"></span>
+    <span class="menu-bar"></span>
+  </button>
+  <nav id="menu-panel" class="menu-panel" aria-label="Main navigation">
+    <button type="button" class="menu-link" data-page="upload">⬆️ Upload</button>
+    <div class="menu-divider"></div>
+    <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
+    <button type="button" class="menu-link menu-logout" id="menu-logout" style="color:#f87171;">🚪 Log out</button>
+  </nav>
+</div>
+        <div class="topbar-actions">
+          <button type="button" id="bg-music-toggle" class="bg-music-toggle paused" title="Play music" aria-label="Play / stop music">▶</button>
+          <div class="user-avatar" id="user-avatar">
+            <span class="avatar-initials" id="avatar-initials">👤</span>
+          </div>
+        </div>
+      </div>
+      <!-- Horizontal quick-nav: Updates + Chat, below the title/avatar -->
+      <div class="quick-nav">
+        <button type="button" class="quick-nav-btn" data-page="library" data-quicknav>
+          <span class="quick-nav-icon">📚</span>
+          <span>Updates</span>
+        </button>
+        <button type="button" class="quick-nav-btn" data-page="chat" data-quicknav>
+          <span class="quick-nav-icon">💬</span>
+          <span>Chat</span>
+          <span class="menu-count" id="menu-message-count"></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Combined Library (Songs / Movies / Links) -->
+      <section id="page-library" class="page">
+        <div class="header-card" style="background: linear-gradient(135deg, #6366f1, #a855f7);">
+          <h1>📚 Updates</h1>
+          <p>All songs, movies and links in one place, newest first.</p>
+        </div>
+
+        <div class="card">
+          <ul id="library-list" class="track-list"></ul>
+        </div>
+      </section>
+
+      <!-- Professional Upload Media -->
+      <section id="page-upload" class="page">
+        <div class="header-card">
+          <h1>⬆️ Upload Media</h1>
+          <p>Upload audio &amp; video from your device with live progress and custom thumbnails.</p>
+        </div>
+
+        <div class="upload-layout">
+          <div class="card">
+            <div class="segmented" id="media-type-seg">
+              <button type="button" class="seg-btn active" data-kind="audio">🎵 Audio</button>
+              <button type="button" class="seg-btn" data-kind="video">🎬 Video</button>
+            </div>
+
+            <!-- Media name -->
+            <label class="field-label" for="media-title">Media Name</label>
+            <div id="name-prefix-wrap">
+              <input type="text" id="media-title" placeholder="e.g. My Summer Mix — Track 1">
+              <p class="field-hint" id="title-hint">Tip: when uploading multiple files, files are named <strong>“Name 1”, “Name 2”…</strong> using this prefix.</p>
+            </div>
+
+            <!-- DEVICE source -->
+            <div id="device-pane">
+              <input type="file" id="media-file" multiple hidden>
+              <div id="drop-zone">
+                <div class="drop-icon">⬆️</div>
+                <p><strong>Drop audio/video files here</strong></p>
+                <p class="field-hint">or</p>
+                <button type="button" class="btn-primary" id="pick-media-btn">Browse Files</button>
+                <p class="field-hint">MP3, M4A, WAV, MP4, MKV, MOV…</p>
+                <div id="selected-files" class="selected-files"></div>
+              </div>
+            </div>
+
+            <!-- Theme video source -->
+            <div class="field-label" style="margin: 14px 0 6px;">Theme Video</div>
+            <div class="segmented" style="margin-bottom: 10px;">
+              <button type="button" class="seg-btn active" data-theme-src="none">None</button>
+              <button type="button" class="seg-btn" data-theme-src="upload">From Upload</button>
+              <button type="button" class="seg-btn" data-theme-src="device">From Device</button>
+            </div>
+            <div id="theme-video-url-wrap" style="display:none;">
+              <input type="url" id="theme-video-url" placeholder="Video URL (mp4/webm)">
+            </div>
+            <div id="theme-device-wrap" style="display:none;">
+              <input type="file" id="theme-video-file" accept="video/*" hidden>
+              <button type="button" class="btn-secondary" id="pick-theme-video-btn">Choose Video</button>
+              <span id="theme-video-file-name">No video selected</span>
+            </div>
+
+            <!-- Theme music -->
+            <div class="field-label" style="margin: 14px 0 6px;">Theme Music</div>
+            <div class="segmented" style="margin-bottom: 10px;">
+              <button type="button" class="seg-btn active" data-music-src="none">None</button>
+              <button type="button" class="seg-btn" data-music-src="upload">From Upload</button>
+              <button type="button" class="seg-btn" data-music-src="device">From Device</button>
+            </div>
+            <div id="theme-music-url-wrap" style="display:none;">
+              <input type="url" id="theme-music-url" placeholder="Music URL">
+            </div>
+            <div id="theme-music-device-wrap" style="display:none;">
+              <input type="file" id="theme-music-file" accept="audio/*" hidden>
+              <button type="button" class="btn-secondary" id="pick-theme-music-btn">Choose Music</button>
+              <span id="theme-music-file-name">No music selected</span>
+            </div>
+
+            <!-- Thumbnail: URL or file -->
+            <div class="thumb-block" id="thumb-block-root">
+              <div class="thumb-options">
+                <label class="field-label">Thumbnail</label>
+                <div class="segmented" id="thumb-seg">
+                  <button type="button" class="seg-btn active" data-thumbsrc="url">🖼 URL</button>
+                  <button type="button" class="seg-btn" data-thumbsrc="file">📄 File</button>
+                </div>
+              </div>
+              <div id="thumb-url-wrap">
+                <input type="url" id="thumb-url" placeholder="https://example.com/cover.jpg (optional)">
+              </div>
+              <div id="thumb-file-wrap" style="display:none;">
+                <input type="file" id="thumb-file" accept="image/*" hidden>
+                <button type="button" class="btn-secondary" id="pick-thumb-btn">Choose Image File</button>
+                <span class="thumb-file-name" id="thumb-file-name">No image selected</span>
+              </div>
+              <div id="thumb-preview" class="thumb-preview" style="display:none;">
+                <img id="thumb-preview-img" alt="Thumbnail preview">
+                <button type="button" class="thumb-clear" id="thumb-clear-btn" title="Remove thumbnail">×</button>
+              </div>
+            </div>
+
+            <button type="button" class="btn-primary btn-lg" id="start-upload-btn">Upload Media</button>
+          </div>
+
+          <!-- Live queue / progress -->
+          <div class="card upload-queue-card">
+            <div class="card-header">
+              <h3 id="queue-title">Upload Queue</h3>
+              <span class="queue-status" id="queue-status">Ready</span>
+            </div>
+            <div id="upload-queue" class="upload-queue">
+              <p class="empty-hint" id="queue-empty">Nothing here yet. Choose files or a link to get started.</p>
+            </div>
+            <div id="upload-history" class="upload-history"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Professional Chat -->
+      <section id="page-chat" class="page">
+        <div class="header-card" style="background: linear-gradient(135deg, #0ea5e9, #6366f1);">
+          <h1>💬 Community Chat</h1>
+          <p>Talk with everyone on Azim's Space.</p>
+        </div>
+
+        <div class="card chat-card">
+          <div class="chat-toolbar">
+            <span class="chat-stats" id="chat-stats">Live chat</span>
+            <button type="button" class="btn-danger btn-sm" id="clear-chat-btn" style="display:none;">🗑 Clear all</button>
+          </div>
+          <div id="chat-messages" class="chat-messages">
+            <div class="chat-loading">Loading messages…</div>
+          </div>
+          <div class="chat-input-row">
+            <textarea id="chat-input" rows="1" placeholder="Type a message… (Enter to send, Shift+Enter for new line)"></textarea>
+            <button type="button" id="chat-send-btn" class="btn-primary">Send ➤</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Requests -->
+      <section id="page-request" class="page">
+        <div class="header-card">
+          <h1>📩 Send a Request to Azim</h1>
+          <p>Share your message, feedback or feature request.</p>
+        </div>
+        <div class="card">
+          <textarea id="request-text" placeholder="Type your message or feature request here..."></textarea>
+          <button id="send-request-btn" class="btn-primary">Submit Request</button>
+        </div>
+      </section>
+
+      <!-- Boss Dashboard -->
+      <section id="page-boss" class="page">
+        <div class="header-card" style="background: linear-gradient(135deg, #111827, #374151);">
+          <h1 id="boss-heading">🔒 Boss Dashboard</h1>
+          <p>Manage uploaded media and review user requests.</p>
+        </div>
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card-header">
+            <h3>Manage Uploaded Media (Rename / Delete)</h3>
+          </div>
+          <div id="boss-media-box"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Stored User Requests</h3>
+            <button id="clear-requests-btn" class="btn-danger">Clear All</button>
+          </div>
+          <div id="requests-box" class="requests-box"></div>
+        </div>
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header">
+            <h3 data-boss-text>Registered Accounts</h3>
+            <button id="clear-permanent-accounts-btn" class="btn-danger btn-sm" title="Remove permanently disabled accounts">🗑 Clear Permanently Deleted</button>
+          </div>
+          <p class="field-hint">Manage registered user accounts. You can disable an account (they can appeal) or disable it permanently (cannot be reversed).</p>
+          <div id="accounts-box" class="requests-box"></div>
+        </div>
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header">
+            <h3 data-boss-text>User Appeals</h3>
+          </div>
+          <p class="field-hint">Appeals from users whose accounts were disabled. Review and approve to re-enable them.</p>
+          <div id="appeals-box" class="requests-box"></div>
+        </div>
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header">
+            <h3 data-boss-text>Boss — Send Notification</h3>
+          </div>
+          <label class="field-label" for="notif-title">Title</label>
+          <input type="text" id="notif-title" placeholder="e.g. New song added!">
+          <label class="field-label" for="notif-body">Message</label>
+          <textarea id="notif-body" placeholder="e.g. Check out the latest uploads in the library."></textarea>
+          <button type="button" class="btn-primary" id="send-notif-btn">Send to All Users</button>
+          <p class="field-hint" id="notif-send-result"></p>
+        </div>
+      </section>
+
+      <!-- Notifications -->
+      <section id="page-notifications" class="page">
+        <div class="header-card" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
+          <h1>🔔 Notifications</h1>
+          <p>Get notified when new media is added or a new chat message arrives — even when the site is closed.</p>
+        </div>
+        <div class="card">
+          <div class="notif-card">
+            <div class="notif-icon">🔔</div>
+            <h3>Push Notifications</h3>
+            <p class="notif-desc">Enable push notifications to stay up to date. You can turn them off anytime.</p>
+            <div class="notif-status" id="notif-status">
+              <span class="notif-status-dot"></span>
+              <span id="notif-status-text">Checking…</span>
+            </div>
+            <button type="button" class="btn-primary btn-lg" id="enable-notif-btn">Enable Notifications</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+  <script src="script.js"></script>
+
+
+</body>
+</html>

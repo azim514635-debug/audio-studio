@@ -1,0 +1,9 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "providers": {
+    "custom-ai": {
+      "api_base": "https://experientiallabs.ai",
+      "models": ["gpt-6-astra"]
+    }
+  }
+}

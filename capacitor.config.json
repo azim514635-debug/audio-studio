@@ -1,0 +1,23 @@
+{
+  "appId": "com.azim.studio",
+  "appName": "Azim's Space",
+  "webDir": "public",
+  "server": {
+    "url": "https://azim.run.place",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "buildOptions": {
+      "keystorePath": null,
+      "keystoreAlias": null
+    }
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#ff6a00"
+    }
+  }
+}
