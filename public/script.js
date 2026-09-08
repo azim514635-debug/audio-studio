@@ -743,6 +743,16 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Replace a broken <img> with the placeholder when a thumbnail URL fails to load.
+function thumbFallback(img, icon) {
+  if (!img || img.dataset.fallback) return;
+  img.dataset.fallback = '1';
+  const ph = document.createElement('div');
+  ph.className = 'track-thumb-placeholder';
+  ph.textContent = icon || '🎵';
+  img.replaceWith(ph);
+}
+
 // Escape a value for use inside a single-quoted JS string literal within an
 // HTML attribute (e.g. onclick="...('${jsAttr(x)}')"). Must survive HTML
 // decoding FIRST (entities), then JS string escaping.
@@ -828,7 +838,7 @@ async function fetchLibrary() {
     }
 
     const thumb = it.thumbnailUrl
-      ? `<img class="track-thumb ${isLink ? '' : 'square'}" src="${escapeHtml(it.thumbnailUrl)}" alt="">`
+      ? `<img class="track-thumb ${isLink ? '' : 'square'}" src="${escapeHtml(it.thumbnailUrl)}" alt="" onerror="thumbFallback(this,'${isLink ? '🔗' : '🎵'}')">`
       : `<div class="track-thumb-placeholder">${isLink ? '🔗' : '🎵'}</div>`;
     const actions = (isBossUnlocked) ? `
       <div class="track-actions">

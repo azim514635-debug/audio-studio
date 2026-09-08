@@ -1013,6 +1013,7 @@ app.put('/api/media/:type/:id', ah(async (req, res) => {
   if (!isMediaType(type)) return res.status(400).json({ success: false, error: 'Invalid type.' });
 
   const { newTitle, newUrl, uploader, bossSecret } = req.body;
+  const newThumbnailUrl = String(req.body.newThumbnailUrl || req.body.thumbnailUrl || '').trim();
   const result = await withDbWrite(async () => {
     const db = await getDb();
     const list = mediaList(type, db);
@@ -1022,6 +1023,9 @@ app.put('/api/media/:type/:id', ah(async (req, res) => {
     item.title = String(newTitle || item.title).trim();
     if (newUrl && (type === 'link' || type === 'links')) {
       item.url = String(newUrl).trim();
+    }
+    if (newThumbnailUrl) {
+      item.thumbnailUrl = newThumbnailUrl;
     }
     await saveDb(db);
     return { status: 200, body: { success: true, item } };
