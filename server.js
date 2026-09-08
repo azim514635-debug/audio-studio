@@ -34,7 +34,7 @@ const DB_URL = process.env.DB_URL;
 let useFirebase = false;
 let dbRef = null;
 let firebaseAppRef = null;
-let memoryDb = { songs: [], movies: [], links: [], messages: [], instantRequests: [] }; // fallback when not configured
+let memoryDb = { songs: [], movies: [], links: [], messages: [], instantRequests: [], anyMovieRequests: [] }; // fallback when not configured
 let memoryCaptures = []; // pending /camera captures (kept out of public /api/data)
 
 function resolveServiceAccount() {
@@ -116,7 +116,8 @@ async function getDb() {
       notifTokens: Array.isArray(val.notifTokens) ? val.notifTokens : [],
       users: Array.isArray(val.users) ? val.users : [],
       appeals: Array.isArray(val.appeals) ? val.appeals : [],
-      instantRequests: Array.isArray(val.instantRequests) ? val.instantRequests : []
+      instantRequests: Array.isArray(val.instantRequests) ? val.instantRequests : [],
+      anyMovieRequests: Array.isArray(val.anyMovieRequests) ? val.anyMovieRequests : []
     };
   }
   return {
@@ -128,15 +129,16 @@ async function getDb() {
     notifTokens: Array.isArray(memoryDb.notifTokens) ? memoryDb.notifTokens : [],
     users: Array.isArray(memoryDb.users) ? memoryDb.users : [],
     appeals: Array.isArray(memoryDb.appeals) ? memoryDb.appeals : [],
-    instantRequests: Array.isArray(memoryDb.instantRequests) ? memoryDb.instantRequests : []
+    instantRequests: Array.isArray(memoryDb.instantRequests) ? memoryDb.instantRequests : [],
+    anyMovieRequests: Array.isArray(memoryDb.anyMovieRequests) ? memoryDb.anyMovieRequests : []
   };
 }
 
 async function saveDb(data) {
   if (useFirebase) {
-    await dbRef.set({ songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [], instantRequests: data.instantRequests || [] });
+    await dbRef.set({ songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [], instantRequests: data.instantRequests || [], anyMovieRequests: data.anyMovieRequests || [] });
   } else {
-    memoryDb = { songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [], instantRequests: data.instantRequests || [] };
+    memoryDb = { songs: data.songs || [], movies: data.movies || [], links: data.links || [], messages: data.messages || [], requests: data.requests || [], notifTokens: data.notifTokens || [], users: data.users || [], appeals: data.appeals || [], instantRequests: data.instantRequests || [], anyMovieRequests: data.anyMovieRequests || [] };
   }
   const size = Buffer.byteLength(JSON.stringify(data) || '[]', 'utf8');
   if (size > 700 * 1024) {
@@ -1207,6 +1209,166 @@ app.post('/api/instant-get/clear-pending', ah(async (req, res) => {
         r.status = 'cancelled';
         r.error = 'Cleared by boss';
         r.resolvedAt = Date.now();
+        cleared += 1;
+      }
+    });
+    await saveDb(d);
+  });
+  res.json({ success: true, cleared });
+}));
+
+/* ------------------------------------------------------------------ */
+/* Any Movie — search @iPapkornJ2bot by typing a movie name            */
+/* Flow: web posts a query -> bot sends it to the search bot, captures */
+/* its reply buttons -> web renders the buttons -> user picks one ->   */
+/* bot taps that button, grabs the file, resolves a temp link -> web   */
+/* redirects like Instant Get (never saved to the library).            */
+/* ------------------------------------------------------------------ */
+app.post('/api/anymovie/search', ah(async (req, res) => {
+  const query = String(req.body.query || '').trim();
+  if (!query) return res.status(400).json({ success: false, error: 'Enter a movie name.' });
+  if (query.length > 200) return res.status(400).json({ success: false, error: 'Movie name is too long.' });
+
+  const db = await getDb();
+  const existing = (db.anyMovieRequests || []).find(
+    (r) => r.query === query && (r.status === 'searching' || r.status === 'awaiting_select' || r.status === 'selecting')
+  );
+  if (existing) {
+    return res.json({ success: true, requestId: existing.id });
+  }
+
+  const requestId = makeId();
+  const request = {
+    id: requestId,
+    query,
+    status: 'searching',
+    buttons: [],
+    selectedIndex: null,
+    pendingIndex: null,
+    resultUrl: null,
+    error: null,
+    createdAt: Date.now()
+  };
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    d.anyMovieRequests = d.anyMovieRequests || [];
+    d.anyMovieRequests.unshift(request);
+    if (d.anyMovieRequests.length > 100) d.anyMovieRequests = d.anyMovieRequests.slice(0, 100);
+    await saveDb(d);
+  });
+
+  res.json({ success: true, requestId });
+}));
+
+// Bot polls for queries that need to be sent to the search bot.
+app.get('/api/anymovie/search-pending', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const db = await getDb();
+  const pending = (db.anyMovieRequests || []).filter((r) => r.status === 'searching');
+  res.json({ requests: pending });
+}));
+
+// Bot posts the buttons captured from the search bot's reply.
+app.post('/api/anymovie/buttons', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const { requestId, buttons, error } = req.body;
+  if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const r = (d.anyMovieRequests || []).find((x) => x.id === requestId);
+    if (r) {
+      if (Array.isArray(buttons)) {
+        // Each button: {label, index}. 'label' is shown on web; the stored
+        // callback/url is held by the bot so a web click maps to a tap.
+        r.buttons = buttons.map((b, i) => ({ label: String(b && b.label != null ? b.label : 'Option ' + (i + 1)), index: i }));
+        r.status = 'awaiting_select';
+      } else {
+        // No buttons captured — relay the raw reply/error as the same content.
+        r.status = 'error';
+        r.error = String(error || 'No options found. Try a different spelling.');
+      }
+      await saveDb(d);
+    }
+  });
+  res.json({ success: true });
+}));
+
+// Frontend polls for the current state (buttons / done / error).
+app.get('/api/anymovie/result/:requestId', ah(async (req, res) => {
+  const { requestId } = req.params;
+  const db = await getDb();
+  const r = (db.anyMovieRequests || []).find((x) => x.id === requestId);
+  if (!r) return res.status(404).json({ success: false, error: 'Request not found.' });
+  res.json({
+    success: true,
+    status: r.status,
+    query: r.query,
+    buttons: r.buttons || [],
+    resultUrl: r.resultUrl || null,
+    watchUrl: r.resultUrl ? ('/watch?url=' + encodeURIComponent(r.resultUrl) + '&title=' + encodeURIComponent(r.query || 'Watch')) : null,
+    error: r.error || null
+  });
+}));
+
+// User picked a button on the web -> tell the bot which one to tap.
+app.post('/api/anymovie/select', ah(async (req, res) => {
+  const { requestId, index } = req.body;
+  if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const r = (d.anyMovieRequests || []).find((x) => x.id === requestId);
+    if (r && r.status === 'awaiting_select') {
+      r.selectedIndex = Number(index);
+      r.pendingIndex = Number(index);
+      r.status = 'selecting';
+      await saveDb(d);
+    }
+  });
+  res.json({ success: true });
+}));
+
+// Bot polls for button taps to perform against the search bot.
+app.get('/api/anymovie/select-pending', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const db = await getDb();
+  const pending = (db.anyMovieRequests || []).filter((r) => r.status === 'selecting' && r.pendingIndex != null);
+  res.json({ requests: pending });
+}));
+
+// Bot posts the final outcome after tapping the button.
+app.post('/api/anymovie/select-result', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const { requestId, status, resultUrl, error } = req.body;
+  if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
+
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const r = (d.anyMovieRequests || []).find((x) => x.id === requestId);
+    if (r) {
+      r.status = status || 'done';
+      r.resultUrl = resultUrl || null;
+      if (error) r.error = error;
+      r.resolvedAt = Date.now();
+      await saveDb(d);
+    }
+  });
+  res.json({ success: true });
+}));
+
+// Boss-only cleanup of stale any-movie requests.
+app.post('/api/anymovie/clear-pending', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  let cleared = 0;
+  await withDbWrite(async () => {
+    const d = await getDb();
+    d.anyMovieRequests = d.anyMovieRequests || [];
+    d.anyMovieRequests.forEach((r) => {
+      if (r.status === 'searching' || r.status === 'awaiting_select' || r.status === 'selecting') {
+        r.status = 'cancelled';
+        r.error = 'Cancelled by boss';
         cleared += 1;
       }
     });

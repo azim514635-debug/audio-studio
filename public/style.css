@@ -1540,3 +1540,56 @@ body.samurai-theme ::-webkit-scrollbar-thumb:hover { background: #8b5cf6; }
     height: 160px;
   }
 }
+
+/* ---- Any Movie ---- */
+.anymovie-search-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.anymovie-search-row input {
+  flex: 1;
+  min-width: 220px;
+}
+.anymovie-status {
+  margin-top: 14px;
+  font-size: 0.95rem;
+  color: #94a3b8;
+  display: none;
+}
+.anymovie-status.error {
+  color: #f87171;
+}
+.anymovie-buttons {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.anymovie-option {
+  background: linear-gradient(135deg, #1e293b, #4c1d95);
+  color: #fff;
+  border: 1px solid #6d28d9;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.anymovie-option:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(109, 40, 217, .4);
+}
+.anymovie-result {
+  margin-top: 18px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.anymovie-done {
+  color: #4ade80;
+  font-size: 1rem;
+  font-weight: 600;
+}

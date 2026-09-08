@@ -982,6 +982,191 @@ function openWatch(url, movieId, title) {
   window.open(url, '_blank');
 }
 
+/* Any Movie — search @iPapkornJ2bot by typing a movie name            */
+/* ------------------------------------------------------------------ */
+let anyMovieActiveRequest = null;
+let anyMoviePollTimer = null;
+
+function anyMovieSetStatus(text, isError) {
+  const el = $('#anymovie-status');
+  if (!el) return;
+  if (isError) el.classList.add('error'); else el.classList.remove('error');
+  el.textContent = text || '';
+  el.style.display = text ? '' : 'none';
+}
+
+function anyMovieRenderButtons(buttons, requestId) {
+  const box = $('#anymovie-buttons');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!buttons || !buttons.length) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = '';
+  buttons.forEach((b) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'anymovie-option';
+    btn.textContent = b.label || 'Option';
+    btn.addEventListener('click', () => anyMovieSelect(requestId, b.index));
+    box.appendChild(btn);
+  });
+}
+
+function anyMovieReset() {
+  anyMovieActiveRequest = null;
+  if (anyMoviePollTimer) { clearTimeout(anyMoviePollTimer); anyMoviePollTimer = null; }
+  anyMovieSetStatus('');
+  $('#anymovie-buttons').innerHTML = '';
+  $('#anymovie-buttons').style.display = 'none';
+  const res = $('#anymovie-result');
+  res.innerHTML = '';
+  res.style.display = 'none';
+  const btn = $('#anymovie-search-btn');
+  btn.disabled = false;
+  btn.textContent = 'Search';
+}
+
+async function anyMovieSearch(query) {
+  anyMovieReset();
+  $('#anymovie-input').value = query;
+  anyMovieSetStatus('Searching for "' + query + '"...');
+  const btn = $('#anymovie-search-btn');
+  btn.disabled = true;
+  btn.textContent = 'Searching...';
+  let requestId;
+  try {
+    const res = await fetch('/api/anymovie/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      anyMovieSetStatus(data.error || 'Search failed.', true);
+      btn.disabled = false;
+      btn.textContent = 'Search';
+      return;
+    }
+    requestId = data.requestId;
+  } catch (e) {
+    anyMovieSetStatus('Network error: ' + e.message, true);
+    btn.disabled = false;
+    btn.textContent = 'Search';
+    return;
+  }
+  anyMovieActiveRequest = requestId;
+  anyMoviePoll(requestId);
+}
+
+function anyMoviePoll(requestId) {
+  anyMoviePollTimer = setTimeout(async () => {
+    try {
+      const r = await fetch('/api/anymovie/result/' + requestId);
+      const rd = await r.json();
+      if (!rd.success) {
+        anyMovieSetStatus(rd.error || 'Request not found.', true);
+        $('#anymovie-search-btn').disabled = false;
+        $('#anymovie-search-btn').textContent = 'Search';
+        return;
+      }
+      if (rd.status === 'error') {
+        anyMovieSetStatus(rd.error || 'No options found. Try a different spelling.', true);
+        $('#anymovie-search-btn').disabled = false;
+        $('#anymovie-search-btn').textContent = 'Search';
+        return;
+      }
+      if (rd.status === 'awaiting_select') {
+        anyMovieSetStatus(rd.query ? 'Pick an option for "' + rd.query + '":' : 'Pick an option:');
+        anyMovieRenderButtons(rd.buttons || [], requestId);
+        anyMoviePoll(requestId);
+        return;
+      }
+      if (rd.status === 'selecting') {
+        anyMovieSetStatus('Opening the selected option...');
+        $('#anymovie-buttons').innerHTML = '';
+        $('#anymovie-buttons').style.display = 'none';
+        anyMoviePoll(requestId);
+        return;
+      }
+      if (rd.status === 'done') {
+        anyMovieSetStatus('');
+        $('#anymovie-search-btn').disabled = false;
+        $('#anymovie-search-btn').textContent = 'Search';
+        if (rd.watchUrl) {
+          window.open(rd.watchUrl, '_blank');
+          anyMovieShowResult('✓ Opening your movie...', rd.watchUrl);
+        } else if (rd.resultUrl) {
+          window.open(rd.resultUrl, '_blank');
+          anyMovieShowResult('✓ Opening your movie...', rd.resultUrl);
+        } else {
+          anyMovieSetStatus('Done, but no link was returned.', true);
+        }
+        anyMovieActiveRequest = null;
+        return;
+      }
+      if (rd.status === 'cancelled' || rd.status === 'timeout') {
+        anyMovieSetStatus(rd.error || 'This search was cancelled.', true);
+        $('#anymovie-search-btn').disabled = false;
+        $('#anymovie-search-btn').textContent = 'Search';
+        return;
+      }
+      // searching — keep polling
+      anyMoviePoll(requestId);
+    } catch (e) {
+      anyMoviePoll(requestId);
+    }
+  }, 1500);
+}
+
+function anyMovieShowResult(msg, url) {
+  const res = $('#anymovie-result');
+  if (!res) return;
+  res.style.display = '';
+  res.innerHTML = '<span class="anymovie-done">' + msg + '</span>';
+  if (url) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.className = 'btn-primary';
+    a.textContent = 'Open Link';
+    a.style.marginLeft = '10px';
+    res.appendChild(a);
+  }
+}
+
+async function anyMovieSelect(requestId, index) {
+  anyMovieSetStatus('Opening the selected option...');
+  $('#anymovie-buttons').innerHTML = '';
+  $('#anymovie-buttons').style.display = 'none';
+  try {
+    await fetch('/api/anymovie/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId, index })
+    });
+  } catch (e) { /* poll will surface */ }
+  anyMoviePoll(requestId);
+}
+
+(function initAnyMovie() {
+  const form = $('#anymovie-form');
+  if (!form) return;
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const query = $('#anymovie-input').value.trim();
+    if (!query) { anyMovieSetStatus('Enter a movie name first.', true); return; }
+    anyMovieSearch(query);
+  });
+  window.addEventListener('popstate', () => {
+    if (document.getElementById('page-anymovie') && !document.getElementById('page-anymovie').classList.contains('active')) {
+      anyMovieReset();
+    }
+  });
+})();
+
 /* Boss dashboard + requests                                          */
 /* ------------------------------------------------------------------ */
 window.viewInfo = function (type, title, uploader) {

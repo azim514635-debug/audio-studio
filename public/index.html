@@ -200,6 +200,7 @@
   <nav id="menu-panel" class="menu-panel" aria-label="Main navigation">
     <button type="button" class="menu-link" data-page="upload">⬆️ Upload</button>
     <div class="menu-divider"></div>
+    <button type="button" class="menu-link" data-page="anymovie">🎬 Any Movie</button>
     <button type="button" class="menu-link" data-page="request">📩 Contact Azim</button>
     <button type="button" class="menu-link menu-logout" id="menu-logout" style="color:#f87171;">🚪 Log out</button>
   </nav>
@@ -221,6 +222,10 @@
           <span class="quick-nav-icon">💬</span>
           <span>Chat</span>
           <span class="menu-count" id="menu-message-count"></span>
+        </button>
+        <button type="button" class="quick-nav-btn" data-page="anymovie" data-quicknav>
+          <span class="quick-nav-icon">🎬</span>
+          <span>Any Movie</span>
         </button>
       </div>
     </header>
@@ -363,6 +368,28 @@
             <textarea id="chat-input" rows="1" placeholder="Type a message… (Enter to send, Shift+Enter for new line)"></textarea>
             <button type="button" id="chat-send-btn" class="btn-primary">Send ➤</button>
           </div>
+        </div>
+      </section>
+
+      <!-- Any Movie -->
+      <section id="page-anymovie" class="page">
+        <div class="header-card" style="background: linear-gradient(135deg, #1e293b, #4c1d95);">
+          <h1>🎬 Any Movie</h1>
+          <p>Type any movie name — we search for it and hand you a direct link (never saved to the library).</p>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Search Any Movie</h3>
+          </div>
+          <form id="anymovie-form" autocomplete="off">
+            <div class="anymovie-search-row">
+              <input type="text" id="anymovie-input" placeholder="e.g. Inception, KGF, Spider-Man..." autocomplete="off" />
+              <button type="submit" id="anymovie-search-btn" class="btn-primary">Search</button>
+            </div>
+          </form>
+          <div id="anymovie-status" class="anymovie-status"></div>
+          <div id="anymovie-buttons" class="anymovie-buttons"></div>
+          <div id="anymovie-result" class="anymovie-result"></div>
         </div>
       </section>
 
