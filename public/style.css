@@ -1593,3 +1593,49 @@ body.samurai-theme ::-webkit-scrollbar-thumb:hover { background: #8b5cf6; }
   font-size: 1rem;
   font-weight: 600;
 }
+
+/* ---- Any Movie matches ---- */
+.anymovie-matches {
+  margin-top: 16px;
+  display: none;
+  border-top: 1px solid rgba(148,163,184,.2);
+  padding-top: 12px;
+}
+.anymovie-matches-title {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.anymovie-match {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(148,163,184,.08);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.anymovie-match:hover {
+  background: rgba(148,163,184,.16);
+}
+.anymovie-match-icon {
+  font-size: 1.05rem;
+}
+.anymovie-match-title {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.anymovie-match .btn-primary {
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  margin: 0;
+}

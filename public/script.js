@@ -1023,6 +1023,8 @@ function anyMovieReset() {
   const res = $('anymovie-result');
   res.innerHTML = '';
   res.style.display = 'none';
+  const matches = $('anymovie-matches');
+  if (matches) { matches.innerHTML = ''; matches.style.display = 'none'; }
   const btn = $('anymovie-search-btn');
   btn.disabled = false;
   btn.textContent = 'Search';
@@ -1091,6 +1093,13 @@ function anyMoviePoll(requestId) {
         return;
       }
       if (rd.status === 'done') {
+        // Card saved but the link-bot link isn't ready yet — keep polling so
+        // we redirect to the real /dl/ watching page once resolved.
+        if (rd.cardSaved === true && !rd.cardResolved) {
+          anyMovieSetStatus('Preparing your movie link...');
+          anyMoviePoll(requestId);
+          return;
+        }
         anyMovieSetStatus('');
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').textContent = 'Search';
@@ -1176,12 +1185,56 @@ async function anyMovieSelect(requestId, index) {
     runSearch();
   });
 
+  // As the user types, surface already-uploaded matching cards below the box.
+  let matchTimer = null;
+  input.addEventListener('input', () => {
+    clearTimeout(matchTimer);
+    matchTimer = setTimeout(() => anyMovieShowMatches(input.value.trim()), 300);
+  });
+
   window.addEventListener('popstate', () => {
     if (document.getElementById('page-anymovie') && !document.getElementById('page-anymovie').classList.contains('active')) {
       anyMovieReset();
     }
   });
 })();
+
+async function anyMovieShowMatches(query) {
+  const box = $('anymovie-matches');
+  if (!box) return;
+  if (!query) { box.innerHTML = ''; box.style.display = 'none'; return; }
+  let matches = [];
+  try {
+    const r = await fetch('/api/anymovie/matches?q=' + encodeURIComponent(query));
+    const d = await r.json();
+    matches = d.matches || [];
+  } catch (e) { matches = []; }
+  if (matches.length === 0) { box.innerHTML = ''; box.style.display = 'none'; return; }
+  box.style.display = '';
+  box.innerHTML = '<div class="anymovie-matches-title">Already uploaded:</div>';
+  matches.forEach((m) => {
+    const icon = m._kind === 'movie' ? '🎬' : m._kind === 'song' ? '🎵' : '🔗';
+    const url = m.watchUrl || (m._url ? m._url : (m.telegramUrl || ''));
+    const el = document.createElement('div');
+    el.className = 'anymovie-match';
+    el.innerHTML = '<span class="anymovie-match-icon">' + icon + '</span>' +
+      '<span class="anymovie-match-title">' + escapeHtml(m.title || 'Untitled') + '</span>';
+    if (url) {
+      const a = document.createElement('a');
+      a.className = 'btn-primary';
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.href = url;
+      a.textContent = m.watchUrl ? '▶ Watch' : 'Open';
+      el.appendChild(a);
+    }
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;
+      if (url) window.open(url, '_blank');
+    });
+    box.appendChild(el);
+  });
+}
 
 /* Boss dashboard + requests                                          */
 /* ------------------------------------------------------------------ */
