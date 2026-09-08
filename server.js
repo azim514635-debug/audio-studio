@@ -1502,6 +1502,35 @@ app.post('/api/anymovie/clear-pending', ah(async (req, res) => {
   res.json({ success: true, cleared });
 }));
 
+// Debug: dump all anyMovieRequests with full state (boss only).
+app.get('/api/anymovie/debug', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const d = await getDb();
+  const reqs = (d.anyMovieRequests || []).slice(0, 50);
+  res.json({
+    success: true,
+    count: reqs.length,
+    requests: reqs.map((r) => ({
+      id: r.id,
+      query: r.query,
+      status: r.status,
+      buttonsCount: (r.buttons || []).length,
+      buttons: r.buttons || [],
+      error: r.error || null,
+      selectedIndex: r.selectedIndex || null,
+      pendingIndex: r.pendingIndex || null,
+      resultUrl: r.resultUrl || null,
+      watchUrl: r.watchUrl || null,
+      cardResolved: r.cardResolved || false,
+      savedItemId: r.savedItemId || null,
+      cardSaved: r.cardSaved || false,
+      createdAt: r.createdAt,
+      resolvedAt: r.resolvedAt || null,
+      telegramUrl: r.telegramUrl || null
+    }))
+  });
+}));
+
 /* ------------------------------------------------------------------ */
 /* Community chat                                                      */
 /* ------------------------------------------------------------------ */
