@@ -988,7 +988,7 @@ let anyMovieActiveRequest = null;
 let anyMoviePollTimer = null;
 
 function anyMovieSetStatus(text, isError) {
-  const el = $('#anymovie-status');
+  const el = $('anymovie-status');
   if (!el) return;
   if (isError) el.classList.add('error'); else el.classList.remove('error');
   el.textContent = text || '';
@@ -996,7 +996,7 @@ function anyMovieSetStatus(text, isError) {
 }
 
 function anyMovieRenderButtons(buttons, requestId) {
-  const box = $('#anymovie-buttons');
+  const box = $('anymovie-buttons');
   if (!box) return;
   box.innerHTML = '';
   if (!buttons || !buttons.length) {
@@ -1018,21 +1018,21 @@ function anyMovieReset() {
   anyMovieActiveRequest = null;
   if (anyMoviePollTimer) { clearTimeout(anyMoviePollTimer); anyMoviePollTimer = null; }
   anyMovieSetStatus('');
-  $('#anymovie-buttons').innerHTML = '';
-  $('#anymovie-buttons').style.display = 'none';
-  const res = $('#anymovie-result');
+  $('anymovie-buttons').innerHTML = '';
+  $('anymovie-buttons').style.display = 'none';
+  const res = $('anymovie-result');
   res.innerHTML = '';
   res.style.display = 'none';
-  const btn = $('#anymovie-search-btn');
+  const btn = $('anymovie-search-btn');
   btn.disabled = false;
   btn.textContent = 'Search';
 }
 
 async function anyMovieSearch(query) {
   anyMovieReset();
-  $('#anymovie-input').value = query;
+  $('anymovie-input').value = query;
   anyMovieSetStatus('Searching for "' + query + '"...');
-  const btn = $('#anymovie-search-btn');
+  const btn = $('anymovie-search-btn');
   btn.disabled = true;
   btn.textContent = 'Searching...';
   let requestId;
@@ -1067,14 +1067,14 @@ function anyMoviePoll(requestId) {
       const rd = await r.json();
       if (!rd.success) {
         anyMovieSetStatus(rd.error || 'Request not found.', true);
-        $('#anymovie-search-btn').disabled = false;
-        $('#anymovie-search-btn').textContent = 'Search';
+        $('anymovie-search-btn').disabled = false;
+        $('anymovie-search-btn').textContent = 'Search';
         return;
       }
       if (rd.status === 'error') {
         anyMovieSetStatus(rd.error || 'No options found. Try a different spelling.', true);
-        $('#anymovie-search-btn').disabled = false;
-        $('#anymovie-search-btn').textContent = 'Search';
+        $('anymovie-search-btn').disabled = false;
+        $('anymovie-search-btn').textContent = 'Search';
         return;
       }
       if (rd.status === 'awaiting_select') {
@@ -1085,15 +1085,15 @@ function anyMoviePoll(requestId) {
       }
       if (rd.status === 'selecting') {
         anyMovieSetStatus('Opening the selected option...');
-        $('#anymovie-buttons').innerHTML = '';
-        $('#anymovie-buttons').style.display = 'none';
+        $('anymovie-buttons').innerHTML = '';
+        $('anymovie-buttons').style.display = 'none';
         anyMoviePoll(requestId);
         return;
       }
       if (rd.status === 'done') {
         anyMovieSetStatus('');
-        $('#anymovie-search-btn').disabled = false;
-        $('#anymovie-search-btn').textContent = 'Search';
+        $('anymovie-search-btn').disabled = false;
+        $('anymovie-search-btn').textContent = 'Search';
         if (rd.watchUrl) {
           window.open(rd.watchUrl, '_blank');
           anyMovieShowResult('✓ Opening your movie...', rd.watchUrl);
@@ -1108,8 +1108,8 @@ function anyMoviePoll(requestId) {
       }
       if (rd.status === 'cancelled' || rd.status === 'timeout') {
         anyMovieSetStatus(rd.error || 'This search was cancelled.', true);
-        $('#anymovie-search-btn').disabled = false;
-        $('#anymovie-search-btn').textContent = 'Search';
+        $('anymovie-search-btn').disabled = false;
+        $('anymovie-search-btn').textContent = 'Search';
         return;
       }
       // searching — keep polling
@@ -1121,7 +1121,7 @@ function anyMoviePoll(requestId) {
 }
 
 function anyMovieShowResult(msg, url) {
-  const res = $('#anymovie-result');
+  const res = $('anymovie-result');
   if (!res) return;
   res.style.display = '';
   res.innerHTML = '<span class="anymovie-done">' + msg + '</span>';
@@ -1139,8 +1139,8 @@ function anyMovieShowResult(msg, url) {
 
 async function anyMovieSelect(requestId, index) {
   anyMovieSetStatus('Opening the selected option...');
-  $('#anymovie-buttons').innerHTML = '';
-  $('#anymovie-buttons').style.display = 'none';
+  $('anymovie-buttons').innerHTML = '';
+  $('anymovie-buttons').style.display = 'none';
   try {
     await fetch('/api/anymovie/select', {
       method: 'POST',
@@ -1152,9 +1152,9 @@ async function anyMovieSelect(requestId, index) {
 }
 
 (function initAnyMovie() {
-  const form = $('#anymovie-form');
-  const input = $('#anymovie-input');
-  const searchBtn = $('#anymovie-search-btn');
+  const form = $('anymovie-form');
+  const input = $('anymovie-input');
+  const searchBtn = $('anymovie-search-btn');
   if (!form || !input || !searchBtn) return;
 
   const runSearch = () => {
