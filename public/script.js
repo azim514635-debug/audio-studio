@@ -1153,13 +1153,29 @@ async function anyMovieSelect(requestId, index) {
 
 (function initAnyMovie() {
   const form = $('#anymovie-form');
-  if (!form) return;
-  form.addEventListener('submit', (ev) => {
-    ev.preventDefault();
-    const query = $('#anymovie-input').value.trim();
+  const input = $('#anymovie-input');
+  const searchBtn = $('#anymovie-search-btn');
+  if (!form || !input || !searchBtn) return;
+
+  const runSearch = () => {
+    const query = input.value.trim();
     if (!query) { anyMovieSetStatus('Enter a movie name first.', true); return; }
     anyMovieSearch(query);
+  };
+
+  // Button click must never navigate/reload the page.
+  searchBtn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    runSearch();
   });
+
+  // Enter key inside the input triggers the same search (no form reload).
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    runSearch();
+  });
+
   window.addEventListener('popstate', () => {
     if (document.getElementById('page-anymovie') && !document.getElementById('page-anymovie').classList.contains('active')) {
       anyMovieReset();
