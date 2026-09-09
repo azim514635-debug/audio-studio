@@ -1364,6 +1364,21 @@ app.get('/api/anymovie/result/:requestId', ah(async (req, res) => {
   });
 }));
 
+// Bot fetches stored button state for reconstruction (after restart / state loss).
+app.get('/api/anymovie/buttons-state/:requestId', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const { requestId } = req.params;
+  const db = await getDb();
+  const r = (db.anyMovieRequests || []).find((x) => x.id === requestId);
+  if (!r) return res.status(404).json({ success: false, error: 'Request not found.' });
+  res.json({
+    success: true,
+    buttons: r.buttons || [],
+    msg_id: r.buttons && r.buttons[0] ? r.buttons[0].msg_id : null,
+    mode: r.status === 'awaiting_select' ? 'button' : 'unknown',
+  });
+}));
+
 // User picked a button on the web -> tell the bot which one to tap.
 app.post('/api/anymovie/select', ah(async (req, res) => {
   const { requestId, index } = req.body;
