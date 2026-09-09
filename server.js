@@ -1241,6 +1241,7 @@ app.post('/api/anymovie/search', ah(async (req, res) => {
     (r) => r.query === query && (r.status === 'searching' || r.status === 'awaiting_select' || r.status === 'selecting')
   );
   if (existing) {
+    console.log('AnyMovie search (existing): requestId=%s query=%s', existing.id, query);
     return res.json({ success: true, requestId: existing.id });
   }
 
@@ -1265,6 +1266,7 @@ app.post('/api/anymovie/search', ah(async (req, res) => {
     await saveDb(d);
   });
 
+  console.log('AnyMovie search: requestId=%s query=%s', requestId, query);
   res.json({ success: true, requestId });
 }));
 
@@ -1287,10 +1289,23 @@ app.post('/api/anymovie/buttons', ah(async (req, res) => {
     const r = (d.anyMovieRequests || []).find((x) => x.id === requestId);
     if (r) {
       if (Array.isArray(buttons)) {
-        // Each button: {label, index}. 'label' is shown on web; the stored
-        // callback/url is held by the bot so a web click maps to a tap.
-        r.buttons = buttons.map((b, i) => ({ label: String(b && b.label != null ? b.label : 'Option ' + (i + 1)), index: i }));
+        // Each button: {label, index, row, col, callback, url, msg_id}.
+        // 'label' is shown on web; row/col/callback/url are stored so the bot
+        // can perform the exact Telegram button tap later.
+        r.buttons = buttons.map((b, i) => {
+          const entry = {
+            label: String(b && b.label != null ? b.label : 'Option ' + (i + 1)),
+            index: i
+          };
+          if (b && b.row != null) entry.row = Number(b.row);
+          if (b && b.col != null) entry.col = Number(b.col);
+          if (b && b.callback) entry.callback = b.callback;
+          if (b && b.url) entry.url = b.url;
+          if (b && b.msg_id) entry.msg_id = b.msg_id;
+          return entry;
+        });
         r.status = 'awaiting_select';
+        console.log('AnyMovie buttons posted: requestId=%s count=%d', requestId, r.buttons.length);
       } else {
         // No buttons captured — relay the raw reply/error as the same content.
         r.status = 'error';
@@ -1332,7 +1347,14 @@ app.get('/api/anymovie/result/:requestId', ah(async (req, res) => {
     success: true,
     status: r.status,
     query: r.query,
-    buttons: r.buttons || [],
+    buttons: (r.buttons || []).map(b => ({
+      label: b.label,
+      index: b.index,
+      ...(b.row != null ? { row: b.row } : {}),
+      ...(b.col != null ? { col: b.col } : {}),
+      ...(b.url ? { url: b.url } : {}),
+      ...(b.msg_id ? { msg_id: b.msg_id } : {})
+    })),
     resultUrl: r.resultUrl || null,
     watchUrl: cardWatchUrl || (r.resultUrl ? ('/watch?url=' + encodeURIComponent(r.resultUrl) + '&title=' + encodeURIComponent(r.query || 'Watch')) : null),
     cardResolved,
@@ -1345,6 +1367,7 @@ app.post('/api/anymovie/select', ah(async (req, res) => {
   const { requestId, index } = req.body;
   if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
 
+  console.log('AnyMovie select: requestId=%s index=%s', requestId, index);
   await withDbWrite(async () => {
     const d = await getDb();
     const r = (d.anyMovieRequests || []).find((x) => x.id === requestId);
@@ -1372,6 +1395,9 @@ app.post('/api/anymovie/select-result', ah(async (req, res) => {
   const { requestId, status, resultUrl, error, save, title, telegramUrl, thumbnailUrl, instantGet } = req.body;
   if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
 
+  console.log('AnyMovie select-result: requestId=%s status=%s resultUrl=%s error=%s save=%s',
+              requestId, status, resultUrl || 'none', error || 'none', save);
+
   let savedItem = null;
   let instantRequest = null;
 
@@ -1384,6 +1410,13 @@ app.post('/api/anymovie/select-result', ah(async (req, res) => {
       if (error) r.error = error;
       r.resolvedAt = Date.now();
       await saveDb(d);
+
+      // When status is 'waiting_for_card', the card will be created by
+      // handle_media via the existing pipeline. Skip direct card creation.
+      if (status === 'waiting_for_card') {
+        console.log('AnyMovie: waiting_for_card requestId=%s', requestId);
+        return;
+      }
 
       // When the user picks a result we also store it as a library card,
       // deduplicating by download URL and/or telegram link so the same
@@ -1436,6 +1469,57 @@ app.post('/api/anymovie/select-result', ah(async (req, res) => {
     }
   });
   res.json({ success: true, savedItem, instantRequest });
+}));
+
+// Bot links a newly created card to an Any Movie request (via #AM_ marker).
+app.post('/api/anymovie/link-card', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const { requestId, cardId } = req.body;
+  if (!requestId || !cardId) return res.status(400).json({ success: false, error: 'Missing requestId or cardId.' });
+
+  console.log('AnyMovie link-card: requestId=%s cardId=%s', requestId, cardId);
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const r = (d.anyMovieRequests || []).find((x) => x.id === requestId);
+    if (r) {
+      r.savedItemId = cardId;
+      r.cardSaved = true;
+      r.status = 'done';
+      r.resolvedAt = Date.now();
+      await saveDb(d);
+    }
+  });
+  res.json({ success: true });
+}));
+
+// Frontend polls for card creation after waiting_for_card status.
+app.get('/api/anymovie/card-result/:requestId', ah(async (req, res) => {
+  const { requestId } = req.params;
+  const db = await getDb();
+  const r = (db.anyMovieRequests || []).find((x) => x.id === requestId);
+  if (!r) return res.status(404).json({ success: false, error: 'Request not found.' });
+
+  let card = null;
+  if (r.savedItemId) {
+    card = (db.links || []).find((l) => l.id === r.savedItemId);
+  }
+
+  res.json({
+    success: true,
+    status: r.status,
+    cardSaved: r.cardSaved || false,
+    card: card ? {
+      id: card.id,
+      title: card.title,
+      url: card.url,
+      telegramUrl: card.telegramUrl,
+      thumbnailUrl: card.thumbnailUrl || null,
+      watchUrl: card.watchUrl || null,
+      resolvedUrl: card.resolvedUrl || null
+    } : null,
+    resultUrl: r.resultUrl || null,
+    watchUrl: card ? (card.watchUrl || (card.resolvedUrl ? '/watch?url=' + encodeURIComponent(card.resolvedUrl) + '&title=' + encodeURIComponent(card.title || 'Watch') : null)) : null
+  });
 }));
 
 // Shared helper: enqueue an instant-get request for a library card so the bot's
@@ -1515,7 +1599,15 @@ app.get('/api/anymovie/debug', ah(async (req, res) => {
       query: r.query,
       status: r.status,
       buttonsCount: (r.buttons || []).length,
-      buttons: r.buttons || [],
+      buttons: (r.buttons || []).map(b => ({
+        label: b.label,
+        index: b.index,
+        row: b.row,
+        col: b.col,
+        callback: b.callback || null,
+        url: b.url || null,
+        msg_id: b.msg_id || null
+      })),
       error: r.error || null,
       selectedIndex: r.selectedIndex || null,
       pendingIndex: r.pendingIndex || null,

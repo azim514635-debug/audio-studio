@@ -1062,6 +1062,42 @@ async function anyMovieSearch(query) {
   anyMoviePoll(requestId);
 }
 
+function anyMoviePollCard(requestId) {
+  anyMoviePollTimer = setTimeout(async () => {
+    try {
+      const r = await fetch('/api/anymovie/card-result/' + requestId);
+      const rd = await r.json();
+      if (!rd.success) {
+        // Card not ready yet, keep polling
+        anyMoviePollCard(requestId);
+        return;
+      }
+      if (rd.cardSaved && rd.card) {
+        // Card is ready! Show it and open the watch URL.
+        anyMovieSetStatus('');
+        $('anymovie-search-btn').disabled = false;
+        $('anymovie-search-btn').textContent = 'Search';
+        const watchUrl = rd.watchUrl || rd.card.watchUrl || rd.card.resolvedUrl;
+        if (watchUrl) {
+          window.open(watchUrl, '_blank');
+          anyMovieShowResult('Opening your movie...', watchUrl);
+        } else if (rd.card.telegramUrl) {
+          window.open(rd.card.telegramUrl, '_blank');
+          anyMovieShowResult('Opening in Telegram...', rd.card.telegramUrl);
+        } else {
+          anyMovieSetStatus('Card created but no link available yet.', true);
+        }
+        anyMovieActiveRequest = null;
+        return;
+      }
+      // Still waiting for card creation
+      anyMoviePollCard(requestId);
+    } catch (e) {
+      anyMoviePollCard(requestId);
+    }
+  }, 2000);
+}
+
 function anyMoviePoll(requestId) {
   anyMoviePollTimer = setTimeout(async () => {
     try {
@@ -1090,6 +1126,13 @@ function anyMoviePoll(requestId) {
         $('anymovie-buttons').innerHTML = '';
         $('anymovie-buttons').style.display = 'none';
         anyMoviePoll(requestId);
+        return;
+      }
+      if (rd.status === 'waiting_for_card') {
+        // Card is being created by the bot's existing pipeline.
+        // Poll the card-result endpoint to check if it's ready.
+        anyMovieSetStatus('Creating your movie card...');
+        anyMoviePollCard(requestId);
         return;
       }
       if (rd.status === 'done') {
