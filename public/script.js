@@ -997,11 +997,10 @@ function anyMovieSetStatus(text, isError) {
 
 function anyMovieRenderButtons(buttons, requestId) {
   const box = $('anymovie-buttons');
-  if (!box) { console.error('AnyMovie: #anymovie-buttons NOT FOUND'); return; }
-  console.log('AnyMovie RENDER:', { requestId, buttonCount: buttons ? buttons.length : 0, buttons });
+  if (!box) { anyMovieSetStatus('ERROR: buttons container missing!', true); return; }
   box.innerHTML = '';
   if (!buttons || !buttons.length) {
-    console.warn('AnyMovie: empty buttons array');
+    anyMovieSetStatus('No buttons received from Telegram.', true);
     box.style.display = 'none';
     return;
   }
@@ -1014,7 +1013,7 @@ function anyMovieRenderButtons(buttons, requestId) {
     btn.addEventListener('click', () => anyMovieSelect(requestId, b.index));
     box.appendChild(btn);
   });
-  console.log('AnyMovie: rendered', buttons.length, 'buttons');
+  anyMovieSetStatus('Found ' + buttons.length + ' options! Tap one:');
 }
 
 function anyMovieReset() {
@@ -1048,7 +1047,6 @@ async function anyMovieSearch(query) {
       body: JSON.stringify({ query })
     });
     const data = await res.json();
-    console.log('AnyMovie SEARCH:', { query, success: data.success, requestId: data.requestId, error: data.error });
     if (!data.success) {
       anyMovieSetStatus(data.error || 'Search failed.', true);
       btn.disabled = false;
@@ -1107,7 +1105,6 @@ function anyMoviePoll(requestId) {
     try {
       const r = await fetch('/api/anymovie/result/' + requestId);
       const rd = await r.json();
-      console.log('AnyMovie POLL:', { requestId, status: rd.status, buttonsCount: (rd.buttons || []).length, success: rd.success });
       if (!rd.success) {
         anyMovieSetStatus(rd.error || 'Request not found.', true);
         $('anymovie-search-btn').disabled = false;
@@ -1121,7 +1118,6 @@ function anyMoviePoll(requestId) {
         return;
       }
       if (rd.status === 'awaiting_select') {
-        console.log('AnyMovie AWAITING_SELECT:', { buttons: rd.buttons });
         anyMovieSetStatus(rd.query ? 'Pick an option for "' + rd.query + '":' : 'Pick an option:');
         anyMovieRenderButtons(rd.buttons || [], requestId);
         anyMoviePoll(requestId);
@@ -1135,15 +1131,11 @@ function anyMoviePoll(requestId) {
         return;
       }
       if (rd.status === 'waiting_for_card') {
-        // Card is being created by the bot's existing pipeline.
-        // Poll the card-result endpoint to check if it's ready.
         anyMovieSetStatus('Creating your movie card...');
         anyMoviePollCard(requestId);
         return;
       }
       if (rd.status === 'done') {
-        // Card saved but the link-bot link isn't ready yet — keep polling so
-        // we redirect to the real /dl/ watching page once resolved.
         if (rd.cardSaved === true && !rd.cardResolved) {
           anyMovieSetStatus('Preparing your movie link...');
           anyMoviePoll(requestId);
@@ -1154,10 +1146,10 @@ function anyMoviePoll(requestId) {
         $('anymovie-search-btn').textContent = 'Search';
         if (rd.watchUrl) {
           window.open(rd.watchUrl, '_blank');
-          anyMovieShowResult('✓ Opening your movie...', rd.watchUrl);
+          anyMovieShowResult('Opening your movie...', rd.watchUrl);
         } else if (rd.resultUrl) {
           window.open(rd.resultUrl, '_blank');
-          anyMovieShowResult('✓ Opening your movie...', rd.resultUrl);
+          anyMovieShowResult('Opening your movie...', rd.resultUrl);
         } else {
           anyMovieSetStatus('Done, but no link was returned.', true);
         }
@@ -1171,12 +1163,13 @@ function anyMoviePoll(requestId) {
         return;
       }
       // searching — keep polling
-      console.log('AnyMovie SEARCHING... status:', rd.status);
+      anyMovieSetStatus('Searching Telegram... (status: ' + rd.status + ')');
       anyMoviePoll(requestId);
     } catch (e) {
+      anyMovieSetStatus('Connection issue, retrying...');
       anyMoviePoll(requestId);
     }
-  }, 1500);
+  }, 2000);
 }
 
 function anyMovieShowResult(msg, url) {
