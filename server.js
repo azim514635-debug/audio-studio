@@ -1288,11 +1288,14 @@ app.post('/api/anymovie/buttons', ah(async (req, res) => {
     const d = await getDb();
     const r = (d.anyMovieRequests || []).find((x) => x.id === requestId);
     if (r) {
-      if (Array.isArray(buttons)) {
+      let btns = buttons;
+      // Defensive: if buttons arrived as a string (old URL-encoded bug), try to parse it.
+      if (typeof btns === 'string') {
+        try { btns = JSON.parse(btns); } catch (_) { btns = null; }
+      }
+      if (Array.isArray(btns)) {
         // Each button: {label, index, row, col, callback, url, msg_id}.
-        // 'label' is shown on web; row/col/callback/url are stored so the bot
-        // can perform the exact Telegram button tap later.
-        r.buttons = buttons.map((b, i) => {
+        r.buttons = btns.map((b, i) => {
           const entry = {
             label: String(b && b.label != null ? b.label : 'Option ' + (i + 1)),
             index: i
@@ -1307,7 +1310,6 @@ app.post('/api/anymovie/buttons', ah(async (req, res) => {
         r.status = 'awaiting_select';
         console.log('AnyMovie buttons posted: requestId=%s count=%d', requestId, r.buttons.length);
       } else {
-        // No buttons captured — relay the raw reply/error as the same content.
         r.status = 'error';
         r.error = String(error || 'No options found. Try a different spelling.');
       }
