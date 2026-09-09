@@ -1308,7 +1308,7 @@ app.post('/api/anymovie/buttons', ah(async (req, res) => {
           return entry;
         });
         r.status = 'awaiting_select';
-        console.log('AnyMovie buttons posted: requestId=%s count=%d', requestId, r.buttons.length);
+        console.log('AnyMovie BUTTONS posted: requestId=%s count=%d (was status=%s)', requestId, r.buttons.length, r.status);
       } else {
         r.status = 'error';
         r.error = String(error || 'No options found. Try a different spelling.');
@@ -1384,15 +1384,21 @@ app.post('/api/anymovie/select', ah(async (req, res) => {
   const { requestId, index } = req.body;
   if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
 
-  console.log('AnyMovie select: requestId=%s index=%s', requestId, index);
+  console.log('AnyMovie SELECT: requestId=%s index=%s', requestId, index);
   await withDbWrite(async () => {
     const d = await getDb();
     const r = (d.anyMovieRequests || []).find((x) => x.id === requestId);
-    if (r && r.status === 'awaiting_select') {
-      r.selectedIndex = Number(index);
-      r.pendingIndex = Number(index);
-      r.status = 'selecting';
-      await saveDb(d);
+    if (r) {
+      console.log('AnyMovie SELECT: current status=%s for %s', r.status, requestId);
+      if (r.status === 'awaiting_select') {
+        r.selectedIndex = Number(index);
+        r.pendingIndex = Number(index);
+        r.status = 'selecting';
+        console.log('AnyMovie SELECT: set status=selecting for %s', requestId);
+        await saveDb(d);
+      } else {
+        console.log('AnyMovie SELECT: SKIPPED - status is %s (need awaiting_select)', r.status);
+      }
     }
   });
   res.json({ success: true });
