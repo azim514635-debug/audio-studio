@@ -987,6 +987,7 @@ function openWatch(url, movieId, title) {
 let anyMovieActiveRequest = null;
 let anyMoviePollTimer = null;
 let anyMovieSearching = false;
+let anyMovieSearchToken = 0;
 
 function anyMovieSetStatus(text, isError) {
   const el = $('anymovie-status');
@@ -1020,6 +1021,7 @@ function anyMovieRenderButtons(buttons, requestId) {
 function anyMovieReset() {
   anyMovieActiveRequest = null;
   anyMovieSearching = false;
+  anyMovieSearchToken++;
   if (anyMoviePollTimer) { clearTimeout(anyMoviePollTimer); anyMoviePollTimer = null; }
   anyMovieSetStatus('');
   $('anymovie-buttons').innerHTML = '';
@@ -1037,6 +1039,8 @@ function anyMovieReset() {
 async function anyMovieSearch(query) {
   if (anyMovieSearching) return;
   anyMovieSearching = true;
+  anyMovieSearchToken++;
+  const myToken = anyMovieSearchToken;
   anyMovieReset();
   $('anymovie-input').value = query;
   anyMovieSetStatus('Searching for "' + query + '"...');
@@ -1067,24 +1071,25 @@ async function anyMovieSearch(query) {
     return;
   }
   anyMovieActiveRequest = requestId;
-  anyMoviePoll(requestId);
+  anyMoviePoll(requestId, myToken);
 }
 
-function anyMoviePollCard(requestId) {
+function anyMoviePollCard(requestId, token) {
   anyMoviePollTimer = setTimeout(async () => {
+    if (token !== anyMovieSearchToken) return;
     try {
       const r = await fetch('/api/anymovie/card-result/' + requestId);
       const rd = await r.json();
+      if (token !== anyMovieSearchToken) return;
       if (!rd.success) {
-        // Card not ready yet, keep polling
-        anyMoviePollCard(requestId);
+        anyMoviePollCard(requestId, token);
         return;
       }
       if (rd.cardSaved && rd.card) {
-        // Card is ready! Show it and open the watch URL.
         anyMovieSetStatus('');
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').textContent = 'Search';
+        anyMovieSearching = false;
         const watchUrl = rd.watchUrl || rd.card.watchUrl || rd.card.resolvedUrl;
         if (watchUrl) {
           window.open(watchUrl, '_blank');
@@ -1098,21 +1103,23 @@ function anyMoviePollCard(requestId) {
         anyMovieActiveRequest = null;
         return;
       }
-      // Still waiting for card creation
-      anyMoviePollCard(requestId);
+      anyMoviePollCard(requestId, token);
     } catch (e) {
-      anyMoviePollCard(requestId);
+      if (token !== anyMovieSearchToken) return;
+      anyMoviePollCard(requestId, token);
     }
   }, 2000);
 }
 
-function anyMoviePoll(requestId) {
+function anyMoviePoll(requestId, token) {
   anyMoviePollTimer = setTimeout(async () => {
+    if (token !== anyMovieSearchToken) return;
     try {
       const r = await fetch('/api/anymovie/result/' + requestId);
       const rd = await r.json();
       const dbg = $('anymovie-debug');
       if (dbg) dbg.textContent = 'status=' + rd.status + ' buttons=' + (rd.buttons ? rd.buttons.length : 0) + ' success=' + rd.success;
+      if (token !== anyMovieSearchToken) return;
       if (!rd.success) {
         anyMovieSetStatus(rd.error || 'Request not found.', true);
         $('anymovie-search-btn').disabled = false;
@@ -1128,29 +1135,31 @@ function anyMoviePoll(requestId) {
         return;
       }
       if (rd.status === 'awaiting_select') {
+        if (token !== anyMovieSearchToken) return;
         anyMovieSetStatus(rd.query ? 'Pick an option for "' + rd.query + '":' : 'Pick an option:');
         anyMovieRenderButtons(rd.buttons || [], requestId);
-        anyMoviePoll(requestId);
+        anyMoviePoll(requestId, token);
         return;
       }
       if (rd.status === 'selecting') {
         anyMovieSetStatus('Opening the selected option...');
         $('anymovie-buttons').innerHTML = '';
         $('anymovie-buttons').style.display = 'none';
-        anyMoviePoll(requestId);
+        anyMoviePoll(requestId, token);
         return;
       }
       if (rd.status === 'waiting_for_card') {
         anyMovieSetStatus('Creating your movie card...');
-        anyMoviePollCard(requestId);
+        anyMoviePollCard(requestId, token);
         return;
       }
       if (rd.status === 'done') {
         if (rd.cardSaved === true && !rd.cardResolved) {
           anyMovieSetStatus('Preparing your movie link...');
-          anyMoviePoll(requestId);
+          anyMoviePoll(requestId, token);
           return;
         }
+        if (token !== anyMovieSearchToken) return;
         anyMovieSetStatus('');
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').textContent = 'Search';
@@ -1176,10 +1185,11 @@ function anyMoviePoll(requestId) {
       }
       // searching — keep polling
       anyMovieSetStatus('Searching Telegram... (status: ' + rd.status + ')');
-      anyMoviePoll(requestId);
+      anyMoviePoll(requestId, token);
     } catch (e) {
+      if (token !== anyMovieSearchToken) return;
       anyMovieSetStatus('Connection issue, retrying...');
-      anyMoviePoll(requestId);
+      anyMoviePoll(requestId, token);
     }
   }, 2000);
 }
