@@ -997,9 +997,11 @@ function anyMovieSetStatus(text, isError) {
 
 function anyMovieRenderButtons(buttons, requestId) {
   const box = $('anymovie-buttons');
-  if (!box) return;
+  if (!box) { console.error('AnyMovie: #anymovie-buttons NOT FOUND'); return; }
+  console.log('AnyMovie RENDER:', { requestId, buttonCount: buttons ? buttons.length : 0, buttons });
   box.innerHTML = '';
   if (!buttons || !buttons.length) {
+    console.warn('AnyMovie: empty buttons array');
     box.style.display = 'none';
     return;
   }
@@ -1012,6 +1014,7 @@ function anyMovieRenderButtons(buttons, requestId) {
     btn.addEventListener('click', () => anyMovieSelect(requestId, b.index));
     box.appendChild(btn);
   });
+  console.log('AnyMovie: rendered', buttons.length, 'buttons');
 }
 
 function anyMovieReset() {
@@ -1045,6 +1048,7 @@ async function anyMovieSearch(query) {
       body: JSON.stringify({ query })
     });
     const data = await res.json();
+    console.log('AnyMovie SEARCH:', { query, success: data.success, requestId: data.requestId, error: data.error });
     if (!data.success) {
       anyMovieSetStatus(data.error || 'Search failed.', true);
       btn.disabled = false;
@@ -1103,6 +1107,7 @@ function anyMoviePoll(requestId) {
     try {
       const r = await fetch('/api/anymovie/result/' + requestId);
       const rd = await r.json();
+      console.log('AnyMovie POLL:', { requestId, status: rd.status, buttonsCount: (rd.buttons || []).length, success: rd.success });
       if (!rd.success) {
         anyMovieSetStatus(rd.error || 'Request not found.', true);
         $('anymovie-search-btn').disabled = false;
@@ -1116,6 +1121,7 @@ function anyMoviePoll(requestId) {
         return;
       }
       if (rd.status === 'awaiting_select') {
+        console.log('AnyMovie AWAITING_SELECT:', { buttons: rd.buttons });
         anyMovieSetStatus(rd.query ? 'Pick an option for "' + rd.query + '":' : 'Pick an option:');
         anyMovieRenderButtons(rd.buttons || [], requestId);
         anyMoviePoll(requestId);
@@ -1165,6 +1171,7 @@ function anyMoviePoll(requestId) {
         return;
       }
       // searching — keep polling
+      console.log('AnyMovie SEARCHING... status:', rd.status);
       anyMoviePoll(requestId);
     } catch (e) {
       anyMoviePoll(requestId);
