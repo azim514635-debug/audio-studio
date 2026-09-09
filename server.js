@@ -1494,6 +1494,38 @@ app.post('/api/anymovie/link-card', ah(async (req, res) => {
   res.json({ success: true });
 }));
 
+// Bot registers a forwarded file for Any Movie linking (when forward_messages
+// can't carry the #AM_ marker caption).
+app.post('/api/anymovie/pending-forward', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  const { requestId } = req.body;
+  if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
+  await withDbWrite(async () => {
+    const d = await getDb();
+    if (!d.anyMoviePendingForwards) d.anyMoviePendingForwards = [];
+    d.anyMoviePendingForwards.push({ requestId, createdAt: Date.now() });
+    if (d.anyMoviePendingForwards.length > 50) d.anyMoviePendingForwards = d.anyMoviePendingForwards.slice(-50);
+    await saveDb(d);
+  });
+  res.json({ success: true });
+}));
+
+// Card bot checks for a pending Any Movie forward (no #AM_ marker).
+// Returns and consumes the oldest pending entry (FIFO).
+app.get('/api/anymovie/pending-forward/check', ah(async (req, res) => {
+  if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  await withDbWrite(async () => {
+    const d = await getDb();
+    const list = d.anyMoviePendingForwards || [];
+    if (list.length > 0) {
+      const entry = list.shift();
+      await saveDb(d);
+      return res.json({ success: true, requestId: entry.requestId });
+    }
+  });
+  res.json({ success: true, requestId: null });
+}));
+
 // Frontend polls for card creation after waiting_for_card status.
 app.get('/api/anymovie/card-result/:requestId', ah(async (req, res) => {
   const { requestId } = req.params;

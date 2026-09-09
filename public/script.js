@@ -986,6 +986,7 @@ function openWatch(url, movieId, title) {
 /* ------------------------------------------------------------------ */
 let anyMovieActiveRequest = null;
 let anyMoviePollTimer = null;
+let anyMovieSearching = false;
 
 function anyMovieSetStatus(text, isError) {
   const el = $('anymovie-status');
@@ -1018,6 +1019,7 @@ function anyMovieRenderButtons(buttons, requestId) {
 
 function anyMovieReset() {
   anyMovieActiveRequest = null;
+  anyMovieSearching = false;
   if (anyMoviePollTimer) { clearTimeout(anyMoviePollTimer); anyMoviePollTimer = null; }
   anyMovieSetStatus('');
   $('anymovie-buttons').innerHTML = '';
@@ -1033,6 +1035,8 @@ function anyMovieReset() {
 }
 
 async function anyMovieSearch(query) {
+  if (anyMovieSearching) return;
+  anyMovieSearching = true;
   anyMovieReset();
   $('anymovie-input').value = query;
   anyMovieSetStatus('Searching for "' + query + '"...');
@@ -1051,6 +1055,7 @@ async function anyMovieSearch(query) {
       anyMovieSetStatus(data.error || 'Search failed.', true);
       btn.disabled = false;
       btn.textContent = 'Search';
+      anyMovieSearching = false;
       return;
     }
     requestId = data.requestId;
@@ -1058,6 +1063,7 @@ async function anyMovieSearch(query) {
     anyMovieSetStatus('Network error: ' + e.message, true);
     btn.disabled = false;
     btn.textContent = 'Search';
+    anyMovieSearching = false;
     return;
   }
   anyMovieActiveRequest = requestId;
@@ -1111,12 +1117,14 @@ function anyMoviePoll(requestId) {
         anyMovieSetStatus(rd.error || 'Request not found.', true);
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').textContent = 'Search';
+        anyMovieSearching = false;
         return;
       }
       if (rd.status === 'error') {
         anyMovieSetStatus(rd.error || 'No options found. Try a different spelling.', true);
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').textContent = 'Search';
+        anyMovieSearching = false;
         return;
       }
       if (rd.status === 'awaiting_select') {
@@ -1146,6 +1154,7 @@ function anyMoviePoll(requestId) {
         anyMovieSetStatus('');
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').textContent = 'Search';
+        anyMovieSearching = false;
         if (rd.watchUrl) {
           window.open(rd.watchUrl, '_blank');
           anyMovieShowResult('Opening your movie...', rd.watchUrl);
@@ -1162,6 +1171,7 @@ function anyMoviePoll(requestId) {
         anyMovieSetStatus(rd.error || 'This search was cancelled.', true);
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').textContent = 'Search';
+        anyMovieSearching = false;
         return;
       }
       // searching — keep polling
