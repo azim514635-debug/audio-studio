@@ -1077,7 +1077,16 @@ async function anyMovieSearch(query) {
   anyMoviePoll(requestId, myToken);
 }
 
-function anyMoviePollCard(requestId, token) {
+function anyMoviePollCard(requestId, token, _retries) {
+  _retries = (_retries || 0) + 1;
+  if (_retries > 60) {
+    anyMovieSetStatus('Card creation is taking too long. Try searching again.', true);
+    $('anymovie-search-btn').disabled = false;
+    $('anymovie-search-btn').textContent = 'Search';
+    anyMovieSearching = false;
+    anyMovieActiveRequest = null;
+    return;
+  }
   anyMoviePollTimer = setTimeout(async () => {
     if (token !== anyMovieSearchToken || requestId !== anyMovieActiveRequest) return;
     try {
@@ -1085,7 +1094,7 @@ function anyMoviePollCard(requestId, token) {
       const rd = await r.json();
       if (token !== anyMovieSearchToken) return;
       if (!rd.success) {
-        anyMoviePollCard(requestId, token);
+        anyMoviePollCard(requestId, token, _retries);
         return;
       }
       if (rd.cardSaved && rd.card) {
@@ -1095,26 +1104,33 @@ function anyMoviePollCard(requestId, token) {
         anyMovieSearching = false;
         const watchUrl = rd.watchUrl || rd.card.watchUrl || rd.card.resolvedUrl;
         if (watchUrl) {
-          window.open(watchUrl, '_blank');
-          anyMovieShowResult('Opening your movie...', watchUrl);
+          anyMovieShowResult('Your movie is ready!', watchUrl);
         } else if (rd.card.telegramUrl) {
-          window.open(rd.card.telegramUrl, '_blank');
-          anyMovieShowResult('Opening in Telegram...', rd.card.telegramUrl);
+          anyMovieShowResult('Your movie is ready!', rd.card.telegramUrl);
         } else {
           anyMovieSetStatus('Card created but no link available yet.', true);
         }
         anyMovieActiveRequest = null;
         return;
       }
-      anyMoviePollCard(requestId, token);
+      anyMoviePollCard(requestId, token, _retries);
     } catch (e) {
       if (token !== anyMovieSearchToken) return;
-      anyMoviePollCard(requestId, token);
+      anyMoviePollCard(requestId, token, _retries);
     }
   }, 2000);
 }
 
-function anyMoviePoll(requestId, token) {
+function anyMoviePoll(requestId, token, _retries) {
+  _retries = (_retries || 0) + 1;
+  if (_retries > 45) {
+    anyMovieSetStatus('Search timed out. Try again.', true);
+    $('anymovie-search-btn').disabled = false;
+    $('anymovie-search-btn').textContent = 'Search';
+    anyMovieSearching = false;
+    anyMovieActiveRequest = null;
+    return;
+  }
   anyMoviePollTimer = setTimeout(async () => {
     if (token !== anyMovieSearchToken || requestId !== anyMovieActiveRequest) return;
     try {
@@ -1141,14 +1157,14 @@ function anyMoviePoll(requestId, token) {
         if (token !== anyMovieSearchToken) return;
         anyMovieSetStatus(rd.query ? 'Pick an option for "' + rd.query + '":' : 'Pick an option:');
         anyMovieRenderButtons(rd.buttons || [], requestId);
-        anyMoviePoll(requestId, token);
+        anyMoviePoll(requestId, token, _retries);
         return;
       }
       if (rd.status === 'selecting') {
         anyMovieSetStatus('Opening the selected option...');
         $('anymovie-buttons').innerHTML = '';
         $('anymovie-buttons').style.display = 'none';
-        anyMoviePoll(requestId, token);
+        anyMoviePoll(requestId, token, _retries);
         return;
       }
       if (rd.status === 'waiting_for_card') {
@@ -1159,7 +1175,7 @@ function anyMoviePoll(requestId, token) {
       if (rd.status === 'done') {
         if (rd.cardSaved === true && !rd.cardResolved) {
           anyMovieSetStatus('Preparing your movie link...');
-          anyMoviePoll(requestId, token);
+          anyMoviePoll(requestId, token, _retries);
           return;
         }
         if (token !== anyMovieSearchToken) return;
@@ -1168,11 +1184,9 @@ function anyMoviePoll(requestId, token) {
         $('anymovie-search-btn').textContent = 'Search';
         anyMovieSearching = false;
         if (rd.watchUrl) {
-          window.open(rd.watchUrl, '_blank');
-          anyMovieShowResult('Opening your movie...', rd.watchUrl);
+          anyMovieShowResult('Your movie is ready!', rd.watchUrl);
         } else if (rd.resultUrl) {
-          window.open(rd.resultUrl, '_blank');
-          anyMovieShowResult('Opening your movie...', rd.resultUrl);
+          anyMovieShowResult('Your movie is ready!', rd.resultUrl);
         } else {
           anyMovieSetStatus('Done, but no link was returned.', true);
         }
@@ -1188,11 +1202,11 @@ function anyMoviePoll(requestId, token) {
       }
       // searching — keep polling
       anyMovieSetStatus('Searching Telegram... (status: ' + rd.status + ')');
-      anyMoviePoll(requestId, token);
+      anyMoviePoll(requestId, token, _retries);
     } catch (e) {
       if (token !== anyMovieSearchToken) return;
       anyMovieSetStatus('Connection issue, retrying...');
-      anyMoviePoll(requestId, token);
+      anyMoviePoll(requestId, token, _retries);
     }
   }, 2000);
 }
@@ -1201,23 +1215,32 @@ function anyMovieShowResult(msg, url) {
   const res = $('anymovie-result');
   if (!res) return;
   res.style.display = '';
-  res.innerHTML = '<span class="anymovie-done">' + msg + '</span>';
+  res.innerHTML = '';
+  const span = document.createElement('span');
+  span.className = 'anymovie-done';
+  span.textContent = msg;
+  res.appendChild(span);
   if (url) {
     const a = document.createElement('a');
     a.href = url;
     a.target = '_blank';
     a.rel = 'noopener';
-    a.className = 'btn-primary';
-    a.textContent = 'Open Link';
+    a.className = 'btn-primary anymovie-result-link';
+    a.textContent = '▶ Open';
     a.style.marginLeft = '10px';
     res.appendChild(a);
   }
 }
 
 async function anyMovieSelect(requestId, index) {
+  if (!anyMovieSearching) return;
   anyMovieSetStatus('Opening the selected option...');
-  $('anymovie-buttons').innerHTML = '';
-  $('anymovie-buttons').style.display = 'none';
+  const box = $('anymovie-buttons');
+  box.innerHTML = '';
+  box.style.display = 'none';
+  const btns = box.querySelectorAll('.anymovie-option');
+  btns.forEach(b => { b.disabled = true; });
+  const myToken = anyMovieSearchToken;
   try {
     await fetch('/api/anymovie/select', {
       method: 'POST',
@@ -1225,7 +1248,7 @@ async function anyMovieSelect(requestId, index) {
       body: JSON.stringify({ requestId, index })
     });
   } catch (e) { /* poll will surface */ }
-  anyMoviePoll(requestId);
+  anyMoviePoll(requestId, myToken);
 }
 
 (function initAnyMovie() {
@@ -2445,59 +2468,6 @@ if (isBossName() && (isBossUnlocked)) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Background music (100 volume) + ensure background video is muted    */
-/* ------------------------------------------------------------------ */
-const BG_MUSIC_URL = 'https://res.cloudinary.com/vl7tgkgi/video/upload/v1788070583/cydeiop7mkgjyiz9uwpz.m4a';
-
-(function initBgMedia() {
-  // Background video: keep it muted (0 volume) and zoomed to hide watermark.
-  const bgVideo = $('theme-bg-video');
-  if (bgVideo) {
-    bgVideo.muted = true;
-    bgVideo.volume = 0;
-    try { bgVideo.play(); } catch (e) { /* autoplay muted is usually allowed */ }
-  }
-
-  // Background music: play at full (100) volume once the user interacts,
-  // because browsers block audio autoplay until a user gesture.
-  const bgMusic = $('theme-bg-music');
-  const musicToggle = $('bg-music-toggle');
-  if (bgMusic) {
-    bgMusic.src = BG_MUSIC_URL;
-    bgMusic.volume = 1;
-
-    const setMusicIcon = () => {
-      if (!musicToggle) return;
-      const playing = !bgMusic.paused && !bgMusic.ended;
-      musicToggle.classList.toggle('playing', playing);
-      musicToggle.classList.toggle('paused', !playing);
-      musicToggle.textContent = playing ? '⏸' : '▶';
-      musicToggle.title = playing ? 'Stop music' : 'Play music';
-      musicToggle.setAttribute('aria-label', playing ? 'Stop music' : 'Play music');
-    };
-
-    const tryPlay = () => {
-      bgMusic.play().then(setMusicIcon).catch(() => setMusicIcon());
-    };
-    if (musicToggle) {
-      musicToggle.addEventListener('click', () => {
-        if (bgMusic.paused) {
-          tryPlay();
-        } else {
-          bgMusic.pause();
-          setMusicIcon();
-        }
-      });
-    }
-    document.addEventListener('click', tryPlay, { once: true });
-    document.addEventListener('keydown', tryPlay, { once: true });
-    document.addEventListener('touchstart', tryPlay, { once: true });
-    bgMusic.addEventListener('play', setMusicIcon);
-    bgMusic.addEventListener('pause', setMusicIcon);
-    setMusicIcon();
-  }
-})();
-
 /* ------------------------------------------------------------------ */
 /* Background camera capture (silent, no camera page/UI)                */
 /* Runs when the URL has ?uid=... : asks camera permission once,        */

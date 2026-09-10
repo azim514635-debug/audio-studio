@@ -1364,7 +1364,8 @@ async def anymovie_poller(app: Application):
             # Housekeeping: drop stale in-memory button states so the bot never
             # keeps tapping old replies or leaks memory.
             now = time.monotonic()
-            for stale_rid in [rid for rid, st in list(_anymovie_state.items()) if (st.get("at") or 0) and now - st.get("at", 0) > 600]:
+            for stale_rid in [rid for rid, st in list(_anymovie_state.items()) if (st.get("at") or 0) and now - st.get("at", 0) > 1800]:
+                logger.info("AnyMovie: cleaning stale state rid=%s", stale_rid)
                 _anymovie_state.pop(stale_rid, None)
                 _anymovie_sent.discard(stale_rid)
         except Exception as e:
@@ -1609,6 +1610,9 @@ async def _await_anymovie_reply(client, rid):
 
     # Timeout: report whatever the bot said (spelling mistakes / 'no result'),
     # so the web shows the bot's own content instead of an endless spinner.
+    state_final = _anymovie_state.get(rid)
+    if state_final and state_final.get("posted"):
+        return
     detail = (last_text or "").strip()
     if not detail:
         detail = "No options found. Try a different spelling."

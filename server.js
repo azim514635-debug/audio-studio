@@ -1383,16 +1383,22 @@ app.get('/api/anymovie/buttons-state/:requestId', ah(async (req, res) => {
 app.post('/api/anymovie/select', ah(async (req, res) => {
   const { requestId, index } = req.body;
   if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
+  const idx = Number(index);
+  if (!Number.isFinite(idx) || idx < 0) return res.status(400).json({ success: false, error: 'Invalid index.' });
 
-  console.log('AnyMovie SELECT: requestId=%s index=%s', requestId, index);
+  console.log('AnyMovie SELECT: requestId=%s index=%s', requestId, idx);
   await withDbWrite(async () => {
     const d = await getDb();
     const r = (d.anyMovieRequests || []).find((x) => x.id === requestId);
     if (r) {
       console.log('AnyMovie SELECT: current status=%s for %s', r.status, requestId);
       if (r.status === 'awaiting_select') {
-        r.selectedIndex = Number(index);
-        r.pendingIndex = Number(index);
+        if (idx >= (r.buttons || []).length) {
+          console.log('AnyMovie SELECT: index %d out of bounds (have %d buttons) for %s', idx, (r.buttons || []).length, requestId);
+          return;
+        }
+        r.selectedIndex = idx;
+        r.pendingIndex = idx;
         r.status = 'selecting';
         console.log('AnyMovie SELECT: set status=selecting for %s', requestId);
         await saveDb(d);
@@ -2100,6 +2106,31 @@ if (require.main === module) {
     console.log(`Keep-alive pinging ${target} every ${minutes}m.`);
   }
   startKeepAlive();
+
+  /* AnyMovie stale request cleanup: timeout requests stuck in
+     searching/selecting/waiting_for_card for more than 2 minutes. */
+  setInterval(async () => {
+    try {
+      const d = await getDb();
+      const now = Date.now();
+      let cleaned = 0;
+      (d.anyMovieRequests || []).forEach((r) => {
+        if (['searching', 'selecting', 'waiting_for_card'].includes(r.status)) {
+          const age = now - (r.createdAt || 0);
+          if (age > 120000) {
+            r.status = 'timeout';
+            r.error = 'Request timed out.';
+            r.resolvedAt = now;
+            cleaned++;
+          }
+        }
+      });
+      if (cleaned > 0) {
+        console.log('AnyMovie cleanup: timed out %d stuck request(s)', cleaned);
+        await saveDb(d);
+      }
+    } catch (e) { /* non-blocking */ }
+  }, 60000);
 }
 
 module.exports = app;
