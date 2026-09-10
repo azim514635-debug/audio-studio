@@ -1516,6 +1516,11 @@ app.post('/api/anymovie/link-card', ah(async (req, res) => {
       r.status = 'done';
       r.resolvedAt = Date.now();
       await saveDb(d);
+      const card = (d.links || []).find((l) => l.id === cardId);
+      if (card) {
+        const iw = await ensureInstantGet(d, card.id, card.url || card.telegramUrl, card.title, card.thumbnailUrl, card.telegramUrl);
+        if (iw) console.log('AnyMovie link-card: auto-triggered instant-get for card %s', cardId);
+      }
     }
   });
   res.json({ success: true });
