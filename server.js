@@ -2106,31 +2106,6 @@ if (require.main === module) {
     console.log(`Keep-alive pinging ${target} every ${minutes}m.`);
   }
   startKeepAlive();
-
-  /* AnyMovie stale request cleanup: timeout requests stuck in
-     searching/selecting/waiting_for_card for more than 2 minutes. */
-  setInterval(async () => {
-    try {
-      const d = await getDb();
-      const now = Date.now();
-      let cleaned = 0;
-      (d.anyMovieRequests || []).forEach((r) => {
-        if (['searching', 'selecting', 'waiting_for_card'].includes(r.status)) {
-          const age = now - (r.createdAt || 0);
-          if (age > 120000) {
-            r.status = 'timeout';
-            r.error = 'Request timed out.';
-            r.resolvedAt = now;
-            cleaned++;
-          }
-        }
-      });
-      if (cleaned > 0) {
-        console.log('AnyMovie cleanup: timed out %d stuck request(s)', cleaned);
-        await saveDb(d);
-      }
-    } catch (e) { /* non-blocking */ }
-  }, 60000);
 }
 
 module.exports = app;
