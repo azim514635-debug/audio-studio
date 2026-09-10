@@ -1103,13 +1103,8 @@ function anyMoviePollCard(requestId, token, _retries) {
         $('anymovie-search-btn').textContent = 'Search';
         anyMovieSearching = false;
         const watchUrl = rd.watchUrl || rd.card.watchUrl || rd.card.resolvedUrl;
-        if (watchUrl) {
-          anyMovieShowResult('Your movie is ready!', watchUrl);
-        } else if (rd.card.telegramUrl) {
-          anyMovieShowResult('Your movie is ready!', rd.card.telegramUrl);
-        } else {
-          anyMovieSetStatus('Card created but no link available yet.', true);
-        }
+        const card = rd.card;
+        anyMovieShowCardResult(card, watchUrl);
         anyMovieActiveRequest = null;
         return;
       }
@@ -1230,6 +1225,50 @@ function anyMovieShowResult(msg, url) {
     a.style.marginLeft = '10px';
     res.appendChild(a);
   }
+}
+
+function anyMovieShowCardResult(card, watchUrl) {
+  const res = $('anymovie-result');
+  if (!res) return;
+  res.style.display = '';
+  res.innerHTML = '';
+  res.className = 'anymovie-result anymovie-card-preview';
+
+  const cardDiv = document.createElement('div');
+  cardDiv.className = 'anymovie-card-inner';
+
+  if (card.thumbnailUrl) {
+    const img = document.createElement('img');
+    img.src = card.thumbnailUrl;
+    img.alt = card.title || 'Movie';
+    img.className = 'anymovie-card-thumb';
+    cardDiv.appendChild(img);
+  }
+
+  const info = document.createElement('div');
+  info.className = 'anymovie-card-info';
+  const title = document.createElement('div');
+  title.className = 'anymovie-card-title';
+  title.textContent = card.title || 'Your movie';
+  info.appendChild(title);
+
+  const msg = document.createElement('div');
+  msg.className = 'anymovie-card-msg';
+  msg.textContent = 'Your search has been added in updates';
+  info.appendChild(msg);
+
+  const linkUrl = watchUrl || card.telegramUrl || card.url;
+  if (linkUrl) {
+    const a = document.createElement('a');
+    a.href = linkUrl;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.className = 'btn-primary anymovie-result-link';
+    a.textContent = '▶ Open';
+    info.appendChild(a);
+  }
+  cardDiv.appendChild(info);
+  res.appendChild(cardDiv);
 }
 
 async function anyMovieSelect(requestId, index) {
