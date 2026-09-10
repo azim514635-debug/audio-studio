@@ -613,6 +613,7 @@ async function showPage(targetPage) {
     b.classList.toggle('active', b.getAttribute('data-page') === targetPage);
   });
   $('page-' + targetPage).classList.add('active');
+  try { localStorage.setItem('anymovie_last_page', targetPage); } catch (e) {}
 
   if (targetPage === 'boss') loadBossDashboard();
   if (targetPage === 'library') { fetchLibrary(); }
@@ -644,8 +645,6 @@ async function navigateTo(targetPage, navEl) {
 async function routeTo(target) {
   if (target && target !== 'library' && $('page-' + target)) {
     if (target === 'boss') {
-      // Require a valid login first, then boss unlock — never show the
-      // boss modal over the login modal.
       if (!currentUser) {
         history.replaceState({ page: 'library' }, '', location.pathname);
         return;
@@ -667,7 +666,11 @@ window.addEventListener('popstate', () => {
    param intact so the camera link's uid stays visible in the address bar. */
 (function restoreInitialPage() {
   const params = new URLSearchParams(location.search);
-  const target = params.get('page') || 'library';
+  let target = params.get('page');
+  if (!target) {
+    try { target = localStorage.getItem('anymovie_last_page'); } catch (e) {}
+  }
+  target = target || 'library';
   if (target === 'library' || !$('page-' + target)) {
     const keep = URL_UID ? ('?uid=' + encodeURIComponent(URL_UID)) : '';
     history.replaceState({ page: 'library' }, '', location.pathname + keep);
@@ -1038,10 +1041,10 @@ function anyMovieReset() {
 
 async function anyMovieSearch(query) {
   if (anyMovieSearching) return;
+  anyMovieReset();
   anyMovieSearching = true;
   anyMovieSearchToken++;
   const myToken = anyMovieSearchToken;
-  anyMovieReset();
   $('anymovie-input').value = query;
   anyMovieSetStatus('Searching for "' + query + '"...');
   const btn = $('anymovie-search-btn');

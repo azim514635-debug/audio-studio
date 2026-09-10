@@ -1384,14 +1384,15 @@ async def _anymovie_send_query(client, rid, query):
     try:
         sent = await client.send_message(target, query)
         _anymovie_state[rid]["sent_id"] = sent.id
+        logger.info("ANYMOVIE SEARCH START requestId=%s query='%s'", rid, query)
         # Remember the numeric peer so the event handler can attribute replies.
         try:
             from telethon import utils as _tu
             entity = await client.get_entity(target)
             peer_id = _tu.get_peer_id(entity)
             _anymovie_state[rid]["peer_id"] = peer_id
-            logger.info("AnyMovie: sent '%s' to @%s (peer_id=%s, sent_id=%s)",
-                        query, target, peer_id, sent.id)
+            logger.info("ANYMOVIE SEARCH TOKEN=%s peer_id=%s sent_id=%s",
+                        rid, peer_id, sent.id)
         except Exception as e:
             logger.info("AnyMovie: sent '%s' to @%s (sent_id=%s, peer_id resolve failed: %s)",
                         query, target, sent.id, e)
@@ -1461,6 +1462,7 @@ async def _anymovie_on_event(event, edited=False):
                     rid = rid_candidate
                     break
         if not rid:
+            logger.debug("AnyMovie: ignoring event - no matching active request sender=%s", uname)
             return
         state = _anymovie_state.get(rid)
         if not state:
@@ -1468,15 +1470,7 @@ async def _anymovie_on_event(event, edited=False):
         if state.get("posted"):
             return
 
-        if not rid:
-            return
-        state = _anymovie_state.get(rid)
-        if not state:
-            return
-        if state.get("posted"):
-            return
-
-        logger.info("AnyMovie event: rid=%s msg_id=%s edited=%s sender=%s",
+        logger.info("ANYMOVIE ACTIVE RESPONSE ACCEPTED requestId=%s msg_id=%s edited=%s sender=%s",
                     rid, message.id, edited, uname)
 
         media_opts = []
