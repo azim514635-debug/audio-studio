@@ -17,3 +17,4 @@ capacitor.config.ts
 .gradle/
 *.apk
 *.aab
+telegram_bot.py
