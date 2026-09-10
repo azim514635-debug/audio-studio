@@ -1,0 +1,174 @@
+Fix the Any Movie request-state/race-condition bug in my existing website.
+
+IMPORTANT: Do not redesign the UI and do not replace the existing Any Movie system.
+
+CURRENT BUG:
+When I search for one movie, then another movie, the website can display results belonging to an older request.
+
+Example observed:
+- Website input: Kgf
+- Website displayed: Aladdin
+- Telegram showed: Avengers Civil War
+
+This means an old asynchronous polling response or stale Telegram response is being associated with the current request.
+
+FIX IT PROPERLY:
+
+1. Every Any Movie search must have a unique RequestId.
+
+2. Add a frontend search generation/token system.
+   Example:
+   let anyMovieSearchToken = 0;
+
+3. Every new search must increment the token.
+
+4. Pass the token through every anyMoviePoll() call.
+
+5. Before rendering ANY polling response, verify BOTH:
+   - the requestId is still the currently active requestId
+   - the search token is still the current token
+
+6. If either does not match, completely ignore the response.
+
+7. Old async fetch requests must NEVER be allowed to update:
+   - buttons
+   - status
+   - results
+   - errors
+   - watch links
+
+8. When anyMovieReset() runs, invalidate the previous search token immediately.
+
+9. Make sure recursive polling calls preserve the same requestId and token.
+
+10. On the backend, strictly associate Telegram responses with the correct RequestId.
+
+11. Never accept a Telegram message merely because it came from the same bot.
+   Match the response against the active request's Telegram message/request information wherever possible.
+
+12. Prevent stale Telegram search responses from being posted to a newer RequestId.
+
+13. If multiple searches are running at the same time, each request must remain isolated.
+
+14. Do not let an old request overwrite a newer request even if the old Telegram response arrives several seconds later.
+
+15. Add clear logs such as:
+   ANYMOVIE SEARCH START requestId=...
+   ANYMOVIE SEARCH TOKEN=...
+   ANYMOVIE POLL requestId=... token=...
+   ANYMOVIE STALE RESPONSE IGNORED requestId=...
+   ANYMOVIE ACTIVE RESPONSE ACCEPTED requestId=...
+
+16. Preserve the existing:
+   - Any Movie UI
+   - search buttons
+   - existing card pipeline
+   - Instant Get system
+   - existing database structure unless a minimal change is required
+
+17. Do not duplicate the Any Movie system.
+
+TEST CASE:
+Search:
+1. Kgf
+2. immediately search Aladdin
+3. then search Avengers Civil War
+
+Even if Kgf's response arrives after Aladdin's request started, Kgf's response MUST NOT appear inside the Aladdin request.
+
+FINAL REQUIREMENT:
+The currently active RequestId must be the ONLY request allowed to update the current Any Movie UI.
+
+Also inspect the existing code before modifying it and make the smallest safe changes necessary.IMPORTANT — The latest Render logs show:
+
+2026-09-09 14:23:41 AnyMovie TAP: attempting callback tap rid=mtu6uj0jqdg4kv data_type=bytes data_len=37 msg_id=7384
+2026-09-09 14:23:42 AnyMovie TAP: SUCCESS via callback! rid=mtu6uj0jqdg4kv answer=none alert=False
+2026-09-09 14:23:48 through 14:24:17 waiting for post-tap message
+2026-09-09 14:24:17 NO post-tap message after 30s
+2026-09-09 14:24:17 no file in post-tap message
+2026-09-09 14:24:17 no file or link returned after tapping
+
+This confirms that the current code is incorrectly treating a successful `GetBotCallbackAnswerRequest` RPC as proof that the movie button action succeeded.
+
+A `BotCallbackAnswer` is NOT the movie message and must never be treated as the resulting media.
+
+Make these changes:
+
+1. In `_anymovie_tap()`, register temporary Telethon `events.NewMessage` and `events.MessageEdited` handlers BEFORE performing the button interaction.
+
+2. Use the fresh Telethon `Message` object obtained from the latest bot message.
+
+3. Use the exact selected button row and column.
+
+4. Make `await message.click(target_row, target_col)` the PRIMARY button interaction method.
+
+5. Do NOT set `tapped=True` merely because `GetBotCallbackAnswerRequest()` returned successfully.
+
+6. If `message.click()` raises an exception, then optionally use `GetBotCallbackAnswerRequest()` as a fallback.
+
+7. When using the callback API, log all useful returned fields, including:
+
+   * answer type
+   * message
+   * alert
+   * url
+   * cache_time
+   * any other available callback-answer fields
+
+8. After the click, wait for the actual incoming Telegram response using the event listener, rather than relying only on repeated polling after the click.
+
+9. Detect:
+
+   * new media messages
+   * new text messages containing links
+   * messages with inline buttons/URLs
+   * edits to the original bot message that add media/link information
+
+10. Log every detected response with:
+
+* chat ID
+* message ID
+* date
+* media type
+* text/caption
+* whether it contains buttons
+* whether it contains a URL
+
+11. IMPORTANT: If the movie response arrives in a different Telegram chat/dialog instead of @iPapkornJ2bot, detect and log that too. Do not assume the result must be in the original chat.
+
+12. Keep the listener active before, during, and after the click so a very fast response cannot be missed.
+
+13. Do not report:
+    `TAP SUCCESS`
+    until an actual resulting Telegram response has been detected.
+
+14. Use clearer statuses:
+
+* `CLICK RPC SENT`
+* `CALLBACK ANSWER RECEIVED`
+* `MOVIE RESPONSE DETECTED`
+* `MEDIA DETECTED`
+* `FORWARDING TO CARD BOT`
+* `CARD PIPELINE STARTED`
+
+15. Once actual movie media is detected, preserve the existing:
+    Telegram user → existing card-making bot → existing website card
+    pipeline.
+
+16. Preserve the existing RequestId / `#AM_<RequestId>` / pending-forward correlation system.
+
+17. Do NOT create a new card-generation system.
+
+18. Do NOT replace the existing Instant Get system.
+
+19. Do NOT change the existing website button UI unless required for this fix.
+
+20. Do NOT silently swallow Telethon exceptions. Log the complete exception and continue safely where possible.
+
+MOST IMPORTANT:
+Manual tapping the same button inside Telegram successfully causes the movie file to arrive.
+
+Therefore, the automated website click must reproduce the same effective Telegram interaction and must wait for the REAL resulting movie message, not just a successful callback RPC.
+
+After making the fix, explain exactly which part of `_anymovie_tap()` was changed and why the previous `SUCCESS via callback` log was misleading.
+

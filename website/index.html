@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Age Predictor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 AGE PREDICTOR 3000</h1>
+    <p class="subtitle">Hacking into your life...</p>
+
+    <div id="card" class="card">
+      <p class="question">What is your age?</p>
+      <input type="number" id="age" placeholder="Enter your age" min="1" max="150">
+      <button onclick="predict()">🔮 PREDICT</button>
+    </div>
+
+    <div id="hacker" class="hacker hidden">
+      <div class="hacker-screen">
+        <p>INITIALIZING AGE PREDICTION SYSTEM...</p>
+        <p>C:\> ACCESSING DATABASE...</p>
+        <p>C:\> LOADING SECRET FILES...</p>
+        <p>C:\> DECRYPTING YOUR INFORMATION...</p>
+        <p>C:\> CALCULATING AGE...</p>
+        <p id="type-line"></p>
+      </div>
+    </div>
+
+    <div id="result" class="card result hidden">
+      <h2>✅ PREDICTION COMPLETE</h2>
+      <p class="result-line">Your age is <span id="age-result" class="big">0</span></p>
+      <button onclick="reset()">Try Again</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Courier New', monospace;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.container {
+  background: #1a1a2e;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(0, 255, 0, 0.2);
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  border: 2px solid #00ff00;
+}
+
+h1 {
+  color: #00ff00;
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+.subtitle {
+  color: #666;
+  margin-bottom: 30px;
+  font-style: italic;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.question {
+  font-size: 1.3rem;
+  color: #00ff00;
+  font-weight: bold;
+}
+
+input {
+  width: 100%;
+  padding: 15px;
+  background: #0f0c29;
+  border: 2px solid #00ff00;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  text-align: center;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+}
+
+input::placeholder {
+  color: #2ecc40;
+  opacity: 0.5;
+}
+
+input:focus {
+  outline: none;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+button {
+  background: #00ff00;
+  color: #0f0c29;
+  border: none;
+  padding: 15px 40px;
+  font-size: 1.2rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 255, 0, 0.4);
+}
+
+.hidden {
+  display: none;
+}
+
+.result {
+  animation: fadeIn 0.5s;
+}
+
+.result h2 {
+  color: #00ff00;
+  margin-bottom: 10px;
+}
+
+.result-line {
+  font-size: 1.3rem;
+  color: #00ff00;
+  margin: 20px 0;
+}
+
+.big {
+  font-size: 4rem;
+  color: #00ff00;
+  font-weight: bold;
+  text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+}
+
+.fun-fact {
+  display: none;
+}
+
+/* Hacker screen */
+.hacker {
+  animation: fadeIn 0.3s;
+}
+
+.hacker-screen {
+  background: #0f0c29;
+  border: 2px solid #00ff00;
+  border-radius: 10px;
+  padding: 20px;
+  text-align: left;
+  min-height: 250px;
+  font-size: 0.9rem;
+}
+
+.hacker-screen p {
+  color: #00ff00;
+  margin-bottom: 8px;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+}
+
+.hacker-screen .typed {
+  color: #00ff00;
+}
+
+.blinking {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,288 @@
+You are working on my existing Azim Studio project. Do NOT rebuild the project from scratch and do NOT remove existing features.
+
+TASK:
+Fix the Any Movie flow where the user enters a movie name on the website, the request reaches @iPapkornJ2bot through my Telegram USER account (Telethon), but the reply buttons/options from @iPapkornJ2bot are not correctly reaching the website.
+
+FIRST, inspect the existing project files carefully, especially:
+
+* server.js
+* telegram_bot.py
+* the Any Movie frontend HTML/JS
+* any related API routes and configuration
+
+TRACE THE COMPLETE FLOW:
+
+Website movie search
+→ /api/anymovie/search
+→ Telegram USER account / Telethon
+→ @iPapkornJ2bot
+→ Telegram reply containing text/buttons/files
+→ capture the EXACT reply
+→ /api/anymovie/buttons
+→ website displays the buttons
+→ website user taps a button
+→ /api/anymovie/select
+→ Telethon USER account clicks the corresponding Telegram button
+→ @iPapkornJ2bot sends the selected file/result
+→ archive/forward the selected file
+→ create the website movie card
+→ automatically trigger Instant Get.
+
+IMPORTANT BUGS TO INVESTIGATE:
+
+1. BUTTONS ARE NOT REACHING WEB
+   Find why the response buttons from @iPapkornJ2bot are not appearing correctly on the website.
+
+Do not assume button format. Log and inspect the actual Telegram message structure:
+
+* message.id
+* message.text/message.message
+* message.buttons
+* each button's text
+* callback_data
+* URL
+* row/column position
+* message type/media
+
+The website must receive the real button labels in the same order as Telegram.
+
+2. PRESERVE BUTTON STATE
+   The backend must preserve the complete Telegram button information for each request until the web user selects one.
+
+Store enough information to perform the exact original Telegram click later:
+
+* Telegram peer/chat
+* reply message ID
+* button index
+* row
+* column
+* callback data when available
+* URL when available
+* media message ID when applicable
+
+Do NOT depend only on a temporary "latest request" assumption.
+
+3. REQUEST/REPLY MATCHING
+   Fix the logic that associates a Telegram reply with a web request.
+
+Never simply select the newest active Any Movie request.
+
+Every search must have its own requestId and Telegram state.
+
+A reply from @iPapkornJ2bot must be associated with the correct request.
+
+Prevent:
+
+* Movie A receiving Movie B's buttons
+* duplicate replies
+* old replies being attached to new searches
+* overlapping searches breaking each other
+
+4. WAIT FOR THE COMPLETE TELEGRAM RESPONSE
+   Do not immediately post the website buttons after receiving only the first partial message if @iPapkornJ2bot sends multiple messages.
+
+Implement a short, reliable collection window so all relevant buttons/options from the search response can be captured before posting them to the website.
+
+Avoid waiting so long that the website times out.
+
+5. EXACT BUTTON CLICK
+   When the website user taps an option, use the Telethon USER account to perform the exact corresponding Telegram button action.
+
+Do NOT replace the selected button with "first button" as a normal fallback.
+
+If exact row/column or callback information is available, use it.
+
+If clicking fails, return a clear error instead of silently clicking another unrelated button.
+
+6. FILE RESULT
+   If @iPapkornJ2bot sends a media/file after the button selection:
+
+* identify the correct newly received Telegram message
+* make sure it belongs to this request
+* do not accidentally select an older movie/file
+* archive/forward the selected file using the Telegram USER account where required
+* generate the correct Telegram deep link
+* return it to the website
+
+IMPORTANT:
+The existing code currently mixes the Telethon USER account and the Telegram bot account when forwarding Any Movie files.
+
+Inspect this carefully.
+
+If the source file is accessible to the Telethon USER account but not the bot account, use the USER account for that forwarding operation.
+
+Do not break the existing normal bot upload functionality.
+
+7. WEBSITE CARD
+   After a successful selection:
+
+* create the movie card
+* preserve title
+* preserve Telegram URL/deep link
+* preserve thumbnail if available
+* avoid duplicate cards
+* immediately create/queue Instant Get when appropriate
+
+8. INSTANT GET
+   Keep the existing Instant Get architecture.
+
+After a newly archived movie is saved, automatically create the pending Instant Get request.
+
+Then the existing secretary/link-generator flow should process it.
+
+Do not require the website user to manually trigger Instant Get after the card is successfully created.
+
+9. EXISTING MOVIE SEARCH
+   If a movie already exists in the library, the existing search/matches system should continue showing it.
+
+Do not break:
+
+* /api/anymovie/matches
+* existing movie cards
+* Watch
+* Instant Get
+* normal uploads
+* chat
+* links
+* other existing website features
+
+10. DEBUGGING
+    Before changing code, inspect the relevant functions and API routes.
+
+Add useful server-side logs temporarily or permanently, for example:
+
+AnyMovie search:
+requestId=
+query=
+telegramPeer=
+telegramMessageId=
+
+AnyMovie Telegram response:
+requestId=
+messageId=
+sender=
+text=
+buttonCount=
+buttons=
+
+AnyMovie selection:
+requestId=
+selectedIndex=
+row=
+col=
+callbackData=
+messageId=
+
+AnyMovie result:
+requestId=
+resultMessageId=
+media=
+telegramUrl=
+
+Do NOT log:
+
+* API keys
+* bot tokens
+* Telegram session strings
+* passwords
+* secrets
+
+11. ERROR HANDLING
+    Return useful JSON errors to the website instead of silently failing.
+
+Examples:
+{
+"success": false,
+"error": "Telegram search reply timed out"
+}
+
+or:
+
+{
+"success": false,
+"error": "No buttons found in Telegram reply"
+}
+
+or:
+
+{
+"success": false,
+"error": "Selected Telegram result was not received"
+}
+
+12. DO NOT FAKE RESULTS
+    The website must show the actual buttons/options received from @iPapkornJ2bot.
+
+Do NOT hardcode movie buttons.
+
+Do NOT invent button labels.
+
+Do NOT convert arbitrary Telegram text into fake buttons.
+
+13. SECURITY
+    Preserve the existing boss-secret/API authentication for internal bot-to-server endpoints.
+
+Do not expose:
+
+* Telegram API ID
+* Telegram API HASH
+* bot tokens
+* boss secret
+* session strings
+
+to browser JavaScript.
+
+FINAL REQUIREMENT:
+
+After fixing the code, test the complete flow logically from start to finish and inspect for race conditions.
+
+Explain exactly:
+
+1. Why the Telegram buttons were not reaching the website.
+2. Which files/functions you changed.
+3. How requestId is now matched to the correct Telegram response.
+4. How the exact button is selected.
+5. How the selected file is archived.
+6. How the movie card is created.
+7. How Instant Get is automatically triggered.
+
+Do not make unrelated UI changes.
+
+If you find multiple possible causes, fix the actual causes in the existing implementation rather than adding random workarounds.
+
+Ek important change karo:
+
+Any Movie se file milne ke baad direct web/database me card mat banao.
+
+Mera existing Telegram → card-making bot wala normal pipeline use karo:
+Telegram user account → existing bot ko forward → existing bot card banaye.
+
+Aur jaise hi us forwarding se NEW card successfully create ho, us particular card ko usi Any Movie request/user ke Any Movie section me temporarily show karo.
+
+Card main library me permanently rahe, lekin Any Movie section me sirf us user ke current session/page par dikhe. User Any Movie section me rahe tab tak visible rahe; section chhodne par temporary display hata sakte ho.
+
+Existing card creation aur Instant Get system ko change/duplicate mat karo—sirf Any Movie ko existing pipeline se connect karo.
+
+RequestId/correlation se ensure karo ki newly created card exactly usi Any Movie search ka result ho, kisi doosre user's/movie ka card nahi.
+
+Any Movie ka selected Telegram result milne ke baad us file/message ko DIRECTLY mere existing card-making bot ko forward karo.
+
+Flow exactly ye ho:
+
+Website → Any Movie search → @iPapkornJ2bot → user Telegram account button tap → @iPapkornJ2bot se jo actual movie FILE/MESSAGE receive ho → us SAME Telegram message ko directly mere existing card-making bot ko forward karo.
+
+Important:
+
+* `BotCallbackAnswer.media` ko file samajhne ki galti mat karo.
+* Button click ke return value se media mat nikaalo.
+* Button click ke baad @iPapkornJ2bot se aane wale actual new message/event ko detect karo.
+* Us actual message ko `client.forward_messages()` se existing card-making bot ko forward karo.
+* File ko download karke dobara upload karne ki zarurat nahi; direct Telegram forward use karo.
+* Existing card-making bot ka normal pipeline bilkul same rehna chahiye.
+* Direct web/database card creation mat karo.
+* RequestId se ensure karo ki sirf isi Any Movie request ka selected file forward ho.
+* Forward successful hone ke baad existing card-making bot ko apna normal card creation process karne do.
+* New card ko existing `card-result` / RequestId pipeline se Any Movie request se link karo.
+
+Existing card-making bot ka username/configuration jo project me already use ho raha hai, wahi reuse karo. Naya bot ya naya card-generation system mat banao.
+

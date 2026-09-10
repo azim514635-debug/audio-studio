@@ -1076,7 +1076,7 @@ async function anyMovieSearch(query) {
 
 function anyMoviePollCard(requestId, token) {
   anyMoviePollTimer = setTimeout(async () => {
-    if (token !== anyMovieSearchToken) return;
+    if (token !== anyMovieSearchToken || requestId !== anyMovieActiveRequest) return;
     try {
       const r = await fetch('/api/anymovie/card-result/' + requestId);
       const rd = await r.json();
@@ -1113,13 +1113,13 @@ function anyMoviePollCard(requestId, token) {
 
 function anyMoviePoll(requestId, token) {
   anyMoviePollTimer = setTimeout(async () => {
-    if (token !== anyMovieSearchToken) return;
+    if (token !== anyMovieSearchToken || requestId !== anyMovieActiveRequest) return;
     try {
       const r = await fetch('/api/anymovie/result/' + requestId);
       const rd = await r.json();
       const dbg = $('anymovie-debug');
       if (dbg) dbg.textContent = 'status=' + rd.status + ' buttons=' + (rd.buttons ? rd.buttons.length : 0) + ' success=' + rd.success;
-      if (token !== anyMovieSearchToken) return;
+      if (token !== anyMovieSearchToken || requestId !== anyMovieActiveRequest) return;
       if (!rd.success) {
         anyMovieSetStatus(rd.error || 'Request not found.', true);
         $('anymovie-search-btn').disabled = false;
