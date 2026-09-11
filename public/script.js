@@ -1355,11 +1355,9 @@ async function anyMovieSelect(requestId, index) {
   const form = $('anymovie-form');
   const input = $('anymovie-input');
   const searchBtn = $('anymovie-search-btn');
-  const predictBox = $('anymovie-predict');
   if (!form || !input || !searchBtn) return;
 
   const runSearch = () => {
-    hidePredict();
     const query = input.value.trim();
     if (!query) { anyMovieSetStatus('Enter a movie name first.', true); return; }
     anyMovieSearch(query);
@@ -1376,59 +1374,9 @@ async function anyMovieSelect(requestId, index) {
     runSearch();
   });
 
-  // DuckDuckGo predictive search
-  let predictTimer = null;
-  let predictCache = {};
-
-  function hidePredict() {
-    if (predictBox) { predictBox.innerHTML = ''; predictBox.style.display = 'none'; }
-  }
-
-  async function fetchPredictions(q) {
-    if (predictCache[q]) return predictCache[q];
-    try {
-      const r = await fetch('/api/predict?q=' + encodeURIComponent(q));
-      const d = await r.json();
-      predictCache[q] = d.suggestions || [];
-      return predictCache[q];
-    } catch (e) { return []; }
-  }
-
-  input.addEventListener('input', () => {
-    clearTimeout(predictTimer);
-    const val = input.value.trim();
-    if (val.length < 2) { hidePredict(); return; }
-    predictTimer = setTimeout(async () => {
-      const suggestions = await fetchPredictions(val);
-      if (!suggestions.length || input.value.trim() !== val) { hidePredict(); return; }
-      predictBox.innerHTML = '';
-      predictBox.style.display = '';
-      suggestions.forEach(s => {
-        const item = document.createElement('div');
-        item.className = 'anymovie-predict-item';
-        item.textContent = s;
-        item.addEventListener('click', () => {
-          input.value = s;
-          hidePredict();
-          anyMovieSearch(s);
-        });
-        predictBox.appendChild(item);
-      });
-    }, 350);
-  });
-
-  input.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape') hidePredict();
-  });
-
-  document.addEventListener('click', (ev) => {
-    if (!ev.target.closest('.anymovie-search-row')) hidePredict();
-  });
-
   window.addEventListener('popstate', () => {
     if (document.getElementById('page-anymovie') && !document.getElementById('page-anymovie').classList.contains('active')) {
       anyMovieReset();
-      hidePredict();
     }
   });
 })();

@@ -1463,37 +1463,6 @@ body.samurai-theme ::-webkit-scrollbar-thumb:hover { background: #8b5cf6; }
   font-style: italic;
   opacity: 0.85;
 }
-.anymovie-predict {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 70px;
-  margin-top: 4px;
-  background: #1e1b4b;
-  border: 1px solid rgba(109,40,217,.5);
-  border-radius: 10px;
-  overflow: hidden;
-  z-index: 50;
-  box-shadow: 0 12px 32px rgba(0,0,0,.5);
-  animation: anymovieFadeIn 0.2s ease;
-}
-.anymovie-predict-item {
-  padding: 10px 14px;
-  font-size: 0.9rem;
-  color: #e2e8f0;
-  cursor: pointer;
-  transition: background 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.anymovie-predict-item:hover {
-  background: rgba(109,40,217,.3);
-}
-.anymovie-predict-item::before {
-  content: '🎬';
-  font-size: 0.8rem;
-}
 .anymovie-ai-bar {
   margin-top: 14px;
   background: linear-gradient(135deg, rgba(30,41,59,.9), rgba(76,29,149,.5));

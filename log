@@ -1,0 +1,120 @@
+azim-telegram-bot
+
+Application logs
+Search
+Search logs
+
+
+Live tail
+
+
+
+2026-09-10 15:39:41,622 [INFO] apscheduler.scheduler: Removed job a6e67333bd0e41d78951f1b264442997
+2026-09-10 15:39:41,623 [INFO] apscheduler.executors.default: Running job "_start_camera (trigger: date[2026-09-10 15:39:41 UTC], next run at: 2026-09-10 15:39:41 UTC)" (scheduled at 2026-09-10 15:39:41.619117+00:00)
+2026-09-10 15:39:41,623 [INFO] apscheduler.executors.default: Running job "_start_anymovie (trigger: date[2026-09-10 15:39:41 UTC], next run at: 2026-09-10 15:39:41 UTC)" (scheduled at 2026-09-10 15:39:41.620230+00:00)
+2026-09-10 15:39:46,626 [INFO] azim-bot: Secretary Mode active — link generator: @File_To_Link_2Bot
+2026-09-10 15:39:46,807 [INFO] telethon.crypto.aes: libssl detected, it will be used for encryption
+2026-09-10 15:39:48,009 [INFO] telethon.network.mtprotosender: Connecting to 91.108.56.129:443/TcpFull...
+2026-09-10 15:39:48,203 [INFO] telethon.network.mtprotosender: Connection to 91.108.56.129:443/TcpFull complete!
+2026-09-10 15:40:02,769 [INFO] apscheduler.scheduler: Removed job aa7c3ccf1f1e419083adc94abc3ffe47
+2026-09-10 15:40:02,771 [WARNING] apscheduler.executors.default: Run time of job "_keepalive (trigger: date[2026-09-10 15:40:01 UTC], next run at: 2026-09-10 15:40:01 UTC)" was missed by 0:00:01.150689
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'python telegram_bot.py'
+2026-09-10 15:44:38,972 [INFO] azim-bot: Starting in webhook mode: https://azim-telegram-bot.onrender.com/webhook
+2026-09-10 15:44:39,659 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8093054460:AAHqmk8ZHPfLv6P29YbeQ5qJiW4eC03MGKA/getMe "HTTP/1.1 200 OK"
+2026-09-10 15:44:39,997 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8093054460:AAHqmk8ZHPfLv6P29YbeQ5qJiW4eC03MGKA/setMyCommands "HTTP/1.1 200 OK"
+2026-09-10 15:44:39,998 [INFO] azim-bot: Bot commands registered.
+2026-09-10 15:44:39,999 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-09-10 15:44:39,999 [INFO] azim-bot: Camera delivery loop started.
+2026-09-10 15:44:39,999 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-09-10 15:44:39,999 [INFO] azim-bot: Secretary Mode loop started.
+2026-09-10 15:44:40,000 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-09-10 15:44:40,000 [INFO] azim-bot: AnyMovie loop started.
+2026-09-10 15:44:40,000 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-09-10 15:44:40,000 [INFO] azim-bot: Keep-alive pinging https://azim-telegram-bot.onrender.com/webhook every 4m.
+2026-09-10 15:44:40,159 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8093054460:AAHqmk8ZHPfLv6P29YbeQ5qJiW4eC03MGKA/deleteWebhook "HTTP/1.1 200 OK"
+2026-09-10 15:44:40,334 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8093054460:AAHqmk8ZHPfLv6P29YbeQ5qJiW4eC03MGKA/setWebhook "HTTP/1.1 200 OK"
+2026-09-10 15:44:40,341 [INFO] apscheduler.scheduler: Added job "_start_camera" to job store "default"
+2026-09-10 15:44:40,341 [INFO] apscheduler.scheduler: Added job "_start_secretary" to job store "default"
+2026-09-10 15:44:40,341 [INFO] apscheduler.scheduler: Added job "_start_anymovie" to job store "default"
+2026-09-10 15:44:40,341 [INFO] apscheduler.scheduler: Added job "_keepalive" to job store "default"
+2026-09-10 15:44:40,342 [INFO] apscheduler.scheduler: Scheduler started
+2026-09-10 15:44:40,342 [INFO] telegram.ext.Application: Application started
+2026-09-10 15:44:45,003 [INFO] apscheduler.scheduler: Removed job 51988d19b8774316a6f33801c4f281da
+2026-09-10 15:44:45,004 [INFO] apscheduler.executors.default: Running job "_start_secretary (trigger: date[2026-09-10 15:44:44 UTC], next run at: 2026-09-10 15:44:44 UTC)" (scheduled at 2026-09-10 15:44:44.999751+00:00)
+2026-09-10 15:44:49,350 [INFO] telegram.ext.Application: Application is stopping. This might take a moment.
+==> Your service is live 🎉
+==> 
+==> ///////////////////////////////////////////////////////////
+==> 
+==> Available at your primary URL https://azim-telegram-bot.onrender.com
+==> 
+==> ///////////////////////////////////////////////////////////
+2026-09-10 15:44:50,000 [INFO] apscheduler.scheduler: Removed job bd88ea64fda54f228c6e8af07f475c3b
+2026-09-10 15:44:50,003 [INFO] apscheduler.scheduler: Removed job 32c35bd56ea14be8ab0c77172437f3cd
+2026-09-10 15:44:50,004 [INFO] apscheduler.executors.default: Running job "_start_camera (trigger: date[2026-09-10 15:44:49 UTC], next run at: 2026-09-10 15:44:49 UTC)" (scheduled at 2026-09-10 15:44:49.998977+00:00)
+2026-09-10 15:44:50,004 [INFO] apscheduler.executors.default: Running job "_start_anymovie (trigger: date[2026-09-10 15:44:50 UTC], next run at: 2026-09-10 15:44:50 UTC)" (scheduled at 2026-09-10 15:44:50.000080+00:00)
+2026-09-10 15:44:55,005 [INFO] azim-bot: Secretary Mode active — link generator: @File_To_Link_2Bot
+2026-09-10 15:44:55,092 [INFO] telethon.crypto.aes: libssl detected, it will be used for encryption
+2026-09-10 15:44:56,780 [INFO] telethon.network.mtprotosender: Connecting to 91.108.56.129:443/TcpFull...
+2026-09-10 15:44:56,974 [INFO] telethon.network.mtprotosender: Connection to 91.108.56.129:443/TcpFull complete!
+2026-09-10 15:45:10,002 [INFO] apscheduler.scheduler: Removed job 84e730a9ed884c208b397edda073722e
+2026-09-10 15:45:10,002 [INFO] apscheduler.executors.default: Running job "_keepalive (trigger: date[2026-09-10 15:45:10 UTC], next run at: 2026-09-10 15:45:10 UTC)" (scheduled at 2026-09-10 15:45:10.000317+00:00)
+2026-09-10 15:48:14,591 [INFO] azim-bot: AnyMovie: searching 'Mangal Pandey' (id=mtvpbr62u2f194)
+2026-09-10 15:48:16,034 [INFO] azim-bot: ANYMOVIE SEARCH START requestId=mtvpbr62u2f194 query='Mangal Pandey'
+2026-09-10 15:48:16,243 [INFO] azim-bot: ANYMOVIE SEARCH TOKEN=mtvpbr62u2f194 peer_id=8481076247 sent_id=7522
+2026-09-10 15:48:23,945 [INFO] azim-bot: ANYMOVIE ACTIVE RESPONSE ACCEPTED requestId=mtvpbr62u2f194 msg_id=7523 edited=False sender=ipapkornj2bot
+2026-09-10 15:48:23,946 [INFO] azim-bot: AnyMovie event: captured 10 option(s) mode=button msg_id=7523
+2026-09-10 15:48:27,492 [INFO] azim-bot: AnyMovie: captured 10 option(s) for mtvpbr62u2f194 (mode=button)
+2026-09-10 15:48:57,905 [INFO] azim-bot: AnyMovie: tapping button 4 for mtvpbr62u2f194
+2026-09-10 15:48:57,905 [INFO] azim-bot: AnyMovie TAP: START rid=mtvpbr62u2f194 idx=4 state_in_mem=True
+2026-09-10 15:48:57,906 [INFO] azim-bot: AnyMovie tap: rid=mtvpbr62u2f194 idx=4 mode=button label=398.78 MB ● Mangal Pandey (2005) Hindi WEB HD mkv
+2026-09-10 15:48:58,988 [INFO] azim-bot: AnyMovie: msg 7523 has 9 rows, rid=mtvpbr62u2f194
+2026-09-10 15:48:58,988 [INFO] azim-bot: AnyMovie: target idx=4 row=4 col=0 label='398.78 MB ● Mangal Pandey (2005) Hindi WEB HD mkv' rid=mtvpbr62u2f194
+2026-09-10 15:48:58,988 [INFO] azim-bot: AnyMovie: CLICK RPC SENT row=4 col=0 rid=mtvpbr62u2f194
+2026-09-10 15:48:59,697 [INFO] azim-bot: AnyMovie: message.click() completed rid=mtvpbr62u2f194
+2026-09-10 15:48:59,697 [INFO] azim-bot: AnyMovie: waiting for MOVIE RESPONSE rid=mtvpbr62u2f194
+2026-09-10 15:49:40,038 [WARNING] azim-bot: AnyMovie: TIMEOUT waiting for response rid=mtvpbr62u2f194
+2026-09-10 15:49:40,038 [WARNING] azim-bot: AnyMovie: NO RESPONSE DETECTED rid=mtvpbr62u2f194, dumping chat:
+2026-09-10 15:49:40,255 [INFO] azim-bot: AnyMovie: chat id=7523 media=False date=2026-09-10 15:48:22+00:00 text='Hey Azim 👋🏻‎ ‌‎
+⭕️Rotate your 🔄 phone to see files' full na'
+2026-09-10 15:49:40,255 [INFO] azim-bot: AnyMovie: chat id=7522 media=False date=2026-09-10 15:48:15+00:00 text='Mangal Pandey'
+2026-09-10 15:49:40,256 [INFO] azim-bot: AnyMovie: chat id=7517 media=True date=2026-09-10 15:32:22+00:00 text='Thor: The Dark World 2013 BluRay Dual Audio Hindi   English '
+2026-09-10 15:49:40,256 [INFO] azim-bot: AnyMovie: chat id=7516 media=False date=2026-09-10 15:32:21+00:00 text='/start'
+2026-09-10 15:49:40,256 [INFO] azim-bot: AnyMovie: chat id=7515 media=False date=2026-09-10 15:31:38+00:00 text='Hey Azim 👋🏻‎ ‌‎
+⭕️Rotate your 🔄 phone to see files' full na'
+2026-09-10 15:49:40,256 [INFO] azim-bot: AnyMovie tap error for mtvpbr62u2f194: no response from search bot after tapping
+==> Detected service running on port 8443
+==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+2026-09-10 15:50:15,868 [INFO] azim-bot: AnyMovie: searching 'Mangal Pandey' (id=mtvpeakos4dsfm)
+2026-09-10 15:50:16,107 [INFO] azim-bot: ANYMOVIE SEARCH START requestId=mtvpeakos4dsfm query='Mangal Pandey'
+2026-09-10 15:50:16,314 [INFO] azim-bot: ANYMOVIE SEARCH TOKEN=mtvpeakos4dsfm peer_id=8481076247 sent_id=7524
+2026-09-10 15:50:17,195 [INFO] azim-bot: ANYMOVIE ACTIVE RESPONSE ACCEPTED requestId=mtvpeakos4dsfm msg_id=7525 edited=False sender=ipapkornj2bot
+2026-09-10 15:50:17,195 [INFO] azim-bot: AnyMovie event: captured 10 option(s) mode=button msg_id=7525
+2026-09-10 15:50:20,362 [INFO] azim-bot: AnyMovie: captured 10 option(s) for mtvpeakos4dsfm (mode=button)
+2026-09-10 15:51:57,372 [INFO] azim-bot: AnyMovie: searching 'Spider man' (id=mtvpgky452xid2)
+2026-09-10 15:51:57,688 [INFO] azim-bot: ANYMOVIE SEARCH START requestId=mtvpgky452xid2 query='Spider man'
+2026-09-10 15:51:58,808 [INFO] azim-bot: ANYMOVIE SEARCH TOKEN=mtvpgky452xid2 peer_id=8481076247 sent_id=7526
+2026-09-10 15:51:59,740 [INFO] azim-bot: ANYMOVIE ACTIVE RESPONSE ACCEPTED requestId=mtvpgky452xid2 msg_id=7527 edited=False sender=ipapkornj2bot
+2026-09-10 15:51:59,740 [INFO] azim-bot: AnyMovie event: captured 14 option(s) mode=button msg_id=7527
+2026-09-10 15:52:03,907 [INFO] azim-bot: AnyMovie: captured 14 option(s) for mtvpgky452xid2 (mode=button)
+2026-09-10 15:52:21,848 [INFO] azim-bot: AnyMovie: tapping button 7 for mtvpgky452xid2
+2026-09-10 15:52:21,848 [INFO] azim-bot: AnyMovie TAP: START rid=mtvpgky452xid2 idx=7 state_in_mem=True
+2026-09-10 15:52:21,848 [INFO] azim-bot: AnyMovie tap: rid=mtvpgky452xid2 idx=7 mode=button label=373.11 MB ● Your Friendly Neighborhood Spider Man S01E01 1080p 10bit WEB mkv
+2026-09-10 15:52:23,218 [INFO] azim-bot: AnyMovie: msg 7527 has 12 rows, rid=mtvpgky452xid2
+2026-09-10 15:52:23,218 [INFO] azim-bot: AnyMovie: target idx=7 row=7 col=0 label='373.11 MB ● Your Friendly Neighborhood Spider Man S01E01 1080p 10bit WEB mkv' rid=mtvpgky452xid2
+2026-09-10 15:52:23,218 [INFO] azim-bot: AnyMovie: CLICK RPC SENT row=7 col=0 rid=mtvpgky452xid2
+2026-09-10 15:52:23,907 [INFO] azim-bot: AnyMovie: message.click() completed rid=mtvpgky452xid2
+2026-09-10 15:52:23,907 [INFO] azim-bot: AnyMovie: waiting for MOVIE RESPONSE rid=mtvpgky452xid2
+2026-09-10 15:53:03,911 [WARNING] azim-bot: AnyMovie: TIMEOUT waiting for response rid=mtvpgky452xid2
+2026-09-10 15:53:03,912 [WARNING] azim-bot: AnyMovie: NO RESPONSE DETECTED rid=mtvpgky452xid2, dumping chat:
+2026-09-10 15:53:04,171 [INFO] azim-bot: AnyMovie: chat id=7527 media=False date=2026-09-10 15:51:58+00:00 text='Hey Azim 👋🏻‎ ‌‎
+⭕️Rotate your 🔄 phone to see files' full na'
+2026-09-10 15:53:04,171 [INFO] azim-bot: AnyMovie: chat id=7526 media=False date=2026-09-10 15:51:57+00:00 text='Spider man'
+2026-09-10 15:53:04,171 [INFO] azim-bot: AnyMovie: chat id=7525 media=False date=2026-09-10 15:50:16+00:00 text='Hey Azim 👋🏻‎ ‌‎
+⭕️Rotate your 🔄 phone to see files' full na'
+2026-09-10 15:53:04,171 [INFO] azim-bot: AnyMovie: chat id=7524 media=False date=2026-09-10 15:50:15+00:00 text='Mangal Pandey'
+2026-09-10 15:53:04,171 [INFO] azim-bot: AnyMovie: chat id=7523 media=False date=2026-09-10 15:48:22+00:00 text='Hey Azim 👋🏻‎ ‌‎
+⭕️Rotate your 🔄 phone to see files' full na'
+

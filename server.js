@@ -1614,31 +1614,6 @@ async function ensureInstantGet(d, movieId, movieUrl, movieTitle, thumbnailUrl, 
   return request;
 }
 
-// DuckDuckGo autocomplete proxy (avoids CORS).
-app.get('/api/predict', ah(async (req, res) => {
-  const q = String(req.query.q || '').trim();
-  if (!q || q.length < 2) return res.json({ suggestions: [] });
-  try {
-    const url = 'https://duckduckgo.com/ac/?q=' + encodeURIComponent(q + ' movie') + '&type=list';
-    const data = await new Promise((resolve, reject) => {
-      const req2 = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 }, (r) => {
-        let body = '';
-        r.on('data', (c) => body += c);
-        r.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { resolve([]); } });
-      });
-      req2.on('error', reject);
-      req2.on('timeout', () => { req2.destroy(); reject(new Error('timeout')); });
-    });
-    const raw = Array.isArray(data[1]) ? data[1] : [];
-    const cleaned = raw
-      .map(s => s.replace(/[-_"':]/g, ' ').replace(/\s+/g, ' ').trim())
-      .filter(s => s.length > 1 && !/wallpaper|ringtone|image|photo|poster|logo|png|jpg|download free/i.test(s));
-    res.json({ suggestions: cleaned.slice(0, 6) });
-  } catch (e) {
-    res.json({ suggestions: [] });
-  }
-}));
-
 // Matches for an Any Movie search against already-uploaded cards.
 app.get('/api/anymovie/matches', ah(async (req, res) => {
   const q = String(req.query.q || '').trim().toLowerCase();
