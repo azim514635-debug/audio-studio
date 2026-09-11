@@ -1144,6 +1144,7 @@ function anyMoviePollCard(requestId, token, _retries) {
         return;
       }
       if (rd.cardSaved && rd.card) {
+        anyMovieHideAiBar();
         anyMovieSetStatus('');
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').style.display = '';
@@ -1202,7 +1203,6 @@ function anyMoviePoll(requestId, token, _retries) {
       }
       if (rd.status === 'awaiting_select') {
         if (token !== anyMovieSearchToken) return;
-        anyMovieHideAiBar();
         $('anymovie-search-btn').style.display = 'none';
         anyMovieSetStatus(rd.query ? 'Found results for "' + rd.query + '"! Pick one:' : 'Pick an option:');
         anyMovieRenderButtons(rd.buttons || [], requestId);
@@ -1211,7 +1211,6 @@ function anyMoviePoll(requestId, token, _retries) {
         return;
       }
       if (rd.status === 'selecting') {
-        anyMovieHideAiBar();
         $('anymovie-search-btn').style.display = 'none';
         anyMovieSetStatus('Opening the selected option...');
         $('anymovie-buttons').innerHTML = '';
@@ -1220,7 +1219,6 @@ function anyMoviePoll(requestId, token, _retries) {
         return;
       }
       if (rd.status === 'waiting_for_card') {
-        anyMovieHideAiBar();
         $('anymovie-search-btn').style.display = 'none';
         anyMovieSetStatus('Creating your movie card...');
         anyMoviePollCard(requestId, token);
