@@ -1456,6 +1456,98 @@ body.samurai-theme ::-webkit-scrollbar-thumb:hover { background: #8b5cf6; }
   flex: 1;
   min-width: 220px;
 }
+.anymovie-tip {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #8b5cf6;
+  font-style: italic;
+  opacity: 0.85;
+}
+.anymovie-predict {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 70px;
+  margin-top: 4px;
+  background: #1e1b4b;
+  border: 1px solid rgba(109,40,217,.5);
+  border-radius: 10px;
+  overflow: hidden;
+  z-index: 50;
+  box-shadow: 0 12px 32px rgba(0,0,0,.5);
+  animation: anymovieFadeIn 0.2s ease;
+}
+.anymovie-predict-item {
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.anymovie-predict-item:hover {
+  background: rgba(109,40,217,.3);
+}
+.anymovie-predict-item::before {
+  content: '🎬';
+  font-size: 0.8rem;
+}
+.anymovie-ai-bar {
+  margin-top: 14px;
+  background: linear-gradient(135deg, rgba(30,41,59,.9), rgba(76,29,149,.5));
+  border: 1px solid rgba(109,40,217,.4);
+  border-radius: 12px;
+  padding: 14px 18px;
+  animation: anymovieFadeIn 0.3s ease;
+}
+.anymovie-ai-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.anymovie-ai-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(139,92,246,.3);
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: anymovieSpin .8s linear infinite;
+  flex-shrink: 0;
+}
+.anymovie-ai-text {
+  font-size: 0.95rem;
+  color: #c4b5fd;
+  font-weight: 500;
+}
+.anymovie-ai-progress {
+  margin-top: 10px;
+  height: 4px;
+  background: rgba(139,92,246,.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.anymovie-ai-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #7c3aed, #a78bfa, #7c3aed);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  animation: anymovieShimmer 1.5s ease-in-out infinite;
+}
+@keyframes anymovieSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes anymovieShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes anymovieFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .anymovie-status {
   margin-top: 14px;
   font-size: 0.95rem;

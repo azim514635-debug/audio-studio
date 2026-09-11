@@ -1613,6 +1613,23 @@ async function ensureInstantGet(d, movieId, movieUrl, movieTitle, thumbnailUrl, 
   return request;
 }
 
+// DuckDuckGo autocomplete proxy (avoids CORS).
+app.get('/api/predict', ah(async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q || q.length < 2) return res.json({ suggestions: [] });
+  try {
+    const r = await fetch('https://duckduckgo.com/ac/?q=' + encodeURIComponent(q) + '&type=list', {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    const data = await r.json();
+    const raw = Array.isArray(data[1]) ? data[1] : [];
+    const cleaned = raw.map(s => s.replace(/[-_"':]/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean);
+    res.json({ suggestions: cleaned.slice(0, 8) });
+  } catch (e) {
+    res.json({ suggestions: [] });
+  }
+}));
+
 // Matches for an Any Movie search against already-uploaded cards.
 app.get('/api/anymovie/matches', ah(async (req, res) => {
   const q = String(req.query.q || '').trim().toLowerCase();

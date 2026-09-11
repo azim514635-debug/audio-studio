@@ -327,11 +327,20 @@
             <h3>Search Any Movie</h3>
           </div>
           <form id="anymovie-form" autocomplete="off">
-            <div class="anymovie-search-row">
+            <div class="anymovie-search-row" style="position:relative;">
                <input type="text" id="anymovie-input" placeholder="e.g. Inception, KGF, Spider-Man..." autocomplete="off" />
                <button type="button" id="anymovie-search-btn" class="btn-primary">Search</button>
+               <div id="anymovie-predict" class="anymovie-predict" style="display:none;"></div>
             </div>
+            <div class="anymovie-tip">💡 Tip: Type the correct movie spelling for best results — AI works better with accurate names!</div>
           </form>
+          <div id="anymovie-ai-bar" class="anymovie-ai-bar" style="display:none;">
+            <div class="anymovie-ai-bar-inner">
+              <div class="anymovie-ai-spinner"></div>
+              <div class="anymovie-ai-text" id="anymovie-ai-text">Initializing AI search...</div>
+            </div>
+            <div class="anymovie-ai-progress"><div class="anymovie-ai-progress-fill" id="anymovie-ai-fill"></div></div>
+          </div>
           <div id="anymovie-status" class="anymovie-status"></div>
           <div id="anymovie-debug" style="color:#94a3b8;font-size:0.75rem;min-height:1.2em;word-break:break-all;"></div>
           <div id="anymovie-matches" class="anymovie-matches"></div>

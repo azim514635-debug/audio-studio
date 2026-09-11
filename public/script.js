@@ -995,9 +995,52 @@ let anyMovieSearchToken = 0;
 function anyMovieSetStatus(text, isError) {
   const el = $('anymovie-status');
   if (!el) return;
-  if (isError) el.classList.add('error'); else el.classList.remove('error');
-  el.textContent = text || '';
+  el.textContent = text;
+  el.className = isError ? 'anymovie-status error' : 'anymovie-status';
   el.style.display = text ? '' : 'none';
+}
+
+let _aiBarInterval = null;
+const _aiMessages = [
+  'Initializing AI search engine...',
+  'Connecting to Telegram search bot...',
+  'Scanning movie databases...',
+  'Finding best matches for your query...',
+  'Analyzing file quality and formats...',
+  'Matching results across the internet...',
+  'Preparing your movie options...',
+  'Almost there, processing results...',
+];
+function anyMovieShowAiBar() {
+  const bar = $('anymovie-ai-bar');
+  const text = $('anymovie-ai-text');
+  const fill = $('anymovie-ai-fill');
+  const btn = $('anymovie-search-btn');
+  if (!bar || !text || !fill) return;
+  btn.style.display = 'none';
+  bar.style.display = '';
+  fill.style.width = '5%';
+  let idx = 0;
+  text.textContent = _aiMessages[0];
+  if (_aiBarInterval) clearInterval(_aiBarInterval);
+  _aiBarInterval = setInterval(() => {
+    idx = (idx + 1) % _aiMessages.length;
+    text.textContent = _aiMessages[idx];
+    const pct = Math.min(5 + (idx / _aiMessages.length) * 85, 90);
+    fill.style.width = pct + '%';
+  }, 3000);
+}
+function anyMovieHideAiBar() {
+  const bar = $('anymovie-ai-bar');
+  const fill = $('anymovie-ai-fill');
+  const btn = $('anymovie-search-btn');
+  if (fill) fill.style.width = '100%';
+  setTimeout(() => {
+    if (bar) bar.style.display = 'none';
+    if (btn) btn.style.display = '';
+    if (fill) fill.style.width = '0%';
+    if (_aiBarInterval) { clearInterval(_aiBarInterval); _aiBarInterval = null; }
+  }, 600);
 }
 
 function anyMovieRenderButtons(buttons, requestId) {
@@ -1046,10 +1089,8 @@ async function anyMovieSearch(query) {
   anyMovieSearchToken++;
   const myToken = anyMovieSearchToken;
   $('anymovie-input').value = query;
-  anyMovieSetStatus('Searching for "' + query + '"...');
-  const btn = $('anymovie-search-btn');
-  btn.disabled = true;
-  btn.textContent = 'Searching...';
+  anyMovieSetStatus('');
+  anyMovieShowAiBar();
   let requestId;
   try {
     const res = await fetch('/api/anymovie/search', {
@@ -1059,17 +1100,19 @@ async function anyMovieSearch(query) {
     });
     const data = await res.json();
     if (!data.success) {
+      anyMovieHideAiBar();
       anyMovieSetStatus(data.error || 'Search failed.', true);
-      btn.disabled = false;
-      btn.textContent = 'Search';
+      $('anymovie-search-btn').disabled = false;
+      $('anymovie-search-btn').textContent = 'Search';
       anyMovieSearching = false;
       return;
     }
     requestId = data.requestId;
   } catch (e) {
+    anyMovieHideAiBar();
     anyMovieSetStatus('Network error: ' + e.message, true);
-    btn.disabled = false;
-    btn.textContent = 'Search';
+    $('anymovie-search-btn').disabled = false;
+    $('anymovie-search-btn').textContent = 'Search';
     anyMovieSearching = false;
     return;
   }
@@ -1119,6 +1162,7 @@ function anyMoviePollCard(requestId, token, _retries) {
 function anyMoviePoll(requestId, token, _retries) {
   _retries = (_retries || 0) + 1;
   if (_retries > 45) {
+    anyMovieHideAiBar();
     anyMovieSetStatus('Search timed out. Try again.', true);
     $('anymovie-search-btn').disabled = false;
     $('anymovie-search-btn').textContent = 'Search';
@@ -1142,6 +1186,7 @@ function anyMoviePoll(requestId, token, _retries) {
         return;
       }
       if (rd.status === 'error') {
+        anyMovieHideAiBar();
         anyMovieSetStatus(rd.error || 'No options found. Try a different spelling.', true);
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').textContent = 'Search';
@@ -1150,12 +1195,15 @@ function anyMoviePoll(requestId, token, _retries) {
       }
       if (rd.status === 'awaiting_select') {
         if (token !== anyMovieSearchToken) return;
-        anyMovieSetStatus(rd.query ? 'Pick an option for "' + rd.query + '":' : 'Pick an option:');
+        anyMovieHideAiBar();
+        anyMovieSetStatus(rd.query ? 'Found results for "' + rd.query + '"! Pick one:' : 'Pick an option:');
         anyMovieRenderButtons(rd.buttons || [], requestId);
+        anyMovieShowMatches(rd.query);
         anyMoviePoll(requestId, token, _retries);
         return;
       }
       if (rd.status === 'selecting') {
+        anyMovieHideAiBar();
         anyMovieSetStatus('Opening the selected option...');
         $('anymovie-buttons').innerHTML = '';
         $('anymovie-buttons').style.display = 'none';
@@ -1163,6 +1211,7 @@ function anyMoviePoll(requestId, token, _retries) {
         return;
       }
       if (rd.status === 'waiting_for_card') {
+        anyMovieHideAiBar();
         anyMovieSetStatus('Creating your movie card...');
         anyMoviePollCard(requestId, token);
         return;
@@ -1294,37 +1343,80 @@ async function anyMovieSelect(requestId, index) {
   const form = $('anymovie-form');
   const input = $('anymovie-input');
   const searchBtn = $('anymovie-search-btn');
+  const predictBox = $('anymovie-predict');
   if (!form || !input || !searchBtn) return;
 
   const runSearch = () => {
+    hidePredict();
     const query = input.value.trim();
     if (!query) { anyMovieSetStatus('Enter a movie name first.', true); return; }
     anyMovieSearch(query);
   };
 
-  // Button click must never navigate/reload the page.
   searchBtn.addEventListener('click', (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
     runSearch();
   });
 
-  // Enter key inside the input triggers the same search (no form reload).
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
     runSearch();
   });
 
-  // As the user types, surface already-uploaded matching cards below the box.
-  let matchTimer = null;
+  // DuckDuckGo predictive search
+  let predictTimer = null;
+  let predictCache = {};
+
+  function hidePredict() {
+    if (predictBox) { predictBox.innerHTML = ''; predictBox.style.display = 'none'; }
+  }
+
+  async function fetchPredictions(q) {
+    if (predictCache[q]) return predictCache[q];
+    try {
+      const r = await fetch('/api/predict?q=' + encodeURIComponent(q));
+      const d = await r.json();
+      predictCache[q] = d.suggestions || [];
+      return predictCache[q];
+    } catch (e) { return []; }
+  }
+
   input.addEventListener('input', () => {
-    clearTimeout(matchTimer);
-    matchTimer = setTimeout(() => anyMovieShowMatches(input.value.trim()), 300);
+    clearTimeout(predictTimer);
+    const val = input.value.trim();
+    if (val.length < 2) { hidePredict(); return; }
+    predictTimer = setTimeout(async () => {
+      const suggestions = await fetchPredictions(val);
+      if (!suggestions.length || input.value.trim() !== val) { hidePredict(); return; }
+      predictBox.innerHTML = '';
+      predictBox.style.display = '';
+      suggestions.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'anymovie-predict-item';
+        item.textContent = s;
+        item.addEventListener('click', () => {
+          input.value = s;
+          hidePredict();
+          anyMovieSearch(s);
+        });
+        predictBox.appendChild(item);
+      });
+    }, 350);
+  });
+
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') hidePredict();
+  });
+
+  document.addEventListener('click', (ev) => {
+    if (!ev.target.closest('.anymovie-search-row')) hidePredict();
   });
 
   window.addEventListener('popstate', () => {
     if (document.getElementById('page-anymovie') && !document.getElementById('page-anymovie').classList.contains('active')) {
       anyMovieReset();
+      hidePredict();
     }
   });
 })();
