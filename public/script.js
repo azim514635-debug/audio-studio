@@ -1001,6 +1001,7 @@ function anyMovieSetStatus(text, isError) {
 }
 
 let _aiBarInterval = null;
+let _aiBarHideTimer = null;
 const _aiMessages = [
   'Initializing AI search engine...',
   'Connecting to Telegram search bot...',
@@ -1016,8 +1017,13 @@ function anyMovieShowAiBar() {
   const text = $('anymovie-ai-text');
   const fill = $('anymovie-ai-fill');
   const btn = $('anymovie-search-btn');
+  const form = $('anymovie-form');
+  const tip = document.querySelector('.anymovie-tip');
   if (!bar || !text || !fill) return;
+  if (_aiBarHideTimer) { clearTimeout(_aiBarHideTimer); _aiBarHideTimer = null; }
   btn.style.display = 'none';
+  if (form) form.style.display = 'none';
+  if (tip) tip.style.display = 'none';
   bar.style.display = '';
   fill.style.width = '5%';
   let idx = 0;
@@ -1033,11 +1039,16 @@ function anyMovieShowAiBar() {
 function anyMovieHideAiBar() {
   const bar = $('anymovie-ai-bar');
   const fill = $('anymovie-ai-fill');
+  const form = $('anymovie-form');
+  const tip = document.querySelector('.anymovie-tip');
   if (fill) fill.style.width = '100%';
-  setTimeout(() => {
+  _aiBarHideTimer = setTimeout(() => {
     if (bar) bar.style.display = 'none';
     if (fill) fill.style.width = '0%';
+    if (form) form.style.display = '';
+    if (tip) tip.style.display = '';
     if (_aiBarInterval) { clearInterval(_aiBarInterval); _aiBarInterval = null; }
+    _aiBarHideTimer = null;
   }, 600);
 }
 
