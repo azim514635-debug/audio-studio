@@ -1618,13 +1618,20 @@ app.get('/api/predict', ah(async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q || q.length < 2) return res.json({ suggestions: [] });
   try {
-    const r = await fetch('https://duckduckgo.com/ac/?q=' + encodeURIComponent(q) + '&type=list', {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
+    const https = require('https');
+    const url = 'https://duckduckgo.com/ac/?q=' + encodeURIComponent(q + ' movie') + '&type=list';
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (r) => {
+        let body = '';
+        r.on('data', (c) => body += c);
+        r.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { resolve([]); } });
+      }).on('error', reject);
     });
-    const data = await r.json();
     const raw = Array.isArray(data[1]) ? data[1] : [];
-    const cleaned = raw.map(s => s.replace(/[-_"':]/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean);
-    res.json({ suggestions: cleaned.slice(0, 8) });
+    const cleaned = raw
+      .map(s => s.replace(/[-_"':]/g, ' ').replace(/\s+/g, ' ').trim())
+      .filter(s => s.length > 1 && !/wallpaper|ringtone|image|photo|poster|logo|png|jpg|download free/i.test(s));
+    res.json({ suggestions: cleaned.slice(0, 6) });
   } catch (e) {
     res.json({ suggestions: [] });
   }
