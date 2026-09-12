@@ -1702,19 +1702,24 @@ app.get('/api/anymovie/matches', ah(async (req, res) => {
   if (!q) return res.json({ matches: [] });
   const db = await getDb();
   const qq = (s) => String(s || '').toLowerCase();
+  const tokens = q.split(/\s+/).filter((token) => token.length > 1);
+  const matchesText = (values) => {
+    const text = values.map(qq).join(' ');
+    return text.includes(q) || tokens.some((token) => text.includes(token));
+  };
   const matches = [];
   (db.movies || []).forEach((m) => {
-    if ([m.title, m.movieUrl, m.telegramUrl, m.uploader].some((v) => qq(v).includes(q))) {
+    if (matchesText([m.title, m.movieUrl, m.telegramUrl, m.uploader])) {
       matches.push({ ...m, _kind: 'movie', _url: m.movieUrl });
     }
   });
   (db.links || []).forEach((l) => {
-    if ([l.title, l.url, l.telegramUrl, l.uploader].some((v) => qq(v).includes(q))) {
+    if (matchesText([l.title, l.url, l.telegramUrl, l.uploader])) {
       matches.push({ ...l, _kind: 'link', _url: l.url });
     }
   });
   (db.songs || []).forEach((s) => {
-    if ([s.title, s.songUrl, s.audioUrl, s.uploader].some((v) => qq(v).includes(q))) {
+    if (matchesText([s.title, s.songUrl, s.audioUrl, s.uploader])) {
       matches.push({ ...s, _kind: 'song', _url: s.songUrl || s.audioUrl });
     }
   });

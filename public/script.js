@@ -980,6 +980,7 @@ let anyMovieSearching = false;
 let anyMovieSearchToken = 0;
 let anyMovieMatchTimer = null;
 let anyMovieMatchToken = 0;
+let anyMovieWatchWindow = null;
 
 function anyMovieSetStatus(text, isError) {
   const el = $('anymovie-status');
@@ -1095,6 +1096,14 @@ async function anyMovieSearch(query) {
   if (anyMovieSearching) return;
   anyMovieReset();
   anyMovieSearching = true;
+  // Reserve a popup during the user gesture so the completed async flow can
+  // navigate it later without being blocked by the browser.
+  try {
+    anyMovieWatchWindow = window.open('about:blank', '_blank');
+    if (anyMovieWatchWindow) anyMovieWatchWindow.document.title = 'Preparing your movie...';
+  } catch (e) {
+    anyMovieWatchWindow = null;
+  }
   anyMovieSearchToken++;
   const myToken = anyMovieSearchToken;
   $('anymovie-input').value = query;
@@ -1169,6 +1178,14 @@ function anyMoviePollCard(requestId, token, _retries) {
         const watchUrl = resolvedWatchUrl;
         const card = rd.card;
         anyMovieShowCardResult(card, watchUrl);
+        anyMovieSetStatus('Your search is saved in Updates. Opening your movie...');
+        if (anyMovieWatchWindow && !anyMovieWatchWindow.closed) {
+          anyMovieWatchWindow.location.href = watchUrl;
+          anyMovieWatchWindow = null;
+        } else {
+          // Fallback for browsers that blocked the reserved popup.
+          window.open(watchUrl, '_blank');
+        }
         anyMovieActiveRequest = null;
         return;
       }
@@ -1338,7 +1355,7 @@ function anyMovieShowCardResult(card, watchUrl) {
 
   const msg = document.createElement('div');
   msg.className = 'anymovie-card-msg';
-   msg.textContent = 'Your movie added to Updates';
+   msg.textContent = 'Your search is saved in Updates';
   info.appendChild(msg);
 
   const linkUrl = watchUrl || card.telegramUrl || card.url;
@@ -1439,24 +1456,39 @@ async function anyMovieShowMatches(query, showAiFallback = true) {
   }
   box.style.display = '';
   box.innerHTML = '<div class="anymovie-matches-title">Matches in Updates</div>';
-  matches.forEach((m) => {
-    const icon = m._kind === 'movie' ? '🎬' : m._kind === 'song' ? '🎵' : '🔗';
-    const url = m.watchUrl || (m._url ? m._url : (m.telegramUrl || ''));
-    const el = document.createElement('div');
-    el.className = 'anymovie-match';
-     el.innerHTML = '<span class="anymovie-match-icon">' + (m.thumbnailUrl
+   matches.forEach((m) => {
+     const icon = m._kind === 'movie' ? '🎬' : m._kind === 'song' ? '🎵' : '🔗';
+     const url = m.watchUrl || (m._url ? m._url : (m.telegramUrl || ''));
+     const el = document.createElement('div');
+     el.className = 'anymovie-match';
+     const thumb = m.thumbnailUrl
        ? '<img class="anymovie-match-thumb" src="' + escapeHtml(m.thumbnailUrl) + '" alt="">'
-       : icon) + '</span>' +
-       '<span class="anymovie-match-title">' + escapeHtml(m.title || 'Untitled') + '</span>';
-    if (url) {
-      const a = document.createElement('a');
-      a.className = 'btn-primary';
-      a.target = '_blank';
-      a.rel = 'noopener';
-      a.href = url;
-      a.textContent = m.watchUrl ? '▶ Watch' : 'Open';
-      el.appendChild(a);
-    }
+       : icon;
+     el.innerHTML = '<span class="anymovie-match-icon">' + thumb + '</span>' +
+       '<span class="anymovie-match-title">' + escapeHtml(m.title || 'Untitled') + '</span>' +
+       '<span class="anymovie-match-actions"></span>';
+     const actions = el.querySelector('.anymovie-match-actions');
+     if (url) {
+       const a = document.createElement('a');
+       a.className = 'btn-primary anymovie-match-open';
+       a.target = '_blank';
+       a.rel = 'noopener';
+       a.href = url;
+       a.textContent = m.watchUrl ? '▶ Watch' : 'Open';
+       actions.appendChild(a);
+     }
+     if (m.id && (m._kind === 'movie' || m._kind === 'link')) {
+       const instant = document.createElement('button');
+       instant.type = 'button';
+       instant.className = 'grid-card-btn instant-btn anymovie-match-instant';
+       instant.dataset.movieId = m.id;
+       instant.textContent = '⚡ Instant Get';
+       instant.addEventListener('click', (event) => {
+         event.stopPropagation();
+         window.instantGet(m.id, m.title || cleanQuery);
+       });
+       actions.appendChild(instant);
+     }
     el.addEventListener('click', (e) => {
       if (e.target.closest('a')) return;
       if (url) window.open(url, '_blank');
