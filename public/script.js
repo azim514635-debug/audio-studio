@@ -1221,8 +1221,7 @@ function anyMoviePoll(requestId, token, _retries) {
         if (token !== anyMovieSearchToken) return;
         anyMovieStopAiBarForOptions();
         $('anymovie-search-btn').style.display = 'none';
-        $('anymovie-matches').style.display = 'none';
-        anyMovieSetStatus(rd.query ? 'Found results for "' + rd.query + '"! Pick one:' : 'Pick an option:');
+         anyMovieSetStatus(rd.query ? 'Found results for "' + rd.query + '"! Pick one:' : 'Pick an option:');
         anyMovieRenderButtons(rd.buttons || [], requestId);
         anyMoviePoll(requestId, token, _retries);
         return;
@@ -1400,7 +1399,6 @@ async function anyMovieSelect(requestId, index) {
   });
 
   input.addEventListener('input', () => {
-    if (anyMovieSearching) return;
     if (anyMovieMatchTimer) clearTimeout(anyMovieMatchTimer);
     anyMovieMatchTimer = setTimeout(() => {
       anyMovieShowMatches(input.value.trim(), true);
