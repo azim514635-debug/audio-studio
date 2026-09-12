@@ -1256,6 +1256,7 @@ app.post('/api/anymovie/search', ah(async (req, res) => {
     pendingIndex: null,
     resultUrl: null,
     error: null,
+    telegramMsgId: null,
     createdAt: Date.now()
   };
 
@@ -1282,7 +1283,7 @@ app.get('/api/anymovie/search-pending', ah(async (req, res) => {
 // Bot posts the buttons captured from the search bot's reply.
 app.post('/api/anymovie/buttons', ah(async (req, res) => {
   if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
-  const { requestId, buttons, error } = req.body;
+  const { requestId, buttons, error, msg_id, msgId } = req.body;
   if (!requestId) return res.status(400).json({ success: false, error: 'Missing requestId.' });
 
   await withDbWrite(async () => {
@@ -1309,6 +1310,10 @@ app.post('/api/anymovie/buttons', ah(async (req, res) => {
           return entry;
         });
         r.status = 'awaiting_select';
+        const replyMsgId = Number(msg_id || msgId);
+        if (Number.isInteger(replyMsgId) && replyMsgId > 0) {
+          r.telegramMsgId = replyMsgId;
+        }
         console.log('AnyMovie BUTTONS posted: requestId=%s count=%d (was status=%s)', requestId, r.buttons.length, r.status);
       } else {
         r.status = 'error';
@@ -1375,7 +1380,7 @@ app.get('/api/anymovie/buttons-state/:requestId', ah(async (req, res) => {
   res.json({
     success: true,
     buttons: r.buttons || [],
-    msg_id: r.buttons && r.buttons[0] ? r.buttons[0].msg_id : null,
+    msg_id: r.telegramMsgId || (r.buttons && r.buttons[0] ? r.buttons[0].msg_id : null),
     mode: r.status === 'awaiting_select' ? 'button' : 'unknown',
   });
 }));
