@@ -1600,8 +1600,6 @@ app.post('/api/anymovie/link-card', ah(async (req, res) => {
       r.resolvedAt = Date.now();
       const card = (d.links || []).find((l) => l.id === cardId);
       if (card) {
-        const requestTitle = String(r.query || '').trim();
-        if (requestTitle) card.title = requestTitle;
         const iw = await ensureInstantGet(d, card.id, card.url || card.telegramUrl, card.title, card.thumbnailUrl, card.telegramUrl);
         if (iw) console.log('AnyMovie link-card: auto-triggered instant-get for card %s', cardId);
       }
