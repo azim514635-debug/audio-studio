@@ -2194,6 +2194,14 @@ button:disabled { transform: none; }
 .grid-card-thumb-placeholder { background: linear-gradient(135deg, #102944, #27235b); color: #7dd3fc; }
 .grid-card-title,
 .track-title { color: #f8fbff; }
+.grid-card-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  min-height: 3.9em;
+}
 .grid-card-meta,
 .track-by,
 .field-hint { color: #8fa8c2; }
@@ -2224,6 +2232,15 @@ button:disabled { transform: none; }
 .anymovie-card-msg { color: #5eead4; }
 .anymovie-match { background: rgba(12, 26, 45, 0.74); }
 .anymovie-match:hover { background: rgba(56, 189, 248, 0.12); }
+.anymovie-matches { position: relative; z-index: 1; }
+.anymovie-match-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.3;
+}
 
 .modal-overlay { background: rgba(2, 8, 18, 0.82); }
 .modal-card { border-color: rgba(125, 211, 252, 0.22); }
