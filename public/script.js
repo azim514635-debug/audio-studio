@@ -1155,13 +1155,19 @@ function anyMoviePollCard(requestId, token, _retries) {
         return;
       }
       if (rd.cardSaved && rd.card) {
+        const resolvedWatchUrl = rd.watchUrl || rd.card.watchUrl || rd.card.resolvedUrl;
+        if (!resolvedWatchUrl) {
+          anyMovieSetStatus('Preparing your movie link...');
+          anyMoviePollCard(requestId, token, _retries);
+          return;
+        }
         anyMovieHideAiBar();
         anyMovieSetStatus('');
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').style.display = '';
         $('anymovie-search-btn').textContent = 'Search';
         anyMovieSearching = false;
-        const watchUrl = rd.watchUrl || rd.card.watchUrl || rd.card.resolvedUrl;
+        const watchUrl = resolvedWatchUrl;
         const card = rd.card;
         anyMovieShowCardResult(card, watchUrl);
         anyMovieActiveRequest = null;
