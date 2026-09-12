@@ -991,6 +991,8 @@ let anyMovieActiveRequest = null;
 let anyMoviePollTimer = null;
 let anyMovieSearching = false;
 let anyMovieSearchToken = 0;
+let anyMovieMatchTimer = null;
+let anyMovieMatchToken = 0;
 
 function anyMovieSetStatus(text, isError) {
   const el = $('anymovie-status');
@@ -1050,6 +1052,15 @@ function anyMovieHideAiBar() {
     if (_aiBarInterval) { clearInterval(_aiBarInterval); _aiBarInterval = null; }
     _aiBarHideTimer = null;
   }, 600);
+}
+
+function anyMovieStopAiBarForOptions() {
+  const bar = $('anymovie-ai-bar');
+  const fill = $('anymovie-ai-fill');
+  if (_aiBarHideTimer) { clearTimeout(_aiBarHideTimer); _aiBarHideTimer = null; }
+  if (_aiBarInterval) { clearInterval(_aiBarInterval); _aiBarInterval = null; }
+  if (bar) bar.style.display = 'none';
+  if (fill) fill.style.width = '0%';
 }
 
 function anyMovieRenderButtons(buttons, requestId) {
@@ -1157,6 +1168,7 @@ function anyMoviePollCard(requestId, token, _retries) {
       if (rd.cardSaved && rd.card) {
         const resolvedWatchUrl = rd.watchUrl || rd.card.watchUrl || rd.card.resolvedUrl;
         if (!resolvedWatchUrl) {
+          anyMovieShowCardResult(rd.card, rd.card.telegramUrl || rd.card.url);
           anyMovieSetStatus('Preparing your movie link...');
           anyMoviePollCard(requestId, token, _retries);
           return;
@@ -1183,9 +1195,9 @@ function anyMoviePollCard(requestId, token, _retries) {
 
 function anyMoviePoll(requestId, token, _retries) {
   _retries = (_retries || 0) + 1;
-  if (_retries > 45) {
+  if (_retries > 30) {
     anyMovieHideAiBar();
-    anyMovieSetStatus('Search timed out. Try again.', true);
+    anyMovieSetStatus('Search expired after 60 seconds. Try again.', true);
     $('anymovie-search-btn').disabled = false;
     $('anymovie-search-btn').style.display = '';
     $('anymovie-search-btn').textContent = 'Search';
@@ -1220,10 +1232,11 @@ function anyMoviePoll(requestId, token, _retries) {
       }
       if (rd.status === 'awaiting_select') {
         if (token !== anyMovieSearchToken) return;
+        anyMovieStopAiBarForOptions();
         $('anymovie-search-btn').style.display = 'none';
+        $('anymovie-matches').style.display = 'none';
         anyMovieSetStatus(rd.query ? 'Found results for "' + rd.query + '"! Pick one:' : 'Pick an option:');
         anyMovieRenderButtons(rd.buttons || [], requestId);
-        anyMovieShowMatches(rd.query);
         anyMoviePoll(requestId, token, _retries);
         return;
       }
@@ -1349,7 +1362,8 @@ function anyMovieShowCardResult(card, watchUrl) {
 
 async function anyMovieSelect(requestId, index) {
   if (!anyMovieSearching) return;
-  anyMovieSetStatus('Opening the selected option...');
+  anyMovieShowAiBar();
+  anyMovieSetStatus('');
   const box = $('anymovie-buttons');
   box.innerHTML = '';
   box.style.display = 'none';
@@ -1389,6 +1403,14 @@ async function anyMovieSelect(requestId, index) {
     runSearch();
   });
 
+  input.addEventListener('input', () => {
+    if (anyMovieSearching) return;
+    if (anyMovieMatchTimer) clearTimeout(anyMovieMatchTimer);
+    anyMovieMatchTimer = setTimeout(() => {
+      anyMovieShowMatches(input.value.trim(), true);
+    }, 220);
+  });
+
   window.addEventListener('popstate', () => {
     if (document.getElementById('page-anymovie') && !document.getElementById('page-anymovie').classList.contains('active')) {
       anyMovieReset();
@@ -1396,19 +1418,30 @@ async function anyMovieSelect(requestId, index) {
   });
 })();
 
-async function anyMovieShowMatches(query) {
+async function anyMovieShowMatches(query, showAiFallback = true) {
   const box = $('anymovie-matches');
   if (!box) return;
-  if (!query) { box.innerHTML = ''; box.style.display = 'none'; return; }
+  const cleanQuery = String(query || '').trim();
+  const matchToken = ++anyMovieMatchToken;
+  if (!cleanQuery) { box.innerHTML = ''; box.style.display = 'none'; return; }
   let matches = [];
   try {
-    const r = await fetch('/api/anymovie/matches?q=' + encodeURIComponent(query));
+    const r = await fetch('/api/anymovie/matches?q=' + encodeURIComponent(cleanQuery));
     const d = await r.json();
     matches = d.matches || [];
   } catch (e) { matches = []; }
-  if (matches.length === 0) { box.innerHTML = ''; box.style.display = 'none'; return; }
+  if (matchToken !== anyMovieMatchToken) return;
+  if (matches.length === 0) {
+    if (!showAiFallback) { box.innerHTML = ''; box.style.display = 'none'; return; }
+    box.style.display = '';
+    box.innerHTML = '<div class="anymovie-matches-title">No matches in Updates</div>' +
+      '<div class="anymovie-ai-caption">Not found in Updates. Use AI Search to find movies across the internet.</div>' +
+      '<button type="button" class="btn-primary anymovie-ai-fallback">AI Search</button>';
+    box.querySelector('.anymovie-ai-fallback').addEventListener('click', () => anyMovieSearch(cleanQuery));
+    return;
+  }
   box.style.display = '';
-  box.innerHTML = '<div class="anymovie-matches-title">Already uploaded:</div>';
+  box.innerHTML = '<div class="anymovie-matches-title">Matches in Updates</div>';
   matches.forEach((m) => {
     const icon = m._kind === 'movie' ? '🎬' : m._kind === 'song' ? '🎵' : '🔗';
     const url = m.watchUrl || (m._url ? m._url : (m.telegramUrl || ''));

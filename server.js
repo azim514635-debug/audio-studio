@@ -1232,12 +1232,30 @@ app.post('/api/instant-get/clear-pending', ah(async (req, res) => {
 /* bot taps that button, grabs the file, resolves a temp link -> web   */
 /* redirects like Instant Get (never saved to the library).            */
 /* ------------------------------------------------------------------ */
+const ANYMOVIE_ACTIVE_TTL_MS = 60 * 1000;
+const ANYMOVIE_ACTIVE_STATUSES = new Set(['searching', 'awaiting_select', 'selecting']);
+
+function expireStaleAnyMovieRequests(db) {
+  const now = Date.now();
+  let expired = 0;
+  for (const request of db.anyMovieRequests || []) {
+    if (!ANYMOVIE_ACTIVE_STATUSES.has(request.status)) continue;
+    if (!Number.isFinite(Number(request.createdAt)) || now - Number(request.createdAt) < ANYMOVIE_ACTIVE_TTL_MS) continue;
+    request.status = 'timeout';
+    request.error = 'Any Movie request expired after 60 seconds.';
+    request.resolvedAt = now;
+    expired += 1;
+  }
+  return expired;
+}
+
 app.post('/api/anymovie/search', ah(async (req, res) => {
   const query = String(req.body.query || '').trim();
   if (!query) return res.status(400).json({ success: false, error: 'Enter a movie name.' });
   if (query.length > 200) return res.status(400).json({ success: false, error: 'Movie name is too long.' });
 
   const db = await getDb();
+  if (expireStaleAnyMovieRequests(db)) await saveDb(db);
   const existing = (db.anyMovieRequests || []).find(
     (r) => r.query === query && (r.status === 'searching' || r.status === 'awaiting_select' || r.status === 'selecting')
   );
@@ -1276,6 +1294,7 @@ app.post('/api/anymovie/search', ah(async (req, res) => {
 app.get('/api/anymovie/search-pending', ah(async (req, res) => {
   if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const db = await getDb();
+  if (expireStaleAnyMovieRequests(db)) await saveDb(db);
   const pending = (db.anyMovieRequests || []).filter((r) => r.status === 'searching');
   res.json({ requests: pending });
 }));
@@ -1329,6 +1348,7 @@ app.post('/api/anymovie/buttons', ah(async (req, res) => {
 app.get('/api/anymovie/result/:requestId', ah(async (req, res) => {
   const { requestId } = req.params;
   const db = await getDb();
+  if (expireStaleAnyMovieRequests(db)) await saveDb(db);
   const r = (db.anyMovieRequests || []).find((x) => x.id === requestId);
   if (!r) return res.status(404).json({ success: false, error: 'Request not found.' });
 
@@ -1638,7 +1658,7 @@ app.get('/api/anymovie/matches', ah(async (req, res) => {
     if (qq(s.title).includes(q)) matches.push({ ...s, _kind: 'song', _url: s.songUrl || s.audioUrl });
   });
   matches.sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0));
-  res.json({ matches: matches.slice(0, 15) });
+   res.json({ matches: matches.slice(0, 50) });
 }));
 
 // Boss-only cleanup of stale any-movie requests.
