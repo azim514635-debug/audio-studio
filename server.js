@@ -1143,6 +1143,63 @@ app.post('/api/instant-get', ah(async (req, res) => {
   res.json({ success: true, requestId });
 }));
 
+// Check the actual link-generator URL before asking the bot to make another
+// link. The check is server-side because the browser cannot reliably probe
+// third-party download URLs due to CORS.
+app.get('/api/instant-get-check/:movieId', ah(async (req, res) => {
+  const db = await getDb();
+  const movie = db.movies.find((m) => m.id === req.params.movieId)
+    || db.links.find((l) => l.id === req.params.movieId);
+  if (!movie) return res.status(404).json({ success: false, error: 'Movie not found.' });
+
+  let target = movie.resolvedUrl || '';
+  if (!target && movie.watchUrl) {
+    try {
+      target = new URL(movie.watchUrl, 'http://localhost').searchParams.get('url') || '';
+    } catch (e) {
+      target = '';
+    }
+  }
+  if (!/^https?:\/\//i.test(target)) {
+    return res.json({ success: true, valid: false });
+  }
+
+  let valid = false;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    let response = await fetch(target, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+
+    // Some download hosts reject HEAD, so make a tiny ranged GET instead.
+    if (response.status === 405 || response.status === 501) {
+      const getController = new AbortController();
+      const getTimer = setTimeout(() => getController.abort(), 10000);
+      response = await fetch(target, {
+        method: 'GET',
+        headers: { Range: 'bytes=0-0' },
+        redirect: 'follow',
+        signal: getController.signal
+      });
+      clearTimeout(getTimer);
+    }
+    valid = response.ok;
+  } catch (e) {
+    valid = false;
+  }
+
+  const watchUrl = valid
+    ? '/watch?url=' + encodeURIComponent(target)
+      + '&title=' + encodeURIComponent(movie.title || 'Watch')
+      + '&thumb=' + encodeURIComponent(movie.thumbnailUrl || '')
+    : null;
+  res.json({ success: true, valid, watchUrl, resultUrl: valid ? target : null });
+}));
+
 app.get('/api/instant-get-pending', ah(async (req, res) => {
   if (!isBossReq(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
   const db = await getDb();

@@ -877,21 +877,13 @@ async function fetchLibrary() {
   }).join('');
 }
 
-/* Instant Get File — serves the saved link if still valid, otherwise asks
-   the bot to regenerate it, keeps the new link, and reuses it on later
-   clicks until it expires again. */
+/* Instant Get File — checks the real saved link first, then asks the bot to
+   regenerate only when the official link is no longer reachable. */
 const instantCache = Object.create(null);
-const INSTANT_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
 window.instantGet = async function (movieId, title) {
   const btn = document.querySelector(`.instant-btn[data-movie-id="${movieId}"]`);
   if (btn && btn.dataset.generating === '1') return;
-
-  const saved = instantCache[movieId];
-  if (saved && saved.watchUrl && (Date.now() - saved.at) < INSTANT_TTL) {
-    openWatch(saved.watchUrl, movieId, saved.title || title);
-    return;
-  }
 
   if (btn) {
     btn.dataset.generating = '1';
@@ -908,22 +900,17 @@ window.instantGet = async function (movieId, title) {
   };
 
   try {
-    // Check both movies and links for a pre-resolved (still unexpired) URL
-    try {
-      const [mRes, lRes] = await Promise.all([fetch('/api/movies'), fetch('/api/links')]);
-      const movies = await mRes.json();
-      const links = await lRes.json();
-      const all = [...(movies || []), ...(links || [])];
-      const item = all.find((m) => m.id === movieId);
-      if (item && item.watchUrl && item.resolvedAt && (Date.now() - item.resolvedAt) < INSTANT_TTL) {
-        instantCache[movieId] = { watchUrl: item.watchUrl, title: item.title, at: item.resolvedAt };
-        openWatch(item.watchUrl, movieId, item.title || title);
-        release();
-        return;
-      }
-    } catch (e) { /* fall through to regeneration */ }
+    // Validate the actual third-party URL instead of trusting a local age.
+    const checkRes = await fetch(`/api/instant-get-check/${encodeURIComponent(movieId)}`);
+    const check = await checkRes.json();
+    if (check.valid && check.watchUrl) {
+      instantCache[movieId] = { watchUrl: check.watchUrl, title, at: Date.now() };
+      openWatch(check.watchUrl, movieId, title);
+      release();
+      return;
+    }
 
-    // No valid cached link — ask the bot to regenerate a fresh one
+    // The official URL is missing or unreachable, so ask the bot to generate.
     if (btn) btn.textContent = 'Generating...';
 
     const res = await fetch('/api/instant-get', {
