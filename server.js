@@ -1706,13 +1706,19 @@ app.get('/api/anymovie/matches', ah(async (req, res) => {
   const qq = (s) => String(s || '').toLowerCase();
   const matches = [];
   (db.movies || []).forEach((m) => {
-    if (qq(m.title).includes(q)) matches.push({ ...m, _kind: 'movie', _url: m.movieUrl });
+    if ([m.title, m.movieUrl, m.telegramUrl, m.uploader].some((v) => qq(v).includes(q))) {
+      matches.push({ ...m, _kind: 'movie', _url: m.movieUrl });
+    }
   });
   (db.links || []).forEach((l) => {
-    if (qq(l.title).includes(q)) matches.push({ ...l, _kind: 'link', _url: l.url });
+    if ([l.title, l.url, l.telegramUrl, l.uploader].some((v) => qq(v).includes(q))) {
+      matches.push({ ...l, _kind: 'link', _url: l.url });
+    }
   });
   (db.songs || []).forEach((s) => {
-    if (qq(s.title).includes(q)) matches.push({ ...s, _kind: 'song', _url: s.songUrl || s.audioUrl });
+    if ([s.title, s.songUrl, s.audioUrl, s.uploader].some((v) => qq(v).includes(q))) {
+      matches.push({ ...s, _kind: 'song', _url: s.songUrl || s.audioUrl });
+    }
   });
   matches.sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0));
    res.json({ matches: matches.slice(0, 50) });

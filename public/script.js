@@ -1086,7 +1086,7 @@ function anyMovieReset() {
   if (matches) { matches.innerHTML = ''; matches.style.display = 'none'; }
   const btn = $('anymovie-search-btn');
   btn.disabled = false;
-  btn.textContent = 'Search';
+   btn.textContent = 'Get';
   btn.style.display = '';
   anyMovieHideAiBar();
 }
@@ -1113,7 +1113,7 @@ async function anyMovieSearch(query) {
       anyMovieSetStatus(data.error || 'Search failed.', true);
       $('anymovie-search-btn').disabled = false;
       $('anymovie-search-btn').style.display = '';
-      $('anymovie-search-btn').textContent = 'Search';
+       $('anymovie-search-btn').textContent = 'Get';
       anyMovieSearching = false;
       return;
     }
@@ -1123,7 +1123,7 @@ async function anyMovieSearch(query) {
     anyMovieSetStatus('Network error: ' + e.message, true);
     $('anymovie-search-btn').disabled = false;
     $('anymovie-search-btn').style.display = '';
-    $('anymovie-search-btn').textContent = 'Search';
+     $('anymovie-search-btn').textContent = 'Get';
     anyMovieSearching = false;
     return;
   }
@@ -1137,7 +1137,7 @@ function anyMoviePollCard(requestId, token, _retries) {
     anyMovieSetStatus('Card creation is taking too long. Try searching again.', true);
     $('anymovie-search-btn').disabled = false;
     $('anymovie-search-btn').style.display = '';
-    $('anymovie-search-btn').textContent = 'Search';
+     $('anymovie-search-btn').textContent = 'Get';
     anyMovieSearching = false;
     anyMovieActiveRequest = null;
     return;
@@ -1164,7 +1164,7 @@ function anyMoviePollCard(requestId, token, _retries) {
         anyMovieSetStatus('');
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').style.display = '';
-        $('anymovie-search-btn').textContent = 'Search';
+         $('anymovie-search-btn').textContent = 'Get';
         anyMovieSearching = false;
         const watchUrl = resolvedWatchUrl;
         const card = rd.card;
@@ -1187,7 +1187,7 @@ function anyMoviePoll(requestId, token, _retries) {
     anyMovieSetStatus('Search expired after 60 seconds. Try again.', true);
     $('anymovie-search-btn').disabled = false;
     $('anymovie-search-btn').style.display = '';
-    $('anymovie-search-btn').textContent = 'Search';
+     $('anymovie-search-btn').textContent = 'Get';
     anyMovieSearching = false;
     anyMovieActiveRequest = null;
     return;
@@ -1204,7 +1204,7 @@ function anyMoviePoll(requestId, token, _retries) {
         anyMovieSetStatus(rd.error || 'Request not found.', true);
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').style.display = '';
-        $('anymovie-search-btn').textContent = 'Search';
+         $('anymovie-search-btn').textContent = 'Get';
         anyMovieSearching = false;
         return;
       }
@@ -1213,7 +1213,7 @@ function anyMoviePoll(requestId, token, _retries) {
         anyMovieSetStatus(rd.error || 'No options found. Try a different spelling.', true);
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').style.display = '';
-        $('anymovie-search-btn').textContent = 'Search';
+         $('anymovie-search-btn').textContent = 'Get';
         anyMovieSearching = false;
         return;
       }
@@ -1241,8 +1241,17 @@ function anyMoviePoll(requestId, token, _retries) {
         anyMoviePollCard(requestId, token);
         return;
       }
-      if (rd.status === 'done') {
-        if (rd.cardSaved === true && !rd.cardResolved) {
+       if (rd.status === 'done') {
+         // Show the uploaded card immediately while its Instant Get link is
+         // still being prepared by the link bot.
+         if (rd.cardSaved) {
+           anyMovieHideAiBar();
+           $('anymovie-search-btn').style.display = 'none';
+           anyMovieSetStatus(rd.cardResolved ? '' : 'Your movie added to Updates. Preparing the link...');
+           anyMoviePollCard(requestId, token);
+           return;
+         }
+         if (rd.cardSaved === true && !rd.cardResolved) {
           anyMovieSetStatus('Preparing your movie link...');
           anyMoviePoll(requestId, token, _retries);
           return;
@@ -1251,7 +1260,7 @@ function anyMoviePoll(requestId, token, _retries) {
         anyMovieSetStatus('');
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').style.display = '';
-        $('anymovie-search-btn').textContent = 'Search';
+         $('anymovie-search-btn').textContent = 'Get';
         anyMovieSearching = false;
         if (rd.watchUrl) {
           anyMovieShowResult('Your movie is ready!', rd.watchUrl);
@@ -1267,7 +1276,7 @@ function anyMoviePoll(requestId, token, _retries) {
         anyMovieSetStatus(rd.error || 'This search was cancelled.', true);
         $('anymovie-search-btn').disabled = false;
         $('anymovie-search-btn').style.display = '';
-        $('anymovie-search-btn').textContent = 'Search';
+         $('anymovie-search-btn').textContent = 'Get';
         anyMovieSearching = false;
         return;
       }
@@ -1330,7 +1339,7 @@ function anyMovieShowCardResult(card, watchUrl) {
 
   const msg = document.createElement('div');
   msg.className = 'anymovie-card-msg';
-  msg.textContent = 'Your search has been added in updates';
+   msg.textContent = 'Your movie added to Updates';
   info.appendChild(msg);
 
   const linkUrl = watchUrl || card.telegramUrl || card.url;
@@ -1421,9 +1430,12 @@ async function anyMovieShowMatches(query, showAiFallback = true) {
   if (matches.length === 0) {
     if (!showAiFallback) { box.innerHTML = ''; box.style.display = 'none'; return; }
     box.style.display = '';
-    box.innerHTML = '<div class="anymovie-matches-title">No matches in Updates</div>' +
-      '<div class="anymovie-ai-caption">Not found in Updates. Use AI Search to find movies across the internet.</div>' +
-      '<button type="button" class="btn-primary anymovie-ai-fallback">AI Search</button>';
+     box.innerHTML = '<div class="anymovie-no-match">' +
+       '<div class="anymovie-no-match-icon">🎬</div>' +
+       '<div class="anymovie-matches-title">Movie not found in Updates</div>' +
+       '<div class="anymovie-ai-caption">Click here to get your favourite movie.</div>' +
+       '<button type="button" class="btn-primary anymovie-ai-fallback">Get this movie</button>' +
+       '</div>';
     box.querySelector('.anymovie-ai-fallback').addEventListener('click', () => anyMovieSearch(cleanQuery));
     return;
   }
@@ -1434,8 +1446,10 @@ async function anyMovieShowMatches(query, showAiFallback = true) {
     const url = m.watchUrl || (m._url ? m._url : (m.telegramUrl || ''));
     const el = document.createElement('div');
     el.className = 'anymovie-match';
-    el.innerHTML = '<span class="anymovie-match-icon">' + icon + '</span>' +
-      '<span class="anymovie-match-title">' + escapeHtml(m.title || 'Untitled') + '</span>';
+     el.innerHTML = '<span class="anymovie-match-icon">' + (m.thumbnailUrl
+       ? '<img class="anymovie-match-thumb" src="' + escapeHtml(m.thumbnailUrl) + '" alt="">'
+       : icon) + '</span>' +
+       '<span class="anymovie-match-title">' + escapeHtml(m.title || 'Untitled') + '</span>';
     if (url) {
       const a = document.createElement('a');
       a.className = 'btn-primary';
