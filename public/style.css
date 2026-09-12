@@ -2061,9 +2061,23 @@ body::before {
   border-radius: 14px;
   border-color: rgba(125, 211, 252, 0.38);
   box-shadow: 0 10px 26px rgba(56, 189, 248, 0.2);
+  width: 112px;
+  height: 46px;
+  object-fit: contain;
+  background: #000;
 }
 
-.brand-name { letter-spacing: 0.04em; }
+.brand-name {
+  display: none;
+}
+
+.brand-name { letter-spacing: 0.04em; text-transform: none; }
+.brand-name em {
+  background: none;
+  color: #7dd3fc;
+  -webkit-text-fill-color: #7dd3fc;
+  display: inline;
+}
 .badge {
   background: rgba(125, 211, 252, 0.12);
   border: 1px solid rgba(125, 211, 252, 0.4);
@@ -2269,7 +2283,8 @@ footer strong,
   .app-container::before { padding: 13px 12px 0; font-size: 0.5rem; }
   .topbar-inner { padding: 10px 12px; }
   .brand { min-width: 0; }
-  .brand-name { font-size: 0.96rem; white-space: nowrap; }
+  .brand-name { display: none; }
+  .brand-logo { width: 98px; height: 42px; }
   .badge { display: none; }
   .quick-nav { gap: 7px; padding: 0 10px 10px; }
   .quick-nav-btn { flex: 1; justify-content: center; padding: 8px 8px; font-size: 0.72rem; }
