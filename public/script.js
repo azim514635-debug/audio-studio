@@ -980,7 +980,6 @@ let anyMovieSearching = false;
 let anyMovieSearchToken = 0;
 let anyMovieMatchTimer = null;
 let anyMovieMatchToken = 0;
-let anyMovieWatchWindow = null;
 
 function anyMovieSetStatus(text, isError) {
   const el = $('anymovie-status');
@@ -1096,14 +1095,6 @@ async function anyMovieSearch(query) {
   if (anyMovieSearching) return;
   anyMovieReset();
   anyMovieSearching = true;
-  // Reserve a popup during the user gesture so the completed async flow can
-  // navigate it later without being blocked by the browser.
-  try {
-    anyMovieWatchWindow = window.open('about:blank', '_blank');
-    if (anyMovieWatchWindow) anyMovieWatchWindow.document.title = 'Preparing your movie...';
-  } catch (e) {
-    anyMovieWatchWindow = null;
-  }
   anyMovieSearchToken++;
   const myToken = anyMovieSearchToken;
   $('anymovie-input').value = query;
@@ -1178,14 +1169,10 @@ function anyMoviePollCard(requestId, token, _retries) {
         const watchUrl = resolvedWatchUrl;
         const card = rd.card;
         anyMovieShowCardResult(card, watchUrl);
-        anyMovieSetStatus('Your search is saved in Updates. Opening your movie...');
-        if (anyMovieWatchWindow && !anyMovieWatchWindow.closed) {
-          anyMovieWatchWindow.location.href = watchUrl;
-          anyMovieWatchWindow = null;
-        } else {
-          // Fallback for browsers that blocked the reserved popup.
-          window.open(watchUrl, '_blank');
-        }
+        const watchWindow = window.open(watchUrl, '_blank');
+        showAlert(watchWindow
+          ? 'Your search is saved in Updates. Your movie is ready and opened in a new tab.'
+          : 'Your search is saved in Updates. Your movie is ready. Tap Open on the card to watch it.');
         anyMovieActiveRequest = null;
         return;
       }
